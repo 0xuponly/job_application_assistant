@@ -131,34 +131,7 @@ ${settings.user_name || 'Your Name'}
 ${settings.user_email || ''}`
   }
 
-  return `TAILORED CV FOR: ${job.title} at ${job.company}
-${'='.repeat(50)}
-
-[Configure an OpenAI API key in Settings for AI-powered tailoring]
-
-RELEVANT KEYWORDS FROM JOB:
-${extractKeywords(job.description ?? '')}
-
----
-BASE CV:
-${baseCv}`
-}
-
-function extractKeywords(description: string): string {
-  const words = description
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 4)
-  const freq = new Map<string, number>()
-  for (const w of words) {
-    freq.set(w, (freq.get(w) ?? 0) + 1)
-  }
-  return [...freq.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
-    .map(([w]) => w)
-    .join(', ')
+  return baseCv
 }
 
 export async function generateFollowUpMessage(

@@ -159,6 +159,18 @@ export function getJob(id: number): Job | undefined {
   return loadStore().jobs.find((j) => j.id === id)
 }
 
+export function findDuplicateJob(input: CreateJobInput): Job | undefined {
+  const s = loadStore()
+  const url = input.url?.trim().toLowerCase()
+  const title = input.title?.trim().toLowerCase()
+  const company = input.company?.trim().toLowerCase()
+  return s.jobs.find((j) => {
+    if (url && j.url && j.url.toLowerCase() === url) return true
+    if (title && company && j.title.toLowerCase() === title && j.company.toLowerCase() === company) return true
+    return false
+  })
+}
+
 export function createJob(input: CreateJobInput): Job {
   const s = loadStore()
   const job: Job = {

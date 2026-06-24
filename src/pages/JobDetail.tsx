@@ -19,6 +19,9 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
   const [contactEmail, setContactEmail] = useState('')
   const [contactName, setContactName] = useState('')
   const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(job.title)
+  const [editCompany, setEditCompany] = useState(job.company)
+  const [editLocation, setEditLocation] = useState(job.location ?? '')
   const [editDesc, setEditDesc] = useState(job.description ?? '')
   const [editNotes, setEditNotes] = useState(job.notes ?? '')
   const [viewDoc, setViewDoc] = useState<Document | null>(null)
@@ -85,7 +88,13 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
   }
 
   async function handleSaveEdits() {
-    const updated = await api.updateJob(job.id, { description: editDesc, notes: editNotes })
+    const updated = await api.updateJob(job.id, {
+      title: editTitle,
+      company: editCompany,
+      location: editLocation || null,
+      description: editDesc,
+      notes: editNotes
+    })
     onUpdate(updated)
     setEditing(false)
   }
@@ -98,6 +107,9 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
       <div className="toolbar">
         <button className="btn btn-secondary" onClick={onBack}>← Back</button>
         <div className="spacer" />
+        <button className={editing ? 'btn btn-primary' : 'btn btn-secondary'} onClick={editing ? handleSaveEdits : () => setEditing(true)}>
+          {editing ? 'Save' : 'Edit'}
+        </button>
         {job.url && (
           <button className="btn btn-secondary" onClick={() => api.openExternal(job.url!)}>
             Open posting
@@ -106,8 +118,20 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
       </div>
 
       <div className="page-header">
-        <h1>{job.title}</h1>
-        <p>{job.company}{job.location ? ` · ${job.location}` : ''}</p>
+        {editing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+            <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Job title" style={{ fontSize: 24, fontWeight: 700 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={editCompany} onChange={(e) => setEditCompany(e.target.value)} placeholder="Company" style={{ flex: 1, fontSize: 16 }} />
+              <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Location" style={{ flex: 1, fontSize: 16 }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <h1>{job.title}</h1>
+            <p>{job.company}{job.location ? ` · ${job.location}` : ''}</p>
+          </>
+        )}
       </div>
 
       <span
@@ -136,15 +160,12 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
             </>
           ) : (
             <div className="card" style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6 }}>
-              {job.description || 'No description. Click Edit to add one.'}
+              {job.description || 'No description.'}
               {job.notes && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', color: 'var(--text-muted)' }}>
                   <strong>Notes:</strong> {job.notes}
                 </div>
               )}
-              <button className="btn btn-secondary btn-sm" style={{ marginTop: 12 }} onClick={() => setEditing(true)}>
-                Edit
-              </button>
             </div>
           )}
 

@@ -1,9 +1,63 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import Modal from '../components/Modal'
-import type { CreateJobInput, Job } from '../types'
+import type { CreateJobInput, Document, Job } from '../types'
 import { STATUS_COLORS, STATUS_LABELS } from '../types'
 import JobDetail from './JobDetail'
+
+function FilterSelect({ options, selected, onChange, displayMap }: {
+  options: string[]
+  selected: string[]
+  onChange: (v: string[]) => void
+  displayMap?: Record<string, string>
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const selSet = useMemo(() => new Set(selected), [selected])
+  const label = selected.length === 0 ? 'Any' : `${selected.length} selected`
+
+  return (
+    <div className="filter-dropdown" ref={ref}>
+      <button className="filter-dropdown-btn" onClick={() => setOpen(!open)}>
+        {label}
+        <span className="filter-arrow">{open ? '▲' : '▼'}</span>
+        {selected.length > 0 && (
+          <span className="filter-clear" onClick={(e) => { e.stopPropagation(); onChange([]) }}>✕</span>
+        )}
+      </button>
+      {open && (
+        <div className="filter-menu">
+          {options.map((opt) => {
+            const checked = selSet.has(opt)
+            return (
+              <label key={opt} className="filter-option">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => {
+                    const next = new Set(selSet)
+                    if (checked) { next.delete(opt) } else { next.add(opt) }
+                    onChange([...next])
+                  }}
+                />
+                <span>{displayMap?.[opt] ?? opt}</span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const EMPTY_FORM: CreateJobInput = {
   title: '',
@@ -27,20 +81,49 @@ export default function JobsPage() {
   const [form, setForm] = useState<CreateJobInput>(EMPTY_FORM)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [saving, setSaving] = useState(false)
-  const [filterLocation, setFilterLocation] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
-  const [filterSource, setFilterSource] = useState('')
+  const [filterCompany, setFilterCompany] = useState<string[]>([])
+  const [filterTitle, setFilterTitle] = useState<string[]>([])
+  const [filterLocation, setFilterLocation] = useState<string[]>([])
+  const [filterStatus, setFilterStatus] = useState<string[]>([])
+  const [filterSource, setFilterSource] = useState<string[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [generating, setGenerating] = useState<'cv' | 'cover_letter' | null>(null)
+  const [genCount, setGenCount] = useState(0)
+  const [genTotal, setGenTotal] = useState(0)
   const linkInputRef = useRef<HTMLInputElement>(null)
+
+  const filterOptions = useMemo(() => {
+    const companies = new Set<string>()
+    const titles = new Set<string>()
+    const locations = new Set<string>()
+    const statuses = new Set<string>()
+    const sources = new Set<string>()
+    for (const j of jobs) {
+      companies.add(j.company)
+      titles.add(j.title)
+      locations.add(j.location || '—')
+      statuses.add(j.status)
+      sources.add(j.source || '—')
+    }
+    return {
+      companies: [...companies].sort(),
+      titles: [...titles].sort(),
+      locations: [...locations].sort(),
+      statuses: [...statuses].sort(),
+      sources: [...sources].sort()
+    }
+  }, [jobs])
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((j) => {
-      if (filterLocation && (j.location || '—') !== filterLocation) return false
-      if (filterStatus && j.status !== filterStatus) return false
-      if (filterSource && (j.source || '—') !== filterSource) return false
+      if (filterCompany.length && !filterCompany.includes(j.company)) return false
+      if (filterTitle.length && !filterTitle.includes(j.title)) return false
+      if (filterLocation.length && !filterLocation.includes(j.location || '—')) return false
+      if (filterStatus.length && !filterStatus.includes(j.status)) return false
+      if (filterSource.length && !filterSource.includes(j.source || '—')) return false
       return true
     })
-  }, [jobs, filterLocation, filterStatus, filterSource])
+  }, [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource])
 
   const allFilteredSelected = useMemo(
     () => filteredJobs.length > 0 && filteredJobs.every((j) => selectedIds.has(j.id)),
@@ -73,22 +156,6 @@ export default function JobsPage() {
     if (selectedJob && selectedIds.has(selectedJob.id)) setSelectedJob(null)
     setSelectedIds(new Set())
   }
-
-  const filterOptions = useMemo(() => {
-    const locations = new Set<string>()
-    const statuses = new Set<string>()
-    const sources = new Set<string>()
-    for (const j of jobs) {
-      locations.add(j.location || '—')
-      statuses.add(j.status)
-      sources.add(j.source || '—')
-    }
-    return {
-      locations: [...locations].sort(),
-      statuses: [...statuses].sort(),
-      sources: [...sources].sort()
-    }
-  }, [jobs])
 
   useEffect(() => {
     loadJobs()
@@ -160,6 +227,41 @@ export default function JobsPage() {
     if (selectedJob?.id === id) setSelectedJob(null)
   }
 
+  async function handleBatchTailor(type: 'cv' | 'cover_letter') {
+    setGenerating(type)
+    setGenCount(0)
+    try {
+      const allDocs = await api.listDocuments()
+      const existing = new Set(
+        allDocs.filter((d: Document) => d.job_id !== null && d.type === type).map((d: Document) => d.job_id!)
+      )
+      const needs = jobs.filter((j) => !existing.has(j.id))
+      setGenTotal(needs.length)
+      if (needs.length === 0) return
+
+      const CONCURRENCY = 3
+      for (let i = 0; i < needs.length; i += CONCURRENCY) {
+        const batch = needs.slice(i, i + CONCURRENCY)
+        await Promise.allSettled(
+          batch.map(async (job) => {
+            try {
+              const result = await api.tailorDocument({ job_id: job.id, document_type: type })
+              const app = await api.getOrCreateApplication(job.id)
+              await api.updateApplication(app.id, {
+                [type === 'cv' ? 'cv_document_id' : 'cover_letter_document_id']: result.document_id
+              })
+            } catch {
+              // Silently skip failed generations
+            }
+            setGenCount((c) => c + 1)
+          })
+        )
+      }
+    } finally {
+      setGenerating(null)
+    }
+  }
+
   function updateField(field: keyof CreateJobInput, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
@@ -200,6 +302,26 @@ export default function JobsPage() {
               Delete selected ({selectedIds.size})
             </button>
           )}
+          {jobs.length > 0 && (
+            <>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleBatchTailor('cv')}
+                disabled={!!generating}
+                style={{ marginRight: 4 }}
+              >
+                {generating === 'cv' ? `Generating CVs (${genCount}/${genTotal})...` : 'Generate CVs'}
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleBatchTailor('cover_letter')}
+                disabled={!!generating}
+                style={{ marginRight: 8 }}
+              >
+                {generating === 'cover_letter' ? `Generating letters (${genCount}/${genTotal})...` : 'Generate Cover Letters'}
+              </button>
+            </>
+          )}
           <button className="btn btn-primary" onClick={() => setShowAddLink(true)}>
             + Add from link
           </button>
@@ -229,39 +351,34 @@ export default function JobsPage() {
                   style={{ cursor: 'pointer' }}
                 />
               </th>
-              <th>Company</th>
-              <th>Title</th>
+              <th>
+                <div className="filter-header">
+                  <span>Company</span>
+                  <FilterSelect options={filterOptions.companies} selected={filterCompany} onChange={setFilterCompany} />
+                </div>
+              </th>
+              <th>
+                <div className="filter-header">
+                  <span>Title</span>
+                  <FilterSelect options={filterOptions.titles} selected={filterTitle} onChange={setFilterTitle} />
+                </div>
+              </th>
               <th>
                 <div className="filter-header">
                   <span>Location</span>
-                  <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)}>
-                    <option value="">All</option>
-                    {filterOptions.locations.map((l) => (
-                      <option key={l} value={l}>{l}</option>
-                    ))}
-                  </select>
+                  <FilterSelect options={filterOptions.locations} selected={filterLocation} onChange={setFilterLocation} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
                   <span>Status</span>
-                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                    <option value="">All</option>
-                    {filterOptions.statuses.map((s) => (
-                      <option key={s} value={s}>{STATUS_LABELS[s as Job['status']]}</option>
-                    ))}
-                  </select>
+                  <FilterSelect options={filterOptions.statuses} selected={filterStatus} onChange={setFilterStatus} displayMap={STATUS_LABELS} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
                   <span>Source</span>
-                  <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)}>
-                    <option value="">All</option>
-                    {filterOptions.sources.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
+                  <FilterSelect options={filterOptions.sources} selected={filterSource} onChange={setFilterSource} />
                 </div>
               </th>
               <th></th>

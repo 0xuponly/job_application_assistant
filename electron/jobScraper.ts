@@ -88,6 +88,7 @@ function detectSource(hostname: string): string | undefined {
   if (hostname.includes('cryptojobs.com')) return 'cryptojobs.com'
   if (hostname === 'crypto.jobs') return 'Crypto.jobs'
   if (hostname.includes('web3.career')) return 'Web3.career'
+  if (hostname.includes('jobs.vancouver.ca')) return 'Vancouver Jobs'
   return undefined
 }
 
@@ -157,8 +158,16 @@ function extractFromHtml(html: string, hostname: string, pageUrl: string, source
   } else if (hostname.includes('web3.career')) {
     applyWeb3Career(result, html)
     result.source = 'Web3.career'
+  } else if (hostname.includes('jobs.vancouver.ca')) {
+    applyVancouverJobs(result, html)
+    result.source = 'Vancouver Jobs'
   } else if (source) {
     result.source = source
+  }
+
+  // Generic fallback for unrecognized job sites — tries common patterns
+  if (!result.title || !result.company || !result.description) {
+    applyGeneric(result, html, pageUrl)
   }
 
   if (result.title) {
@@ -535,6 +544,135 @@ function applyWeb3Career(result: ScrapedJob, html: string): void {
   if (!result.location) {
     const locMatch = html.match(/class="[^"]*job-location[^"]*"[^>]*>([^<]+)/i)
     if (locMatch) result.location = decodeHtmlEntities(locMatch[1].trim())
+  }
+}
+
+function applyVancouverJobs(result: ScrapedJob, html: string): void {
+  if (!result.title) {
+    const titleMatch = html.match(/itemprop=["']title["'][^>]*>([^<]+)<\/span>/i)
+    if (titleMatch) result.title = decodeHtmlEntities(titleMatch[1].trim())
+  }
+  if (!result.title) {
+    const ogTitle = extractMeta(html, 'og:title')
+    if (ogTitle) result.title = ogTitle
+  }
+
+  if (!result.company) {
+    const companyMatch = html.match(/itemprop=["']hiringOrganization["'][^>]*content=["']([^"']+)["']/i)
+    if (companyMatch) result.company = decodeHtmlEntities(companyMatch[1].trim())
+  }
+
+  if (!result.description) {
+    const descMatch = html.match(/<span class="jobdescription"[^>]*>([\s\S]*?)<\/span>/i)
+    if (descMatch) {
+      const desc = stripHtml(descMatch[1]).trim()
+      if (desc.length > 80) result.description = desc
+    }
+  }
+
+  if (!result.location) {
+    const cityMatch = html.match(/itemprop=["']addressLocality["'][^>]*content=["']([^"']+)["']/i)
+    const regionMatch = html.match(/itemprop=["']addressRegion["'][^>]*content=["']([^"']+)["']/i)
+    if (cityMatch) result.location = decodeHtmlEntities(cityMatch[1].trim())
+    if (regionMatch && result.location) result.location += ', ' + decodeHtmlEntities(regionMatch[1].trim())
+  }
+}
+
+function applyGeneric(result: ScrapedJob, html: string, pageUrl: string): void {
+  if (!result.title) {
+    const ogTitle = extractMeta(html, 'og:title')
+    if (ogTitle) {
+      const parsed = parseAtCompanyTitle(ogTitle)
+      result.title = parsed.title || ogTitle
+    }
+  }
+  if (!result.title) {
+    const titleTag = extractTitleTag(html)
+    if (titleTag) {
+      const cleaned = titleTag
+        .replace(/\s*[|–—-]\s*.*$/, '')
+        .replace(/^(?:Job|Hiring|Career|Opening|Position)\s*[:\s]+/i, '')
+        .trim()
+      if (cleaned && cleaned.length > 5 && cleaned.length < 200) result.title = cleaned
+    }
+  }
+  if (!result.title) {
+    const h1 = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
+    if (h1) {
+      const cleaned = h1[1].trim()
+      if (cleaned.length > 5 && cleaned.length < 200) result.title = decodeHtmlEntities(cleaned)
+    }
+  }
+  if (!result.title) {
+    const h2 = html.match(/<h2[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/h2>/i)
+    if (h2) result.title = decodeHtmlEntities(h2[1].trim())
+  }
+
+  if (!result.company) {
+    const ogSite = extractMeta(html, 'og:site_name')
+    if (ogSite) result.company = ogSite
+  }
+  if (!result.company) {
+    const author = extractMeta(html, 'author')
+    if (author && !/^https?:\/\//i.test(author)) result.company = author
+  }
+  if (!result.company) {
+    try {
+      const hostname = new URL(pageUrl).hostname.replace(/^www\./, '')
+      const parts = hostname.split('.')
+      if (parts.length >= 2 && !['com', 'org', 'net', 'io', 'co', 'career', 'jobs'].includes(parts[parts.length - 2])) {
+        result.company = parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
+      }
+    } catch {}
+  }
+  if (!result.company && result.title) {
+    const atMatch = result.title.match(/\s+at\s+(.+?)$/i)
+    if (atMatch) {
+      result.company = atMatch[1].trim()
+      result.title = result.title.replace(/\s+at\s+.+?$/i, '').trim()
+    }
+  }
+
+  if (!result.description) {
+    const ogDesc = extractMeta(html, 'og:description')
+    if (ogDesc && ogDesc.length > 100) result.description = ogDesc.trim()
+  }
+  if (!result.description) {
+    const metaDesc = extractMeta(html, 'description')
+    if (metaDesc && metaDesc.length > 100) result.description = metaDesc.trim()
+  }
+  if (!result.description) {
+    const contentDiv = html.match(/<div[^>]*class="[^"]*(?:job-description|jobDescription|posting-description|description|content)[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
+    if (contentDiv) {
+      const desc = stripHtml(contentDiv[1]).trim()
+      if (desc.length > 80) result.description = desc
+    }
+  }
+  if (!result.description) {
+    const article = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i)
+    if (article) {
+      const desc = stripHtml(article[1]).trim()
+      if (desc.length > 80) result.description = desc
+    }
+  }
+  if (!result.description) {
+    const main = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)
+    if (main) {
+      const desc = stripHtml(main[1]).trim()
+      if (desc.length > 80) result.description = desc
+    }
+  }
+
+  if (!result.location) {
+    const ogLoc = extractMeta(html, 'og:locality') || extractMeta(html, 'location')
+    if (ogLoc) result.location = ogLoc
+  }
+  if (!result.location) {
+    const locMatch = html.match(/location[^:]*:\s*([^<\n]+)/i)
+    if (locMatch) {
+      const loc = locMatch[1].replace(/<[^>]+>/g, '').trim()
+      if (loc && loc.length < 100) result.location = decodeHtmlEntities(loc)
+    }
   }
 }
 

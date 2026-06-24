@@ -23,11 +23,6 @@ const BOARDS: BoardConfig[] = [
     useBrowser: true
   },
   {
-    name: 'Glassdoor',
-    searchUrl: (k, l) => `https://www.glassdoor.com/Job/jobs.htm?sc.keyword=${encodeURIComponent(k)}${l ? `&locT=C&locId=${encodeURIComponent(l)}` : ''}`,
-    useBrowser: true
-  },
-  {
     name: 'Cryptocurrency Jobs',
     searchUrl: (k) => `https://cryptocurrencyjobs.co/?search=${encodeURIComponent(k)}`,
     useBrowser: false
@@ -45,11 +40,16 @@ const BOARDS: BoardConfig[] = [
   {
     name: 'Crypto.jobs',
     searchUrl: (k) => `https://crypto.jobs/jobs?search=${encodeURIComponent(k)}`,
-    useBrowser: true
+    useBrowser: false
   },
   {
     name: 'Web3.career',
     searchUrl: () => `https://web3.career/`,
+    useBrowser: false
+  },
+  {
+    name: 'Vancouver Jobs',
+    searchUrl: (k) => `https://jobs.vancouver.ca/search/?q=${encodeURIComponent(k)}`,
     useBrowser: false
   }
 ]
@@ -154,7 +154,7 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
     if (seen.has(lowerUrl)) continue
     seen.add(lowerUrl)
 
-    const knownBoardDomains = /linkedin\.com|indeed\.com|glassdoor\.com|cryptocurrencyjobs\.co|cryptojobslist\.com|cryptojobs\.com|crypto\.jobs|web3\.career/
+    const knownBoardDomains = /linkedin\.com|indeed\.com|cryptocurrencyjobs\.co|cryptojobslist\.com|cryptojobs\.com|crypto\.jobs|web3\.career|jobs\.vancouver\.ca/
     if (!knownBoardDomains.test(lowerUrl)) continue
 
     const pathname = new URL(fullUrl).pathname
@@ -166,8 +166,6 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
       if (!pathname.includes('/jobs/')) continue
     } else if (boardLower.includes('indeed')) {
       if (!pathname.includes('/viewjob') && !pathname.includes('/rc/')) continue
-    } else if (boardLower.includes('glassdoor')) {
-      if (!pathname.includes('/job/')) continue
     } else if (boardLower.includes('web3.career')) {
       if (pathname === '/' || pathname === '/index.html') continue
       const pathParts = pathname.split('/').filter(Boolean)
@@ -393,7 +391,15 @@ function matchesWorkType(text: string, workType: WorkType): boolean {
   return true
 }
 
-async function fetchAndScore(url: string, baseCv: string, existingUrls: Set<string>, workType: WorkType): Promise<{ action: 'added' | 'skipped' | 'incompatible' | 'error'; job?: Job; reason?: string }> {
+function matchesLocation(jobLocation: string | null, filterLocation: string): boolean {
+  if (!filterLocation) return true
+  if (!jobLocation) return false
+  const jl = jobLocation.toLowerCase()
+  const fl = filterLocation.toLowerCase()
+  return jl.includes(fl) || fl.includes(jl)
+}
+
+async function fetchAndScore(url: string, baseCv: string, existingUrls: Set<string>, workType: WorkType, filterLocation?: string): Promise<{ action: 'added' | 'skipped' | 'incompatible' | 'error'; job?: Job; reason?: string }> {
   if (existingUrls.has(url)) return { action: 'skipped', reason: 'Already in database' }
 
   await new Promise(r => setTimeout(r, 1000 + Math.random() * 2000))
@@ -411,6 +417,10 @@ async function fetchAndScore(url: string, baseCv: string, existingUrls: Set<stri
 
   if (!matchesWorkType(input.title + ' ' + input.description, workType)) {
     return { action: 'incompatible', reason: `Work type filter: ${workType}` }
+  }
+
+  if (!matchesLocation(input.location || null, filterLocation || '')) {
+    return { action: 'incompatible', reason: `Location filter: ${filterLocation}` }
   }
 
   const desc = input.description || ''
@@ -487,9 +497,9 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
 
       for (const batch of batches) {
         const results = await Promise.allSettled(
-          batch.map(async (l) => {
-            progress(`Scraping ${board.name} — ${l.company || l.title || l.url}`)
-            return fetchAndScore(l.url, baseCv, existingUrls, workType)
+            batch.map(async (l) => {
+              progress(`Scraping ${board.name} — ${l.company || l.title || l.url}`)
+              return fetchAndScore(l.url, baseCv, existingUrls, workType, location)
           })
         )
         for (const r of results) {

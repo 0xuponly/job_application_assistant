@@ -242,17 +242,82 @@ textarea {
 .filter-header {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
-.filter-header select {
+.filter-dropdown {
+  position: relative;
+}
+
+.filter-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
-  padding: 2px 4px;
+  padding: 2px 6px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--bg);
   color: var(--text);
-  max-width: 140px;
+  cursor: pointer;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.filter-dropdown-btn:hover {
+  background: var(--bg-hover);
+}
+
+.filter-arrow {
+  font-size: 8px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.filter-clear {
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.filter-clear:hover {
+  color: var(--danger);
+}
+
+.filter-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  max-height: 200px;
+  overflow-y: auto;
+  min-width: 160px;
+  padding: 4px 0;
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.filter-option:hover {
+  background: var(--bg-hover);
+}
+
+.filter-option input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
 }
 
 .table td {
