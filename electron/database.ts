@@ -1,6 +1,7 @@
 import { app, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { cleanDescription } from './jobScraper'
 import type {
   ApiModelConfig,
   Application,
@@ -149,14 +150,23 @@ function now(): string {
 
 // Jobs
 
+function applyCleanDescription(jobs: Job[]): Job[] {
+  return jobs.map((j) =>
+    j.description ? { ...j, description: cleanDescription(j.description) } : j
+  )
+}
+
 export function listJobs(status?: JobStatus): Job[] {
   const s = loadStore()
-  const jobs = [...s.jobs].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  const jobs = applyCleanDescription([...s.jobs]).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
   return status ? jobs.filter((j) => j.status === status) : jobs
 }
 
 export function getJob(id: number): Job | undefined {
-  return loadStore().jobs.find((j) => j.id === id)
+  const s = loadStore()
+  const job = s.jobs.find((j) => j.id === id)
+  if (job && job.description) job.description = cleanDescription(job.description)
+  return job
 }
 
 export function findDuplicateJob(input: CreateJobInput): Job | undefined {
@@ -179,10 +189,11 @@ export function createJob(input: CreateJobInput): Job {
     company: input.company,
     location: input.location ?? null,
     url: input.url ?? null,
-    description: input.description ?? null,
+    description: input.description ? cleanDescription(input.description) : null,
     salary_range: input.salary_range ?? null,
     source: input.source ?? null,
     status: 'sourced',
+    score: input.score !== undefined ? (input.score ?? null) : 0.5,
     notes: input.notes ?? null,
     created_at: now(),
     updated_at: now()
@@ -206,10 +217,11 @@ export function updateJob(
     company: fields.company ?? existing.company,
     location: fields.location !== undefined ? (fields.location ?? null) : existing.location,
     url: fields.url !== undefined ? (fields.url ?? null) : existing.url,
-    description: fields.description !== undefined ? (fields.description ?? null) : existing.description,
+    description: fields.description !== undefined ? (fields.description ? cleanDescription(fields.description) : null) : existing.description,
     salary_range: fields.salary_range !== undefined ? (fields.salary_range ?? null) : existing.salary_range,
     source: fields.source !== undefined ? (fields.source ?? null) : existing.source,
     status: fields.status ?? existing.status,
+    score: fields.score !== undefined ? (fields.score ?? null) : existing.score,
     notes: fields.notes !== undefined ? (fields.notes ?? null) : existing.notes,
     updated_at: now()
   }

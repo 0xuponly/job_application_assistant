@@ -20,7 +20,7 @@ const BOARDS: BoardConfig[] = [
   {
     name: 'Indeed',
     searchUrl: (k, l) => `https://www.indeed.com/q-${encodeURIComponent(k)}-l-${encodeURIComponent(l || '')}-jobs.html`,
-    useBrowser: true
+    useBrowser: false
   },
   {
     name: 'Cryptocurrency Jobs',
@@ -30,7 +30,7 @@ const BOARDS: BoardConfig[] = [
   {
     name: 'CryptoJobsList',
     searchUrl: (k) => `https://cryptojobslist.com/jobs?q=${encodeURIComponent(k)}`,
-    useBrowser: true
+    useBrowser: false
   },
   {
     name: 'cryptojobs.com',
@@ -341,7 +341,7 @@ function checkExperienceRequirement(jobDesc: string, cvYears: number): { meets: 
   return { meets: true }
 }
 
-function scoreCompatibility(jobTitle: string, jobDesc: string | null, baseCv: string): number {
+export function scoreCompatibility(jobTitle: string, jobDesc: string | null, baseCv: string): number {
   if (!baseCv) return 0.5
 
   const cvLower = baseCv.toLowerCase()
@@ -447,7 +447,7 @@ async function fetchAndScore(url: string, baseCv: string, existingUrls: Set<stri
   }
 
   try {
-    const job = createJob(input)
+    const job = createJob({ ...input, score })
     return { action: 'added', job }
   } catch (err) {
     return { action: 'error', reason: `Create failed: ${err instanceof Error ? err.message : 'Unknown'}` }

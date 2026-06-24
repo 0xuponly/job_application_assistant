@@ -27,6 +27,7 @@ export interface Api {
   searchJobs: (query: string) => Promise<Job[]>
   importJobFromUrl: (url: string) => Promise<Job>
   scanBoards: (filters?: ScanFilters) => Promise<ScanResult>
+  batchScore: () => Promise<void>
   listDocuments: (jobId?: number) => Promise<Document[]>
   createDocument: (type: 'cv' | 'cover_letter', title: string, content: string, jobId?: number) => Promise<Document>
   updateDocument: (id: number, title: string, content: string) => Promise<Document>
@@ -76,6 +77,7 @@ const api: Api = {
   searchJobs: (query) => ipcRenderer.invoke('jobs:search', query),
   importJobFromUrl: (url) => ipcRenderer.invoke('jobs:importFromUrl', url),
   scanBoards: (filters) => ipcRenderer.invoke('jobs:scanBoards', filters),
+  batchScore: () => ipcRenderer.invoke('jobs:batchScore'),
   getScanStatus: () => ipcRenderer.invoke('scan:status'),
   clearScanResult: () => ipcRenderer.invoke('scan:clearResult'),
   onScanProgress: (cb: (msg: string) => void) => {

@@ -22,6 +22,7 @@ export interface Job {
   salary_range: string | null
   source: string | null
   status: JobStatus
+  score: number | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -115,6 +116,7 @@ export interface CreateJobInput {
   description?: string
   salary_range?: string
   source?: string
+  score?: number | null
   notes?: string
 }
 

@@ -86,11 +86,19 @@ export default function JobsPage() {
   const [filterLocation, setFilterLocation] = useState<string[]>([])
   const [filterStatus, setFilterStatus] = useState<string[]>([])
   const [filterSource, setFilterSource] = useState<string[]>([])
+  const [filterFit, setFilterFit] = useState<string[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [generating, setGenerating] = useState<'cv' | 'cover_letter' | null>(null)
   const [genCount, setGenCount] = useState(0)
   const [genTotal, setGenTotal] = useState(0)
   const linkInputRef = useRef<HTMLInputElement>(null)
+
+  const fitLabel = (s: number | null) => {
+    if (s == null) return '—'
+    if (s >= 0.6) return 'High'
+    if (s >= 0.3) return 'Medium'
+    return 'Low'
+  }
 
   const filterOptions = useMemo(() => {
     const companies = new Set<string>()
@@ -98,19 +106,22 @@ export default function JobsPage() {
     const locations = new Set<string>()
     const statuses = new Set<string>()
     const sources = new Set<string>()
+    const fits = new Set<string>()
     for (const j of jobs) {
       companies.add(j.company)
       titles.add(j.title)
       locations.add(j.location || '—')
       statuses.add(j.status)
       sources.add(j.source || '—')
+      fits.add(fitLabel(j.score))
     }
     return {
       companies: [...companies].sort(),
       titles: [...titles].sort(),
       locations: [...locations].sort(),
       statuses: [...statuses].sort(),
-      sources: [...sources].sort()
+      sources: [...sources].sort(),
+      fits: [...fits].sort()
     }
   }, [jobs])
 
@@ -121,9 +132,10 @@ export default function JobsPage() {
       if (filterLocation.length && !filterLocation.includes(j.location || '—')) return false
       if (filterStatus.length && !filterStatus.includes(j.status)) return false
       if (filterSource.length && !filterSource.includes(j.source || '—')) return false
+      if (filterFit.length && !filterFit.includes(fitLabel(j.score))) return false
       return true
     })
-  }, [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource])
+  }, [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource, filterFit])
 
   const allFilteredSelected = useMemo(
     () => filteredJobs.length > 0 && filteredJobs.every((j) => selectedIds.has(j.id)),
@@ -162,6 +174,12 @@ export default function JobsPage() {
   }, [])
 
   useEffect(() => {
+    if (jobs.length > 0 && jobs.some((j) => j.score == null)) {
+      api.batchScore().then(loadJobs)
+    }
+  }, [jobs.length])
+
+  useEffect(() => {
     if (showAddLink) {
       setLinkUrl('')
       setLinkError('')
@@ -169,9 +187,16 @@ export default function JobsPage() {
     }
   }, [showAddLink])
 
+  function cleanJob(j: Job): Job {
+    return {
+      ...j,
+      company: j.company.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    }
+  }
+
   async function loadJobs() {
     const data = search ? await api.searchJobs(search) : await api.listJobs()
-    setJobs(data)
+    setJobs(data.map(cleanJob))
   }
 
   useEffect(() => {
@@ -187,7 +212,7 @@ export default function JobsPage() {
     setImporting(true)
     setLinkError('')
     try {
-      const job = await api.importJobFromUrl(linkUrl)
+      const job = cleanJob(await api.importJobFromUrl(linkUrl))
       setJobs((prev) => [job, ...prev])
       setShowAddLink(false)
       setLinkUrl('')
@@ -210,7 +235,7 @@ export default function JobsPage() {
     if (!form.title || !form.company) return
     setSaving(true)
     try {
-      const job = await api.createJob(form)
+      const job = cleanJob(await api.createJob(form))
       setJobs((prev) => [job, ...prev])
       setShowAddManual(false)
       setForm(EMPTY_FORM)
@@ -275,8 +300,9 @@ export default function JobsPage() {
           loadJobs()
         }}
         onUpdate={(updated) => {
-          setSelectedJob(updated)
-          setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)))
+          const cleaned = cleanJob(updated)
+          setSelectedJob(cleaned)
+          setJobs((prev) => prev.map((j) => (j.id === cleaned.id ? cleaned : j)))
         }}
       />
     )
@@ -351,6 +377,12 @@ export default function JobsPage() {
                   style={{ cursor: 'pointer' }}
                 />
               </th>
+              <th style={{ width: 48 }}>
+                <div className="filter-header">
+                  <span>Fit</span>
+                  <FilterSelect options={filterOptions.fits} selected={filterFit} onChange={setFilterFit} />
+                </div>
+              </th>
               <th>
                 <div className="filter-header">
                   <span>Company</span>
@@ -394,6 +426,19 @@ export default function JobsPage() {
                     onChange={() => toggleSelect(job.id)}
                     style={{ cursor: 'pointer' }}
                   />
+                </td>
+                <td style={{ width: 32, textAlign: 'center' }}>
+                  {job.score != null && (
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        background: job.score >= 0.6 ? '#22c55e' : job.score >= 0.3 ? '#eab308' : '#ef4444'
+                      }}
+                    />
+                  )}
                 </td>
                 <td><strong>{job.company}</strong></td>
                 <td>{job.title}</td>

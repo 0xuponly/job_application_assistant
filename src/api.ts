@@ -26,6 +26,7 @@ export interface Api {
   searchJobs: (query: string) => Promise<Job[]>
   importJobFromUrl: (url: string) => Promise<Job>
   scanBoards: (filters?: ScanFilters) => Promise<ScanResult>
+  batchScore: () => Promise<void>
   listDocuments: (jobId?: number) => Promise<Document[]>
   createDocument: (type: 'cv' | 'cover_letter', title: string, content: string, jobId?: number) => Promise<Document>
   updateDocument: (id: number, title: string, content: string) => Promise<Document>

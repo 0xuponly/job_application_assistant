@@ -50,7 +50,7 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
       await api.updateApplication(application!.id, {
         [type === 'cv' ? 'cv_document_id' : 'cover_letter_document_id']: result.document_id
       })
-      const updated = await api.updateJob(job.id, { status: 'ready' })
+      const updated = await api.updateJob(job.id, { status: 'tailoring' })
       onUpdate(updated)
       await load()
     } catch (err) {
@@ -218,7 +218,28 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
           </div>
 
           <div className="card">
-            <h4 style={{ marginBottom: 8 }}>2. Submit application</h4>
+            <h4 style={{ marginBottom: 8 }}>2. Review &amp; verify</h4>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+              Review both documents and mark as ready when they pass your quality check for AI screening systems.
+            </p>
+            {job.status === 'ready' ? (
+              <p style={{ fontSize: 13, color: '#22c55e' }}>✓ Verified and ready to apply</p>
+            ) : cv && coverLetter ? (
+              <button className="btn btn-primary btn-sm" onClick={async () => {
+                const updated = await api.updateJob(job.id, { status: 'ready' })
+                onUpdate(updated)
+              }}>
+                Mark as verified &amp; ready
+              </button>
+            ) : (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Generate both a CV and cover letter above first.
+              </p>
+            )}
+          </div>
+
+          <div className="card">
+            <h4 style={{ marginBottom: 8 }}>3. Submit application</h4>
             {application?.applied_at ? (
               <p style={{ fontSize: 13 }}>
                 Applied on {new Date(application.applied_at).toLocaleDateString()} via {application.method}
@@ -236,7 +257,7 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
           </div>
 
           <div className="card">
-            <h4 style={{ marginBottom: 8 }}>3. Next steps</h4>
+            <h4 style={{ marginBottom: 8 }}>4. Next steps</h4>
             <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               After applying, follow-ups are auto-scheduled. Schedule interviews from the Interviews page.
             </p>

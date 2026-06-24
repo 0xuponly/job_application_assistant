@@ -37,7 +37,7 @@ export async function scrapeJobFromUrl(rawUrl: string): Promise<CreateJobInput> 
     company: scraped.company!,
     location: scraped.location,
     url,
-    description: scraped.description!,
+    description: cleanDescription(scraped.description!),
     salary_range: scraped.salary_range,
     source: scraped.source
   }
@@ -93,10 +93,6 @@ function detectSource(hostname: string): string | undefined {
 }
 
 async function fetchPageHtml(url: string, hostname: string): Promise<string> {
-  if (hostname.includes('cryptojobslist.com')) {
-    return fetchHtmlViaBrowser(url)
-  }
-
   const response = await fetch(url, {
     headers: {
       'User-Agent': USER_AGENT,
@@ -537,7 +533,7 @@ function applyWeb3Career(result: ScrapedJob, html: string): void {
   if (!result.description) {
     const metaDesc = extractMeta(html, 'description')
     if (metaDesc && metaDesc.trim().length > 100) {
-      result.description = metaDesc.trim()
+      result.description = stripHtml(metaDesc).trim()
     }
   }
 
@@ -635,11 +631,11 @@ function applyGeneric(result: ScrapedJob, html: string, pageUrl: string): void {
 
   if (!result.description) {
     const ogDesc = extractMeta(html, 'og:description')
-    if (ogDesc && ogDesc.length > 100) result.description = ogDesc.trim()
+    if (ogDesc && ogDesc.length > 100) result.description = stripHtml(ogDesc).trim()
   }
   if (!result.description) {
     const metaDesc = extractMeta(html, 'description')
-    if (metaDesc && metaDesc.length > 100) result.description = metaDesc.trim()
+    if (metaDesc && metaDesc.length > 100) result.description = stripHtml(metaDesc).trim()
   }
   if (!result.description) {
     const contentDiv = html.match(/<div[^>]*class="[^"]*(?:job-description|jobDescription|posting-description|description|content)[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
@@ -819,6 +815,14 @@ function stripHtml(html: string): string {
       .replace(/\n{3,}/g, '\n\n')
       .trim()
   )
+}
+
+export function cleanDescription(text: string): string {
+  return stripHtml(text)
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .join('\n')
 }
 
 function decodeHtmlEntities(text: string): string {

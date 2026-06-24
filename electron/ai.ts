@@ -104,7 +104,6 @@ ${request.document_type === 'cover_letter' ? 'Write a tailored cover letter.' : 
     false,
     modelUsed
   )
-  updateJob(job.id, { status: 'ready' })
 
   return { content, document_id: doc.id }
 }

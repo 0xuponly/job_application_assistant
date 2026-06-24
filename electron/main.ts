@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import * as db from './database'
 import { tailorDocument, generateFollowUpMessage } from './ai'
 import { scrapeJobFromUrl } from './jobScraper'
-import { scanAllBoards } from './jobSearch'
+import { scanAllBoards, scoreCompatibility } from './jobSearch'
 import { PDFParse } from 'pdf-parse'
 import mammoth from 'mammoth'
 import type {
@@ -84,6 +84,18 @@ function registerIpc(): void {
     const dup = db.findDuplicateJob(input)
     if (dup) throw new Error(`Job already exists: ${dup.company} — ${dup.title}`)
     return db.createJob(input)
+  })
+
+  ipcMain.handle('jobs:batchScore', () => {
+    const settings = db.getSettings()
+    const baseCv = settings.base_cv || ''
+    const jobs = db.listJobs()
+    for (const job of jobs) {
+      if (job.score != null) continue
+      const desc = job.description || ''
+      const score = scoreCompatibility(job.title, desc, baseCv)
+      db.updateJob(job.id, { score })
+    }
   })
 
   ipcMain.handle('jobs:scanBoards', async (e, filters?: ScanFilters) => {
