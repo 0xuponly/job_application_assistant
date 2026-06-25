@@ -51,19 +51,17 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
     setApplication(app)
     setDocuments(docs)
 
-    // Step 1: auto-generate missing documents
+    // Step 1: auto-generate missing documents (with verify-and-retry)
     const cv = docs.find((d) => d.type === 'cv')
     const coverLetter = docs.find((d) => d.type === 'cover_letter')
     if (!cv || !coverLetter) {
       if (!cv) {
-        const r = await api.tailorDocument({ job_id: job.id, document_type: 'cv' })
-        app = await api.getOrCreateApplication(job.id)
-        await api.updateApplication(app.id, { cv_document_id: r.document_id })
+        const r = await generateAndVerifyDoc('cv')
+        if (r) app = r
       }
       if (!coverLetter) {
-        const r = await api.tailorDocument({ job_id: job.id, document_type: 'cover_letter' })
-        app = await api.getOrCreateApplication(job.id)
-        await api.updateApplication(app.id, { cover_letter_document_id: r.document_id })
+        const r = await generateAndVerifyDoc('cover_letter')
+        if (r) app = r
       }
       ;[app, docs] = await Promise.all([
         api.getOrCreateApplication(job.id),
@@ -74,7 +72,18 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
       setDocuments(docs)
     }
 
-    // Step 2: auto-set status to ready when both docs exist
+    // Step 2: verify any documents still missing a verification score (retry on low score)
+    for (const doc of docs) {
+      if (doc.verification_score == null) {
+        const newDoc = await ensureDocVerified(doc)
+        if (newDoc) {
+          docs = docs.map((d) => (d.type === doc.type ? newDoc : d))
+          setDocuments(docs)
+        }
+      }
+    }
+
+    // Auto-set status to ready when both docs exist
     let status = job.status
     const hasCv = docs.find((d) => d.type === 'cv')
     const hasCl = docs.find((d) => d.type === 'cover_letter')
@@ -83,8 +92,64 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
       status = 'ready'
       onUpdate({ ...job, status: 'ready' })
     }
+  }
 
+  async function generateAndVerifyDoc(type: 'cv' | 'cover_letter'): Promise<Application | null> {
+    let currentApp = application
+    let prevContent = ''
+    let prevFeedback = ''
+    let first = true
 
+    while (true) {
+      const r = await api.tailorDocument({
+        job_id: job.id,
+        document_type: type,
+        base_content: first ? undefined
+          : `Previous version had these issues: ${prevFeedback}\n\n---\n${prevContent}`
+      })
+      first = false
+      prevContent = r.content
+      currentApp = await api.getOrCreateApplication(job.id)
+      await api.updateApplication(currentApp.id, {
+        [type === 'cv' ? 'cv_document_id' : 'cover_letter_document_id']: r.document_id
+      })
+
+      const v = await api.verifyDocument(job.id, r.document_id, type)
+      prevFeedback = v.feedback
+      if (v.passed) break
+    }
+
+    return currentApp
+  }
+
+  async function ensureDocVerified(doc: Document): Promise<Document | null> {
+    const v = await api.verifyDocument(job.id, doc.id, doc.type)
+    if (v.score >= 70) {
+      return { ...doc, verification_score: v.score, verification_feedback: v.feedback }
+    }
+    let prevContent = doc.content
+    let prevFeedback = v.feedback
+    let bestId = doc.id
+    let bestScore = v.score
+    while (true) {
+      const r = await api.tailorDocument({
+        job_id: job.id,
+        document_type: doc.type,
+        base_content: `Previous version had these issues: ${prevFeedback}\n\n---\n${prevContent}`
+      })
+      prevContent = r.content
+      bestId = r.document_id
+      const app = await api.getOrCreateApplication(job.id)
+      await api.updateApplication(app.id, {
+        [doc.type === 'cv' ? 'cv_document_id' : 'cover_letter_document_id']: bestId
+      })
+      const v2 = await api.verifyDocument(job.id, bestId, doc.type)
+      bestScore = v2.score
+      prevFeedback = v2.feedback
+      if (v2.passed) break
+    }
+    const final = await api.listDocuments(job.id).then((ds) => ds.find((d) => d.id === bestId))
+    return final || { ...doc, id: bestId, verification_score: bestScore, verification_feedback: prevFeedback }
   }
 
   async function handleTailor(type: 'cv' | 'cover_letter') {
@@ -355,7 +420,9 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
                     )}
                   </div>
                 ) : (
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending review…</span>
+                  <div style={{ marginTop: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending review…</span>
+                  </div>
                 )}
               </div>
             )}
@@ -374,7 +441,9 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
                     )}
                   </div>
                 ) : (
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending review…</span>
+                  <div style={{ marginTop: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending review…</span>
+                  </div>
                 )}
               </div>
             )}
