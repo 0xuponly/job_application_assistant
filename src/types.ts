@@ -169,6 +169,7 @@ export interface ScanStatus {
   scanning: boolean
   progress: string[]
   result: ScanResult | null
+  startedAt: number | null
 }
 
 export const STATUS_COLORS: Record<JobStatus, string> = {

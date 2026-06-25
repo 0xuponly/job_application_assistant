@@ -158,7 +158,7 @@ export default function JobsPage() {
     }
   }
 
-  async function handleBatchDelete() {
+  async   function handleBatchDelete() {
     const count = selectedIds.size
     if (!confirm(`Delete ${count} job${count === 1 ? '' : 's'} and all related data?`)) return
     for (const id of selectedIds) {
@@ -167,6 +167,17 @@ export default function JobsPage() {
     setJobs((prev) => prev.filter((j) => !selectedIds.has(j.id)))
     if (selectedJob && selectedIds.has(selectedJob.id)) setSelectedJob(null)
     setSelectedIds(new Set())
+  }
+
+  async function handleDeleteLowFit() {
+    const lowFit = jobs.filter((j) => j.score != null && j.score < 0.3)
+    if (!lowFit.length) return
+    if (!confirm(`Delete ${lowFit.length} Low Fit job${lowFit.length === 1 ? '' : 's'}?`)) return
+    for (const j of lowFit) {
+      await api.deleteJob(j.id)
+    }
+    setJobs((prev) => prev.filter((j) => j.score == null || j.score >= 0.3))
+    if (selectedJob && selectedJob.score != null && selectedJob.score < 0.3) setSelectedJob(null)
   }
 
   useEffect(() => {
@@ -187,10 +198,15 @@ export default function JobsPage() {
     }
   }, [showAddLink])
 
+  function decodeEntities(s: string): string {
+    return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  }
+
   function cleanJob(j: Job): Job {
     return {
       ...j,
-      company: j.company.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      company: decodeEntities(j.company),
+      title: decodeEntities(j.title)
     }
   }
 
@@ -346,6 +362,15 @@ export default function JobsPage() {
               >
                 {generating === 'cover_letter' ? `Generating letters (${genCount}/${genTotal})...` : 'Generate Cover Letters'}
               </button>
+              {jobs.some((j) => j.score != null && j.score < 0.3) && (
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={handleDeleteLowFit}
+                  style={{ marginRight: 8 }}
+                >
+                  Delete Low Fit ({jobs.filter((j) => j.score != null && j.score < 0.3).length})
+                </button>
+              )}
             </>
           )}
           <button className="btn btn-primary" onClick={() => setShowAddLink(true)}>

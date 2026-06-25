@@ -16,6 +16,18 @@ import type {
 } from './types'
 
 const ENCRYPTED_PREFIX = '$enc$'
+
+function dedupKey(url: string): string {
+  try {
+    const u = new URL(url)
+    u.hash = ''
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'spm', 'ta', 'trk']
+    trackingParams.forEach(p => u.searchParams.delete(p))
+    return u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search
+  } catch {
+    return url.toLowerCase().replace(/\/$/, '')
+  }
+}
 const SENSITIVE_FIELDS = new Set([
   'openai_api_key',
   'user_name',
@@ -48,6 +60,7 @@ interface Store {
   settings: Record<string, string>
   api_models: ApiModelConfig[]
   nextId: number
+  seen_urls: string[]
 }
 
 let store: Store | null = null
@@ -79,7 +92,8 @@ function defaultStore(): Store {
       job_search_location: ''
     },
     api_models: [],
-    nextId: 1
+    nextId: 1,
+    seen_urls: []
   }
 }
 
@@ -116,6 +130,19 @@ function loadStore(): Store {
         }]
       }
     }
+
+    // Migrate existing job URLs into seen_urls (normalized for dedup)
+    if (!store.seen_urls) {
+      store.seen_urls = []
+    }
+    for (const j of store.jobs) {
+      if (j.url) {
+        const dk = dedupKey(j.url)
+        if (!store.seen_urls.some(u => dedupKey(u) === dk)) {
+          store.seen_urls.push(j.url)
+        }
+      }
+    }
   } else {
     store = defaultStore()
     persistStore()
@@ -150,6 +177,10 @@ function now(): string {
 
 // Jobs
 
+export function getSeenUrls(): string[] {
+  return loadStore().seen_urls
+}
+
 function applyCleanDescription(jobs: Job[]): Job[] {
   return jobs.map((j) =>
     j.description ? { ...j, description: cleanDescription(j.description) } : j
@@ -171,12 +202,18 @@ export function getJob(id: number): Job | undefined {
 
 export function findDuplicateJob(input: CreateJobInput): Job | undefined {
   const s = loadStore()
-  const url = input.url?.trim().toLowerCase()
+  const urlDk = input.url ? dedupKey(input.url) : null
   const title = input.title?.trim().toLowerCase()
   const company = input.company?.trim().toLowerCase()
+  const location = input.location?.trim().toLowerCase() || null
   return s.jobs.find((j) => {
-    if (url && j.url && j.url.toLowerCase() === url) return true
-    if (title && company && j.title.toLowerCase() === title && j.company.toLowerCase() === company) return true
+    if (urlDk && j.url && dedupKey(j.url) === urlDk) return true
+    if (title && company && j.title.toLowerCase() === title && j.company.toLowerCase() === company) {
+      const jLoc = j.location?.toLowerCase().trim() || null
+      if ((location === null && jLoc === null) || (location !== null && jLoc !== null && (jLoc.includes(location) || location.includes(jLoc)))) {
+        return true
+      }
+    }
     return false
   })
 }
@@ -197,6 +234,12 @@ export function createJob(input: CreateJobInput): Job {
     notes: input.notes ?? null,
     created_at: now(),
     updated_at: now()
+  }
+  if (job.url) {
+    const dk = dedupKey(job.url)
+    if (!s.seen_urls.some(u => dedupKey(u) === dk)) {
+      s.seen_urls.push(job.url)
+    }
   }
   s.jobs.push(job)
   persistStore()
@@ -224,6 +267,14 @@ export function updateJob(
     score: fields.score !== undefined ? (fields.score ?? null) : existing.score,
     notes: fields.notes !== undefined ? (fields.notes ?? null) : existing.notes,
     updated_at: now()
+  }
+  // Track new URL for dedup if it changed
+  const newUrl = s.jobs[idx].url
+  if (newUrl && newUrl !== existing.url) {
+    const dk = dedupKey(newUrl)
+    if (!s.seen_urls.some(u => dedupKey(u) === dk)) {
+      s.seen_urls.push(newUrl)
+    }
   }
   persistStore()
   return s.jobs[idx]

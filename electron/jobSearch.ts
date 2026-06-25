@@ -1,4 +1,4 @@
-import { createJob, getSettings, listJobs } from './database'
+import { createJob, findDuplicateJob, getSeenUrls, getSettings, listJobs } from './database'
 import { scrapeJobFromUrl } from './jobScraper'
 import { fetchHtmlViaBrowser, isChallengePage } from './browserScraper'
 import type { Job, ScanFilters, WorkType } from './types'
@@ -20,6 +20,121 @@ const BOARDS: BoardConfig[] = [
   {
     name: 'Indeed',
     searchUrl: (k, l) => `https://www.indeed.com/q-${encodeURIComponent(k)}-l-${encodeURIComponent(l || '')}-jobs.html`,
+    useBrowser: false
+  },
+  {
+    name: 'Indeed Canada',
+    searchUrl: (k, l) => `https://ca.indeed.com/jobs?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Monster',
+    searchUrl: (k, l) => `https://www.monster.com/jobs/search?q=${encodeURIComponent(k)}${l ? `&where=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'ZipRecruiter',
+    searchUrl: (k, l) => `https://www.ziprecruiter.com/jobs?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'SimplyHired',
+    searchUrl: (k, l) => `https://www.simplyhired.com/search?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Adzuna',
+    searchUrl: (k, l) => `https://www.adzuna.com/search?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Talent.com',
+    searchUrl: (k, l) => `https://www.talent.com/jobs?k=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Jora',
+    searchUrl: (k, l) => `https://jora.com/jobs?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Remote OK',
+    searchUrl: (k) => `https://remoteok.com/remote-${encodeURIComponent(k)}-jobs`,
+    useBrowser: false
+  },
+  {
+    name: 'We Work Remotely',
+    searchUrl: (k) => `https://weworkremotely.com/categories/remote-${encodeURIComponent(k)}-jobs`,
+    useBrowser: false
+  },
+  {
+    name: 'Remotive',
+    searchUrl: (k) => `https://remotive.com/?q=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'Remote.co',
+    searchUrl: (k) => `https://remote.co/remote-jobs/search/?q=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'Working Nomads',
+    searchUrl: (k) => `https://www.workingnomads.com/jobs?keywords=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'JustRemote',
+    searchUrl: (k) => `https://justremote.co/search?q=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'Job Bank (GC)',
+    searchUrl: (k, l) => `https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=${encodeURIComponent(k)}${l ? `&locationstring=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Eluta.ca',
+    searchUrl: (k, l) => `https://www.eluta.ca/search?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Workopolis',
+    searchUrl: (k, l) => `https://www.workopolis.com/search?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Jobboom',
+    searchUrl: (k) => `https://www.jobboom.com/en/jobs?q=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'WorkBC',
+    searchUrl: (k) => `https://www.workbc.ca/jobs?search=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'CareerBeacon',
+    searchUrl: (k, l) => `https://www.careerbeacon.com/en/search?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'CharityVillage',
+    searchUrl: (k, l) => `https://www.charityvillage.com/jobs/?keywords=${encodeURIComponent(k)}${l ? `&location=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Crypto Careers',
+    searchUrl: (k) => `https://www.crypto-careers.com/jobs?q=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'Cryptorecruit',
+    searchUrl: (k) => `https://www.cryptorecruit.com/jobs?q=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'Remote3',
+    searchUrl: (k) => `https://remote3.co/jobs?q=${encodeURIComponent(k)}`,
     useBrowser: false
   },
   {
@@ -45,6 +160,26 @@ const BOARDS: BoardConfig[] = [
   {
     name: 'Web3.career',
     searchUrl: () => `https://web3.career/`,
+    useBrowser: false
+  },
+  {
+    name: 'Startup.jobs',
+    searchUrl: (k) => `https://startup.jobs/${encodeURIComponent(k)}-jobs`,
+    useBrowser: false
+  },
+  {
+    name: 'Selby Jennings',
+    searchUrl: (k, l) => `https://www.selbyjennings.com/jobs?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: false
+  },
+  {
+    name: 'Idealist',
+    searchUrl: (k) => `https://www.idealist.org/en/jobs?q=${encodeURIComponent(k)}`,
+    useBrowser: false
+  },
+  {
+    name: 'Built In',
+    searchUrl: (k, l) => `https://builtin.com/jobs?search=${encodeURIComponent(k)}${l ? `&city=${encodeURIComponent(l)}` : ''}`,
     useBrowser: false
   },
   {
@@ -124,6 +259,21 @@ function isNonListingPage(html: string, title: string | undefined): boolean {
 
 const NAV_PATHS = /^\/(privacy|terms(-of-service)?|cookie(-policy)?|legal\/?$|login|sign(in|up)|register\/?$|forgot(-password)?|logout|auth|help\/?$|contact\/?$|about\/?$|blog\/?$|faq\/?$|pricing\/?$|status\/?$|developers\/?$|security\/?$|trust\/?$|safety\/?$)/i
 
+/** Normalize a URL for dedup comparison: lowercase, strip trailing slash, strip common tracking params */
+function dedupKey(url: string): string {
+  try {
+    const u = new URL(url)
+    u.hash = ''
+    // Remove common tracking params
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'spm', 'ta', 'trk']
+    trackingParams.forEach(p => u.searchParams.delete(p))
+    let key = u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search
+    return key
+  } catch {
+    return url.toLowerCase().replace(/\/$/, '')
+  }
+}
+
 function extractJobUrls(html: string, baseUrl: string, boardName: string): { url: string; title?: string; company?: string }[] {
   const jsonLd = extractJsonLdListings(html, baseUrl)
   if (jsonLd.length > 0) return jsonLd
@@ -154,7 +304,7 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
     if (seen.has(lowerUrl)) continue
     seen.add(lowerUrl)
 
-    const knownBoardDomains = /linkedin\.com|indeed\.com|cryptocurrencyjobs\.co|cryptojobslist\.com|cryptojobs\.com|crypto\.jobs|web3\.career|jobs\.vancouver\.ca/
+    const knownBoardDomains = /linkedin\.com|indeed\.com|ca\.indeed\.com|monster\.com|ziprecruiter\.com|simplyhired\.com|adzuna\.com|talent\.com|jora\.com|remoteok\.com|weworkremotely\.com|remotive\.com|remote\.co|workingnomads\.com|justremote\.co|jobbank\.gc\.ca|eluta\.ca|workopolis\.com|jobboom\.com|workbc\.ca|careerbeacon\.com|charityvillage\.com|crypto-careers\.com|cryptorecruit\.com|remote3\.co|cryptocurrencyjobs\.co|cryptojobslist\.com|cryptojobs\.com|crypto\.jobs|web3\.career|startup\.jobs|selbyjennings\.com|idealist\.org|builtin\.com|jobs\.vancouver\.ca/
     if (!knownBoardDomains.test(lowerUrl)) continue
 
     const pathname = new URL(fullUrl).pathname
@@ -399,8 +549,9 @@ function matchesLocation(jobLocation: string | null, filterLocation: string): bo
   return jl.includes(fl) || fl.includes(jl)
 }
 
-async function fetchAndScore(url: string, baseCv: string, existingUrls: Set<string>, workType: WorkType, filterLocation?: string): Promise<{ action: 'added' | 'skipped' | 'incompatible' | 'error'; job?: Job; reason?: string }> {
-  if (existingUrls.has(url)) return { action: 'skipped', reason: 'Already in database' }
+async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<string>, scanSeenUrlsSet: Set<string>, workType: WorkType, filterLocation?: string): Promise<{ action: 'added' | 'skipped' | 'incompatible' | 'error'; job?: Job; reason?: string }> {
+  const dk = dedupKey(url)
+  if (seenUrlsSet.has(dk)) return { action: 'skipped', reason: 'Already in database' }
 
   await new Promise(r => setTimeout(r, 1000 + Math.random() * 2000))
 
@@ -413,6 +564,12 @@ async function fetchAndScore(url: string, baseCv: string, existingUrls: Set<stri
 
   if (!input.title || !input.company || !input.description) {
     return { action: 'error', reason: 'Missing required fields' }
+  }
+
+  // Duplicate check by URL (normalized) and company+title
+  if (findDuplicateJob({ ...input, url: input.url || url } as any)) {
+    seenUrlsSet.add(dk)
+    return { action: 'skipped', reason: 'Duplicate (already exists by URL or company+title)' }
   }
 
   if (!matchesWorkType(input.title + ' ' + input.description, workType)) {
@@ -448,6 +605,9 @@ async function fetchAndScore(url: string, baseCv: string, existingUrls: Set<stri
 
   try {
     const job = createJob({ ...input, score })
+    // Update in-memory dedup sets so concurrent calls see this URL as already-processed
+    seenUrlsSet.add(dk)
+    scanSeenUrlsSet.add(dk)
     return { action: 'added', job }
   } catch (err) {
     return { action: 'error', reason: `Create failed: ${err instanceof Error ? err.message : 'Unknown'}` }
@@ -462,8 +622,8 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
   const baseCv = settings.base_cv || ''
 
   const existingJobs = listJobs()
-  const existingUrls = new Set(existingJobs.map(j => j.url).filter(Boolean) as string[])
-  const seenUrls = new Set<string>()
+  const seenUrls = new Set(getSeenUrls().map(dedupKey))
+  const scanSeenUrls = new Set<string>()
 
   const result: ScanResult = { totalFound: 0, totalAdded: 0, totalSkipped: 0, boards: [], errors: [] }
   const progress = onProgress || ((_: string) => {})
@@ -479,12 +639,21 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
       let listings = extractJobUrls(html, searchUrl, board.name)
       br.found = listings.length
 
+      // Dedup listings by normalized URL and by company+title combo
+      const seenTitleCompany = new Set<string>()
       listings = listings.filter(l => {
-        if (seenUrls.has(l.url)) return false
-        seenUrls.add(l.url)
-        if (existingUrls.has(l.url)) {
+        const dk = dedupKey(l.url)
+        if (scanSeenUrls.has(dk)) return false
+        scanSeenUrls.add(dk)
+        if (seenUrls.has(dk)) {
           br.skipped++
           return false
+        }
+        // Dedup by company+title within the same board
+        if (l.title && l.company) {
+          const tcKey = (l.company + '||' + l.title).toLowerCase()
+          if (seenTitleCompany.has(tcKey)) return false
+          seenTitleCompany.add(tcKey)
         }
         return true
       })
@@ -499,7 +668,7 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
         const results = await Promise.allSettled(
             batch.map(async (l) => {
               progress(`Scraping ${board.name} — ${l.company || l.title || l.url}`)
-              return fetchAndScore(l.url, baseCv, existingUrls, workType, location)
+              return fetchAndScore(l.url, baseCv, seenUrls, scanSeenUrls, workType, location)
           })
         )
         for (const r of results) {
