@@ -2,14 +2,24 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import type { ScanResult, WorkType } from '../types'
 
+interface ProgressEntry {
+  id: number
+  msg: string
+  timestamp: number
+}
+
+let _nextId = 0
+
 export default function ScanJobsPage() {
   const [keywords, setKeywords] = useState('')
   const [location, setLocation] = useState('')
   const [workType, setWorkType] = useState<WorkType>('any')
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
-  const [progress, setProgress] = useState<string[]>([])
-  const progressRef = useRef<string[]>([])
+  const [entries, setEntries] = useState<ProgressEntry[]>([])
+  const [elapsed, setElapsed] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const entriesRef = useRef<ProgressEntry[]>([])
   const unsubRef = useRef<(() => void) | null>(null)
   const mountedRef = useRef(true)
 
@@ -20,41 +30,85 @@ export default function ScanJobsPage() {
       if (!mountedRef.current) return
       if (status.scanning) {
         setScanning(true)
-        setProgress(status.progress)
-        progressRef.current = status.progress
+        const initialEntries = status.progress.map((msg) => ({ id: _nextId++, msg, timestamp: Date.now() }))
+        setEntries(initialEntries)
+        entriesRef.current = initialEntries
+        if (status.startedAt) {
+          setElapsed(Math.floor((Date.now() - status.startedAt) / 1000))
+          timerRef.current = setInterval(() => {
+            setElapsed(Math.floor((Date.now() - status.startedAt!) / 1000))
+          }, 1000)
+        }
         const unsub = api.onScanProgress((msg: string) => {
           if (!mountedRef.current) return
-          progressRef.current = [...progressRef.current, msg]
-          setProgress([...progressRef.current])
+          const entry = { id: _nextId++, msg, timestamp: Date.now() }
+          entriesRef.current = [...entriesRef.current, entry]
+          setEntries(entriesRef.current)
         })
         unsubRef.current = unsub
       } else if (status.result) {
         setResult(status.result)
-        setProgress(status.progress)
-        progressRef.current = status.progress
+        const initialEntries = status.progress.map((msg) => ({ id: _nextId++, msg, timestamp: Date.now() }))
+        setEntries(initialEntries)
+        entriesRef.current = initialEntries
+        if (status.startedAt) {
+          setElapsed(Math.floor((Date.now() - status.startedAt) / 1000))
+        }
       }
     })
     return () => {
       mountedRef.current = false
       unsubRef.current?.()
       unsubRef.current = null
+      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current = null
     }
+  }, [])
+
+  // Periodic cleanup: remove faded entries (grey + outdated blue) after 5s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const entries = entriesRef.current
+      const cutoff = Date.now() - 5000
+      const latestBlueId = entries.filter(e => e.msg.startsWith('Scanning')).at(-1)?.id ?? -1
+      const remaining = entries.filter((e) => {
+        if (e.msg.startsWith('✓')) return true
+        if (e.msg.startsWith('Scanning')) {
+          // Keep latest blue; delete outdated blue after fade
+          return e.id === latestBlueId || e.timestamp > cutoff
+        }
+        // Grey: delete after 5s
+        return e.timestamp > cutoff
+      })
+      if (remaining.length !== entries.length) {
+        entriesRef.current = remaining
+        setEntries(remaining)
+      }
+    }, 1000)
+    return () => clearInterval(interval)
   }, [])
 
   async function handleScan() {
     setScanning(true)
     setResult(null)
-    setProgress([])
-    progressRef.current = []
+    setEntries([])
+    setElapsed(0)
+    entriesRef.current = []
     await api.clearScanResult()
     // Remove any stale listener before creating a new one
     unsubRef.current?.()
     unsubRef.current = null
 
+    const start = Date.now()
+    timerRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000))
+    }, 1000)
+
     const unsub = api.onScanProgress((msg: string) => {
       if (!mountedRef.current) return
-      progressRef.current = [...progressRef.current, msg]
-      setProgress([...progressRef.current])
+      const entry = { id: _nextId++, msg, timestamp: Date.now() }
+      entriesRef.current = [...entriesRef.current, entry]
+      setEntries(entriesRef.current)
     })
     unsubRef.current = unsub
 
@@ -70,6 +124,8 @@ export default function ScanJobsPage() {
         alert(`Scan failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
       }
     } finally {
+      if (timerRef.current) clearInterval(timerRef.current)
+      timerRef.current = null
       unsubRef.current?.()
       unsubRef.current = null
       if (mountedRef.current) setScanning(false)
@@ -123,17 +179,38 @@ export default function ScanJobsPage() {
         </div>
       </div>
 
-      {(scanning || progress.length > 0) && (
+      <style>{`
+        @keyframes fade-grey-line {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+      `}</style>
+
+      {(scanning || entries.length > 0) && (
         <div className="card" style={{ maxWidth: 800, marginTop: 16 }}>
           <p style={{ marginBottom: 8 }}>
-            {scanning ? 'Fetching job listings from 8 boards. This may take a few minutes...' : 'Scan completed'}
+            {scanning ? `Fetching job listings from job boards... ${elapsed}s elapsed` : `Scan completed in ${elapsed}s`}
           </p>
           <div style={{ fontSize: 12, lineHeight: 1.7, maxHeight: 320, overflowY: 'auto' }}>
-            {progress.slice(-20).map((msg, i) => (
-              <div key={i} style={{ color: msg.startsWith('✓') ? '#22c55e' : msg.startsWith('Scanning') ? '#3b82f6' : 'var(--text-muted)' }}>
-                {msg}
-              </div>
-            ))}
+            {(() => {
+              const latestBlueId = entries.filter(e => e.msg.startsWith('Scanning')).at(-1)?.id ?? -1
+              return entries.slice(-20).map((e) => {
+                const isBlue = e.msg.startsWith('Scanning')
+                const isCurrentBlue = isBlue && e.id === latestBlueId
+                const shouldFade = !e.msg.startsWith('✓') && !isCurrentBlue
+                return (
+                  <div
+                    key={e.id}
+                    style={{
+                      color: e.msg.startsWith('✓') ? '#22c55e' : isBlue ? '#3b82f6' : 'var(--text-muted)',
+                      animation: shouldFade ? 'fade-grey-line 5s linear forwards' : undefined
+                    }}
+                  >
+                    {e.msg}
+                  </div>
+                )
+              })
+            })()}
           </div>
         </div>
       )}

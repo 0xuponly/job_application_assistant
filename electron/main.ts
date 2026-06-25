@@ -22,10 +22,11 @@ import type {
 } from './types'
 
 // Module-level scan state — survives tab switches in the renderer
-let _scanState: { scanning: boolean; progress: string[]; result: ScanResult | null } = {
+let _scanState: { scanning: boolean; progress: string[]; result: ScanResult | null; startedAt: number | null } = {
   scanning: false,
   progress: [],
-  result: null
+  result: null,
+  startedAt: null
 }
 
 function createWindow(): void {
@@ -102,6 +103,7 @@ function registerIpc(): void {
     _scanState.scanning = true
     _scanState.progress = []
     _scanState.result = null
+    _scanState.startedAt = Date.now()
     try {
       const result = await scanAllBoards(filters, (msg) => {
         _scanState.progress.push(msg)
@@ -111,13 +113,15 @@ function registerIpc(): void {
       return result
     } finally {
       _scanState.scanning = false
+      _scanState.startedAt = null
     }
   })
 
   ipcMain.handle('scan:status', () => ({
     scanning: _scanState.scanning,
     progress: [..._scanState.progress],
-    result: _scanState.result
+    result: _scanState.result,
+    startedAt: _scanState.startedAt
   }))
 
   ipcMain.handle('scan:clearResult', () => {

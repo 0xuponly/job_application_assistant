@@ -159,4 +159,5 @@ export interface ScanStatus {
   scanning: boolean
   progress: string[]
   result: ScanResult | null
+  startedAt: number | null
 }
