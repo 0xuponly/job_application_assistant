@@ -38,9 +38,10 @@ export default function ScanJobsPage() {
 
   // On mount, re-attach to an in-progress or completed scan
   useEffect(() => {
+    let cancelled = false
     mountedRef.current = true
     api.getScanStatus().then((status) => {
-      if (!mountedRef.current) return
+      if (cancelled || !mountedRef.current) return
       // If handleScan already started, skip re-attach to avoid double listener
       if (scanActiveRef.current) return
       if (status.scanning) {
@@ -56,7 +57,7 @@ export default function ScanJobsPage() {
         }
         const seenAtMount = new Set<string>()
         const unsub = api.onScanProgress((msg: string) => {
-          if (!mountedRef.current) return
+          if (cancelled || !mountedRef.current) return
           if (seenAtMount.has(msg)) return
           seenAtMount.add(msg)
           const entry = { id: _nextId++, msg, timestamp: Date.now() }
@@ -75,6 +76,7 @@ export default function ScanJobsPage() {
       }
     })
     return () => {
+      cancelled = true
       mountedRef.current = false
       scanActiveRef.current = false
       unsubRef.current?.()
@@ -86,12 +88,14 @@ export default function ScanJobsPage() {
 
   // Default the location to the user's country (if recognized) from settings
   useEffect(() => {
+    let cancelled = false
     api.getSettings().then((s) => {
-      if (!mountedRef.current) return
+      if (cancelled) return
       if (s.user_country && isRecognizedCountry(s.user_country) && !location) {
         setLocation(s.user_country)
       }
     })
+    return () => { cancelled = true }
   }, [])
 
   // Periodic cleanup: remove faded entries (grey + outdated blue) after 5s
