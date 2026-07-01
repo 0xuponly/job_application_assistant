@@ -12,9 +12,11 @@ export default function Modal({ open, title, onClose, children, actions }: Props
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{title}</h2>
-        {children}
-        {actions && <div className="modal-actions">{actions}</div>}
+        <div className="modal-header">
+          <h2>{title}</h2>
+          {actions && <div className="modal-actions">{actions}</div>}
+        </div>
+        <div className="modal-body">{children}</div>
       </div>
     </div>
   )
