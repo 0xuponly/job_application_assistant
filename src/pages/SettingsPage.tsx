@@ -17,18 +17,31 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [encryptionMode, setEncryptionMode] = useState<'sealed' | 'plaintext-fallback' | 'uninitialized' | null>(null)
 
   const emptyModel = { name: '', base_url: 'https://api.deepseek.com', api_key: '', model: 'deepseek-chat' }
 
   useEffect(() => {
-    Promise.all([api.getSettings(), api.listApiModels()]).then(([s, m]) => {
+    Promise.all([api.getSettings(), api.listApiModels(), api.getSecurityStatus()]).then(([s, m, sec]) => {
       setSettings(s)
       setModels(m.length > 0 ? m : PRESETS.map((p, i) => ({ id: `model-${i + 1}`, ...p.model })))
+      setEncryptionMode(sec.mode)
     })
   }, [])
 
   async function handleSave() {
     if (!settings) return
+    if (models.length > 0) {
+      const hosts = Array.from(new Set(models.map((m) => {
+        try { return new URL(m.base_url).hostname } catch { return m.base_url }
+      })))
+      const confirmed = window.confirm(
+        `Your base CV, full job descriptions, and generated document content will be sent to:\n\n` +
+        hosts.map((h) => '  • ' + h).join('\n') +
+        `\n\nContinue?`
+      )
+      if (!confirmed) return
+    }
     setSaving(true)
     try {
       await api.updateSettings(settings)
@@ -73,6 +86,12 @@ export default function SettingsPage() {
           {saving ? 'Saving...' : saved ? 'Saved!' : 'Save settings'}
         </button>
       </div>
+
+      {encryptionMode === 'plaintext-fallback' && (
+        <div className="alert alert-warning" style={{ maxWidth: 800 }}>
+          <strong>Encryption unavailable.</strong> Your OS keyring is not accessible, so your data (CV, contacts, applications) is being stored <strong>encrypted with a key sitting in plaintext next to it</strong>. This is better than nothing, but treat this machine as untrusted.
+        </div>
+      )}
 
       <div className="section-title">Your profile</div>
       <div className="card" style={{ maxWidth: 600 }}>
@@ -220,6 +239,25 @@ export default function SettingsPage() {
       </div>
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '32px 0' }} />
+
+      <div className="section-title">Data export</div>
+
+      <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+          Export all your data (jobs, documents, applications, follow-ups, interviews) to a JSON file. API keys and password fields are not included.
+        </p>
+        <button
+          className="btn btn-secondary"
+          onClick={async () => {
+            const path = await api.exportAllData()
+            if (path) {
+              window.alert(`Exported to:\n${path}`)
+            }
+          }}
+        >
+          Export all data
+        </button>
+      </div>
 
       <div className="section-title" style={{ color: 'var(--danger)' }}>Danger zone</div>
 
