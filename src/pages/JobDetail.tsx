@@ -37,6 +37,7 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
   const [savingDoc, setSavingDoc] = useState(false)
   const [exportingDoc, setExportingDoc] = useState(false)
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null)
+  const [reviewing, setReviewing] = useState<'cv' | 'cover_letter' | null>(null)
   const [selectedSection, setSelectedSection] = useState('')
   const [regenContext, setRegenContext] = useState('')
 
@@ -194,6 +195,27 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
     setViewDoc(doc)
     setDocTitle(doc.title)
     setDocContent(doc.content)
+  }
+
+  async function handleReview(type: 'cv' | 'cover_letter') {
+    setReviewing(type)
+    try {
+      const target = type === 'cv' ? cv : coverLetter
+      if (!target) return
+      const result = await api.verifyDocument(job.id, target.id, type)
+      const updated = { ...target, verification_score: result.score, verification_feedback: result.feedback }
+      setDocuments((prev) => prev.map((d) => (d.id === target.id ? updated : d)))
+      notify(
+        result.passed
+          ? `${type === 'cv' ? 'CV' : 'Cover letter'} passed (${result.score}/100).`
+          : `${type === 'cv' ? 'CV' : 'Cover letter'} scored ${result.score}/100 — see feedback below.`,
+        result.passed ? 'success' : 'info'
+      )
+    } catch (err) {
+      notify(`Review failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
+    } finally {
+      setReviewing(null)
+    }
   }
 
   async function handleSaveDoc() {
@@ -454,8 +476,15 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
                     )}
                   </div>
                 ) : (
-                  <div style={{ marginTop: 4 }}>
+                  <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending review…</span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleReview('cv')}
+                      disabled={reviewing !== null}
+                    >
+                      {reviewing === 'cv' ? 'Reviewing…' : 'Review'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -475,8 +504,15 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
                     )}
                   </div>
                 ) : (
-                  <div style={{ marginTop: 4 }}>
+                  <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending review…</span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleReview('cover_letter')}
+                      disabled={reviewing !== null}
+                    >
+                      {reviewing === 'cover_letter' ? 'Reviewing…' : 'Review'}
+                    </button>
                   </div>
                 )}
               </div>
