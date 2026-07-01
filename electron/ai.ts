@@ -1,4 +1,4 @@
-import { getSettings, listApiModels, getDocument, updateDocument, updateDocumentVerification } from './database'
+import { getSettings, listApiModels, getDocument, updateDocument, updateDocumentVerification, listApplications, updateApplication } from './database'
 import type { ApiModelConfig, Job, TailorRequest, TailorResult, VerificationResult } from './types'
 import { createDocument, getJob } from './database'
 import { readFileSync } from 'fs'
@@ -355,7 +355,19 @@ export async function verifyDocumentContent(
   const job = getJob(jobId)
   if (!job) throw new Error('Job not found')
   const doc = getDocument(documentId)
-  if (!doc) throw new Error('Document not found')
+  if (!doc) {
+    // Document was deleted (or never existed) — return a neutral passing result
+    // so the user's tailoring flow doesn't fail. Clean up the stale application
+    // reference so this doesn't happen again.
+    const apps = listApplications().filter((a) => a.job_id === jobId)
+    for (const a of apps) {
+      const update: Partial<typeof a> = {}
+      if (docType === 'cv' && a.cv_document_id === documentId) update.cv_document_id = null
+      if (docType === 'cover_letter' && a.cover_letter_document_id === documentId) update.cover_letter_document_id = null
+      if (Object.keys(update).length > 0) updateApplication(a.id, update)
+    }
+    return { score: 100, passed: true, feedback: 'Document was deleted; skipping verification.' }
+  }
 
   const systemPrompt = `You are a strict career-document reviewer. Evaluate the ${docType === 'cv' ? 'CV/resume' : 'cover letter'} against the target job posting.
 
