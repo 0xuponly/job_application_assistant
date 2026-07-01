@@ -6,8 +6,6 @@ import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocum
 import { scrapeJobFromUrl } from './jobScraper'
 import { scanAllBoards, scoreCompatibility } from './jobSearch'
 import { startQueueProcessor, stopQueueProcessor, enqueue } from './aiQueue'
-import { PDFParse } from 'pdf-parse'
-import mammoth from 'mammoth'
 import type {
   ApiModelConfig,
   Application,
@@ -334,46 +332,6 @@ ${htmlBody}
   ipcMain.handle('settings:get', () => db.getSettings())
   ipcMain.handle('settings:update', (_e, partial: Partial<Settings>) => db.updateSettings(partial))
   ipcMain.handle('settings:reset', () => db.resetSettings())
-  ipcMain.handle('settings:importResume', async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: 'Import Resume',
-      filters: [
-        { name: 'Resume', extensions: ['pdf', 'docx'] }
-      ],
-      properties: ['openFile']
-    })
-    if (canceled || filePaths.length === 0) return null
-    const filePath = filePaths[0]
-    const ext = filePath.toLowerCase().slice(filePath.lastIndexOf('.'))
-    const buffer = readFileSync(filePath)
-    const withTimeout = async <T>(p: Promise<T>, ms: number, label: string): Promise<T> => {
-      let timer: ReturnType<typeof setTimeout> | null = null
-      const timeout = new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-      })
-      try {
-        return await Promise.race([p, timeout])
-      } finally {
-        if (timer) clearTimeout(timer)
-      }
-    }
-    let text: string
-    if (ext === '.pdf') {
-      const pdf = new PDFParse(new Uint8Array(buffer))
-      await withTimeout(pdf.load(), 30000, 'PDF load')
-      text = await withTimeout(pdf.getText(), 30000, 'PDF text extraction')
-    } else if (ext === '.docx') {
-      const result = await withTimeout(
-        mammoth.extractRawText({ buffer: new Uint8Array(buffer) }),
-        30000,
-        'DOCX extraction'
-      )
-      text = result.value
-    } else {
-      return null
-    }
-    return text.trim()
-  })
 
   ipcMain.handle('models:list', () => db.listApiModels())
   ipcMain.handle('models:save', (_e, models: ApiModelConfig[]) => db.saveApiModels(models))

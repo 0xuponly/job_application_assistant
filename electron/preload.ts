@@ -58,7 +58,6 @@ export interface Api {
   getSettings: () => Promise<Settings>
   updateSettings: (partial: Partial<Settings>) => Promise<Settings>
   resetSettings: () => Promise<Settings>
-  importResume: () => Promise<string | null>
   listApiModels: () => Promise<ApiModelConfig[]>
   saveApiModels: (models: ApiModelConfig[]) => Promise<ApiModelConfig[]>
   addApiModel: (model: Omit<ApiModelConfig, 'id'>) => Promise<ApiModelConfig[]>
@@ -122,7 +121,6 @@ const api: Api = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (partial) => ipcRenderer.invoke('settings:update', partial),
   resetSettings: () => ipcRenderer.invoke('settings:reset'),
-  importResume: () => ipcRenderer.invoke('settings:importResume'),
   listApiModels: () => ipcRenderer.invoke('models:list'),
   saveApiModels: (models) => ipcRenderer.invoke('models:save', models),
   addApiModel: (model) => ipcRenderer.invoke('models:add', model),
