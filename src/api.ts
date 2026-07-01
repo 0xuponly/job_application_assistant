@@ -57,7 +57,6 @@ export interface Api {
   getSettings: () => Promise<Settings>
   updateSettings: (partial: Partial<Settings>) => Promise<Settings>
   resetSettings: () => Promise<Settings>
-  importResume: () => Promise<string | null>
   listApiModels: () => Promise<ApiModelConfig[]>
   saveApiModels: (models: ApiModelConfig[]) => Promise<ApiModelConfig[]>
   addApiModel: (model: Omit<ApiModelConfig, 'id'>) => Promise<ApiModelConfig[]>

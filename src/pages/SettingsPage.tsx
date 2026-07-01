@@ -16,7 +16,6 @@ export default function SettingsPage() {
   const [models, setModels] = useState<ApiModelConfig[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [importing, setImporting] = useState(false)
   const [encryptionMode, setEncryptionMode] = useState<'sealed' | 'plaintext-fallback' | 'uninitialized' | null>(null)
 
   const emptyModel = { name: '', base_url: 'https://api.deepseek.com', api_key: '', model: 'deepseek-chat' }
@@ -131,10 +130,32 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <div className="section-title">Job search preferences</div>
+      <div className="card" style={{ maxWidth: 600 }}>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Keywords</label>
+            <input
+              value={settings.job_search_keywords}
+              onChange={(e) => update('job_search_keywords', e.target.value)}
+              placeholder="e.g. software engineer, react, remote"
+            />
+          </div>
+          <div className="form-group">
+            <label>Preferred location</label>
+            <input
+              value={settings.job_search_location}
+              onChange={(e) => update('job_search_location', e.target.value)}
+              placeholder="e.g. London, Remote"
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="section-title">Base CV</div>
       <div className="card" style={{ maxWidth: 800 }}>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-          Paste your master CV here, or import from a PDF or DOCX file. It will be used as the source material when tailoring for specific jobs.
+          Paste your master CV here. It will be used as the source material when tailoring for specific jobs.
         </p>
         <textarea
           rows={12}
@@ -143,23 +164,6 @@ export default function SettingsPage() {
           style={{ width: '100%', fontFamily: 'monospace', fontSize: 13 }}
           placeholder="Paste your full CV text here..."
         />
-        <div style={{ marginTop: 8 }}>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={async () => {
-              setImporting(true)
-              try {
-                const text = await api.importResume()
-                if (text) update('base_cv', text)
-              } finally {
-                setImporting(false)
-              }
-            }}
-            disabled={importing}
-          >
-            {importing ? 'Importing...' : 'Import from PDF/DOCX'}
-          </button>
-        </div>
       </div>
 
       <div className="section-title">AI models</div>
@@ -208,33 +212,23 @@ export default function SettingsPage() {
       <div style={{ marginBottom: 20 }}>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600 }}>Presets — click to add</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {PRESETS.map((p) => (
-            <button key={p.name} className="btn btn-secondary btn-sm" onClick={() => addPreset(p)} title={p.desc}>
-              {p.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="section-title">Job search preferences</div>
-      <div className="card" style={{ maxWidth: 600 }}>
-        <div className="form-row">
-          <div className="form-group">
-            <label>Keywords</label>
-            <input
-              value={settings.job_search_keywords}
-              onChange={(e) => update('job_search_keywords', e.target.value)}
-              placeholder="e.g. software engineer, react, remote"
-            />
-          </div>
-          <div className="form-group">
-            <label>Preferred location</label>
-            <input
-              value={settings.job_search_location}
-              onChange={(e) => update('job_search_location', e.target.value)}
-              placeholder="e.g. London, Remote"
-            />
-          </div>
+          {PRESETS.map((p) => {
+            const isAdded = models.some(
+              (m) => m.base_url === p.model.base_url && m.model === p.model.model
+            )
+            return (
+              <button
+                key={p.name}
+                className="btn btn-secondary btn-sm"
+                onClick={() => addPreset(p)}
+                title={isAdded ? `${p.desc} (already added)` : p.desc}
+                disabled={isAdded}
+                style={isAdded ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+              >
+                {isAdded ? `✓ ${p.name}` : p.name}
+              </button>
+            )
+          })}
         </div>
       </div>
 
