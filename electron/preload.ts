@@ -71,10 +71,12 @@ export interface Api {
   onScanProgress: (cb: (msg: string) => void) => () => void
   clearSeenUrls: () => Promise<void>
   clearAllData: () => Promise<void>
+  exportAllData: () => Promise<string | null>
   listAIQueue: () => Promise<AIQueueItem[]>
   retryAIQueueItem: (id: number) => Promise<AIQueueItem[]>
   removeAIQueueItem: (id: number) => Promise<AIQueueItem[]>
   openExternal: (url: string) => Promise<void>
+  getSecurityStatus: () => Promise<{ mode: 'sealed' | 'plaintext-fallback' | 'uninitialized' }>
 }
 
 const api: Api = {
@@ -131,10 +133,12 @@ const api: Api = {
     ipcRenderer.invoke('documents:regenerateSection', documentId, sectionName, jobId, extraContext),
   clearSeenUrls: () => ipcRenderer.invoke('db:clearSeenUrls'),
   clearAllData: () => ipcRenderer.invoke('db:clearAllData'),
+  exportAllData: () => ipcRenderer.invoke('db:exportAll'),
   listAIQueue: () => ipcRenderer.invoke('aiQueue:list'),
   retryAIQueueItem: (id) => ipcRenderer.invoke('aiQueue:retry', id),
   removeAIQueueItem: (id) => ipcRenderer.invoke('aiQueue:remove', id),
-  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  getSecurityStatus: () => ipcRenderer.invoke('security:status')
 }
 
 contextBridge.exposeInMainWorld('api', api)

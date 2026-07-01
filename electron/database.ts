@@ -2,6 +2,7 @@ import { app, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { cleanDescription, scrapePostingDateFromUrl } from './jobScraper'
+import { getOrCreateDek, encryptJson, decryptJson, deleteDek, encryptionMode } from './secureStore'
 import type {
   ApiModelConfig,
   AIQueueItem,
@@ -29,27 +30,12 @@ function dedupKey(url: string): string {
     return url.toLowerCase().replace(/\/$/, '')
   }
 }
-const SENSITIVE_FIELDS = new Set([
-  'openai_api_key',
-  'user_name',
-  'user_email',
-  'user_phone',
-  'base_cv'
-])
-
-function encryptField(value: string): string {
-  if (!value || !safeStorage.isEncryptionAvailable()) return value
-  return ENCRYPTED_PREFIX + safeStorage.encryptString(value).toString('hex')
+export function isEncryptionAvailable(): boolean {
+  return safeStorage.isEncryptionAvailable()
 }
 
-function decryptField(value: string): string {
-  if (!value || !safeStorage.isEncryptionAvailable()) return value
-  if (!value.startsWith(ENCRYPTED_PREFIX)) return value
-  try {
-    return safeStorage.decryptString(Buffer.from(value.slice(ENCRYPTED_PREFIX.length), 'hex'))
-  } catch {
-    return value
-  }
+export function encryptionStatus(): { mode: 'sealed' | 'plaintext-fallback' | 'uninitialized' } {
+  return { mode: encryptionMode() }
 }
 
 interface Store {
@@ -108,18 +94,55 @@ function loadStore(): Store {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
 
   if (existsSync(path)) {
-    store = JSON.parse(readFileSync(path, 'utf-8')) as Store
-    for (const key of SENSITIVE_FIELDS) {
-      if (key in store.settings) {
-        store.settings[key] = decryptField(store.settings[key])
+    const raw = readFileSync(path, 'utf-8').trim()
+    const dek = getOrCreateDek()
+    try {
+      store = decryptJson<Store>(raw, dek)
+    } catch {
+      // Either file is legacy plaintext, or DEK is wrong. Try legacy plaintext
+      // parse; if that fails, start fresh.
+      try {
+        const parsed = JSON.parse(raw) as Store
+        // Detect plaintext legacy: legacy had no `enc:v1:` prefix and used
+        // $enc$ on a few fields only.
+        const looksLegacy =
+          !raw.startsWith('enc:') &&
+          (raw.includes('"$enc$"') || Object.keys(parsed.settings || {}).length > 0)
+        if (looksLegacy) {
+          // Strip legacy field-level encryption wrappers from old format
+          for (const k of Object.keys(parsed.settings)) {
+            const v = parsed.settings[k]
+            if (typeof v === 'string' && v.startsWith('$enc$')) {
+              try {
+                parsed.settings[k] = safeStorage.decryptString(
+                  Buffer.from(v.slice('$enc$'.length), 'hex')
+                )
+              } catch {
+                parsed.settings[k] = ''
+              }
+            }
+          }
+          if (parsed.api_models) {
+            parsed.api_models = parsed.api_models.map((m) => {
+              if (typeof m.api_key === 'string' && m.api_key.startsWith('$enc$')) {
+                try {
+                  return { ...m, api_key: safeStorage.decryptString(Buffer.from(m.api_key.slice('$enc$'.length), 'hex')) }
+                } catch {
+                  return { ...m, api_key: '' }
+                }
+              }
+              return m
+            })
+          }
+          store = parsed
+        } else {
+          store = defaultStore()
+        }
+      } catch {
+        store = defaultStore()
       }
     }
-    if (store.api_models) {
-      store.api_models = store.api_models.map((m) => ({
-        ...m,
-        api_key: decryptField(m.api_key)
-      }))
-    }
+
     if (!store.api_models || store.api_models.length === 0) {
       const oldKey = store.settings.openai_api_key || ''
       const oldUrl = store.settings.openai_base_url || 'https://api.deepseek.com'
@@ -171,18 +194,9 @@ function loadStore(): Store {
 
 function persistStore(): void {
   if (!store) return
-  const settings = { ...store.settings }
-  for (const key of SENSITIVE_FIELDS) {
-    if (key in settings) {
-      settings[key] = encryptField(settings[key])
-    }
-  }
-  const api_models = store.api_models.map((m) => ({
-    ...m,
-    api_key: encryptField(m.api_key)
-  }))
-  const data = { ...store, settings, api_models }
-  writeFileSync(getStorePath(), JSON.stringify(data, null, 2))
+  const dek = getOrCreateDek()
+  const payload = encryptJson(store, dek)
+  writeFileSync(getStorePath(), payload)
 }
 
 function nextId(): number {
@@ -734,6 +748,14 @@ export async function backfillJobPostingDates(): Promise<number> {
 }
 
 export function clearAllData(): void {
+  // Wipe the data file and the DEK so any previously-encrypted backups become
+  // unreadable, then re-initialize a fresh empty store.
+  const path = getStorePath()
+  if (existsSync(path)) {
+    try { require('fs').unlinkSync(path) } catch { /* ignore */ }
+  }
+  deleteDek()
+  store = null
   const s = loadStore()
   s.jobs = []
   s.documents = []
@@ -744,6 +766,26 @@ export function clearAllData(): void {
   s.nextId = 1
   delete s.settings.job_dates_backfilled
   persistStore()
+}
+
+export function exportAllData(): unknown {
+  const s = loadStore()
+  return {
+    exportedAt: new Date().toISOString(),
+    app: 'Apply Assistant',
+    version: 1,
+    data: {
+      jobs: s.jobs,
+      documents: s.documents,
+      applications: s.applications,
+      followUps: s.follow_ups,
+      interviews: s.interviews,
+      seenUrls: s.seen_urls,
+      aiQueue: s.ai_queue,
+      settings: { ...s.settings, openai_api_key: '' }, // never export API keys
+      apiModels: s.api_models.map((m) => ({ ...m, api_key: '' }))
+    }
+  }
 }
 
 // AI Queue

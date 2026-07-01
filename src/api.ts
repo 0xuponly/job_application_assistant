@@ -70,7 +70,9 @@ export interface Api {
   onScanProgress: (cb: (msg: string) => void) => () => void
   clearSeenUrls: () => Promise<void>
   clearAllData: () => Promise<void>
+  exportAllData: () => Promise<string | null>
   openExternal: (url: string) => Promise<void>
+  getSecurityStatus: () => Promise<{ mode: 'sealed' | 'plaintext-fallback' | 'uninitialized' }>
   listAIQueue: () => Promise<AIQueueItem[]>
   retryAIQueueItem: (id: number) => Promise<AIQueueItem[]>
   removeAIQueueItem: (id: number) => Promise<AIQueueItem[]>
