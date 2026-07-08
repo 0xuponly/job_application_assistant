@@ -9,6 +9,7 @@ import type {
   Application,
   CreateJobInput,
   DashboardStats,
+  DeletedJobRecord,
   Document,
   FollowUp,
   Interview,
@@ -49,6 +50,8 @@ interface Store {
   nextId: number
   seen_urls: string[]
   ai_queue: AIQueueItem[]
+  board_health: Record<string, number[]>
+  deleted_jobs: DeletedJobRecord[]
 }
 
 let store: Store | null = null
@@ -78,12 +81,15 @@ function defaultStore(): Store {
       user_country: '',
       base_cv: '',
       job_search_keywords: '',
-      job_search_location: ''
+      job_search_location: '',
+      deleted_jobs_cap: 50000
     },
     api_models: [],
     nextId: 1,
     seen_urls: [],
-    ai_queue: []
+    ai_queue: [],
+    board_health: {},
+    deleted_jobs: []
   }
 }
 
@@ -176,6 +182,12 @@ function loadStore(): Store {
     if (!store.ai_queue) {
       store.ai_queue = []
     }
+    if (!store.board_health) {
+      store.board_health = {}
+    }
+    if (!store.deleted_jobs) {
+      store.deleted_jobs = []
+    }
     let jobsMigrated = false
     for (const j of store.jobs) {
       if (j.url) {
@@ -264,7 +276,38 @@ export function findDuplicateJob(input: CreateJobInput): Job | undefined {
   })
 }
 
+export function isBlacklisted(input: { url?: string | null; title: string; company: string; location?: string | null }): boolean {
+  // A job is blacklisted (do not re-add) if the user deleted it AND its last
+  // known fit score was low (< 0.3). Medium/high-fit deletions are still
+  // re-added on future scans since the user might want them back.
+  const s = loadStore()
+  if (!s.deleted_jobs || s.deleted_jobs.length === 0) return false
+  const urlDk = input.url ? dedupKey(input.url) : null
+  const title = input.title?.trim().toLowerCase()
+  const company = input.company?.trim().toLowerCase()
+  const location = input.location?.trim().toLowerCase() || null
+  for (const d of s.deleted_jobs) {
+    if (d.score == null || d.score >= 0.3) continue
+    if (urlDk && d.url && dedupKey(d.url) === urlDk) return true
+    if (title && company && d.title.toLowerCase() === title && d.company.toLowerCase() === company) {
+      const dLoc = d.location?.toLowerCase().trim() || null
+      if ((location === null && dLoc === null) || (location !== null && dLoc !== null && (dLoc.includes(location) || location.includes(dLoc)))) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+export class JobBlacklistedError extends Error {
+  constructor() {
+    super('Job was previously deleted with low fit; not re-adding.')
+    this.name = 'JobBlacklistedError'
+  }
+}
+
 export function createJob(input: CreateJobInput): Job {
+  if (isBlacklisted(input)) throw new JobBlacklistedError()
   const s = loadStore()
   const job: Job = {
     id: nextId(),
@@ -342,6 +385,23 @@ export function updateJob(
 
 export function deleteJob(id: number): void {
   const s = loadStore()
+  const job = s.jobs.find((j) => j.id === id)
+  if (job) {
+    if (!s.deleted_jobs) s.deleted_jobs = []
+    s.deleted_jobs.push({
+      url: job.url,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      score: job.score,
+      deletedAt: Date.now()
+    })
+    // Cap the deleted list to the most recent N entries (configurable in settings)
+    const cap = typeof s.settings.deleted_jobs_cap === 'number' && s.settings.deleted_jobs_cap > 0
+      ? s.settings.deleted_jobs_cap
+      : 50000
+    if (s.deleted_jobs.length > cap) s.deleted_jobs.splice(0, s.deleted_jobs.length - cap)
+  }
   s.jobs = s.jobs.filter((j) => j.id !== id)
   s.documents = s.documents.filter((d) => d.job_id !== id)
   const appIds = s.applications.filter((a) => a.job_id === id).map((a) => a.id)
@@ -789,7 +849,7 @@ export function exportAllData(): unknown {
   return {
     exportedAt: new Date().toISOString(),
     app: 'Apply Assistant',
-    version: 1,
+    version: 2,
     data: {
       jobs: s.jobs,
       documents: s.documents,
@@ -798,10 +858,29 @@ export function exportAllData(): unknown {
       interviews: s.interviews,
       seenUrls: s.seen_urls,
       aiQueue: s.ai_queue,
+      boardHealth: s.board_health,
+      deletedJobs: s.deleted_jobs,
       settings: { ...s.settings, openai_api_key: '' }, // never export API keys
       apiModels: s.api_models.map((m) => ({ ...m, api_key: '' }))
     }
   }
+}
+
+// Board health tracking
+
+export function getBoardHealth(): Record<string, number[]> {
+  return loadStore().board_health
+}
+
+export function recordBoardResults(name: string, totalFound: number): void {
+  const s = loadStore()
+  if (!s.board_health) s.board_health = {}
+  const history = s.board_health[name] || []
+  history.push(totalFound)
+  // Keep only the last 5 results
+  if (history.length > 5) history.splice(0, history.length - 5)
+  s.board_health[name] = history
+  persistStore()
 }
 
 // AI Queue

@@ -1,4 +1,4 @@
-import { createJob, findDuplicateJob, getSeenUrls, getSettings, listJobs } from './database'
+import { createJob, findDuplicateJob, getSeenUrls, getSettings, listJobs, recordBoardResults, JobBlacklistedError } from './database'
 import { decodeEntities } from './utils'
 import { scrapeJobFromUrl } from './jobScraper'
 import { fetchHtmlViaBrowser, isChallengePage } from './browserScraper'
@@ -12,7 +12,7 @@ interface BoardConfig {
   useBrowser: boolean
 }
 
-const BOARDS: BoardConfig[] = [
+export const BOARDS: BoardConfig[] = [
   {
     name: 'LinkedIn',
     searchUrl: (k, l) => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(k)}${l ? `&location=${encodeURIComponent(l)}` : ''}`,
@@ -648,6 +648,9 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
     scanSeenUrlsSet.add(dk)
     return { action: 'added', job }
   } catch (err) {
+    if (err instanceof JobBlacklistedError) {
+      return { action: 'skipped', reason: 'Previously deleted with low fit' }
+    }
     return { action: 'error', reason: `Create failed: ${err instanceof Error ? err.message : 'Unknown'}` }
   }
 }
@@ -748,13 +751,40 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
 
   // Process boards with limited concurrency (2 at a time), for each location
   const BOARD_CONCURRENCY = 2
+  const selectedBoards = filters?.boards && filters.boards.length > 0
+    ? BOARDS.filter((b) => filters.boards!.includes(b.name))
+    : BOARDS
+  // Track per-board totals across locations for health recording
+  const boardTotals = new Map<string, { found: number; errored: boolean }>()
   for (const location of locations) {
     if (location) progress(`Searching in: ${location}`)
-    for (let i = 0; i < BOARDS.length; i += BOARD_CONCURRENCY) {
-      const chunk = BOARDS.slice(i, i + BOARD_CONCURRENCY)
-      await Promise.allSettled(chunk.map(board => processBoard(board, location)))
+    for (let i = 0; i < selectedBoards.length; i += BOARD_CONCURRENCY) {
+      const chunk = selectedBoards.slice(i, i + BOARD_CONCURRENCY)
+      const results = await Promise.allSettled(chunk.map(board => processBoard(board, location)))
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j]
+        const boardName = chunk[j].name
+        const totals = boardTotals.get(boardName) || { found: 0, errored: false }
+        if (r.status === 'fulfilled') {
+          totals.found += r.value.found
+          if (r.value.error) totals.errored = true
+        } else {
+          totals.errored = true
+        }
+        boardTotals.set(boardName, totals)
+      }
     }
   }
+  // Record per-board health (-1 means errored with no listings)
+  for (const [name, totals] of boardTotals) {
+    recordBoardResults(name, totals.errored && totals.found === 0 ? -1 : totals.found)
+  }
+
+  // Filter out boards with no activity from the returned result (we already
+  // deduped in the frontend, but keep this consistent server-side)
+  result.boards = result.boards.filter(
+    (b) => b.found > 0 || b.added > 0 || b.skipped > 0 || !!b.error
+  )
 
   return result
 }

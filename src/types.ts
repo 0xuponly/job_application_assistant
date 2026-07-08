@@ -105,6 +105,7 @@ export interface Settings {
   base_cv: string
   job_search_keywords: string
   job_search_location: string
+  deleted_jobs_cap: number
 }
 
 export interface DashboardStats {

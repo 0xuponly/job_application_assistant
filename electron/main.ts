@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import * as db from './database'
 import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocumentContent, RateLimitError } from './ai'
 import { scrapeJobFromUrl } from './jobScraper'
-import { scanAllBoards, scoreCompatibility } from './jobSearch'
+import { scanAllBoards, scoreCompatibility, BOARDS } from './jobSearch'
 import { startQueueProcessor, stopQueueProcessor, enqueue } from './aiQueue'
 import type {
   ApiModelConfig,
@@ -368,6 +368,11 @@ ${htmlBody}
 
   // AI Queue
   ipcMain.handle('aiQueue:list', () => db.getAIQueue())
+
+  ipcMain.handle('boards:list', () => {
+    return BOARDS.map((b) => ({ name: b.name, useBrowser: b.useBrowser }))
+  })
+  ipcMain.handle('boards:health', () => db.getBoardHealth())
   ipcMain.handle('aiQueue:retry', (_e, id: number) => {
     db.updateAIQueueItem(id, { status: 'pending', nextRetryAt: Date.now(), lastError: undefined })
     return db.getAIQueue()

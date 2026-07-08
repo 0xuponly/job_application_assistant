@@ -25,6 +25,9 @@ export default function ScanJobsPage() {
   const [keywords, setKeywords] = useState('')
   const [location, setLocation] = useState('')
   const [workType, setWorkType] = useState<WorkType>('any')
+  const [allBoards, setAllBoards] = useState<{ name: string; useBrowser: boolean }[]>([])
+  const [selectedBoards, setSelectedBoards] = useState<Set<string>>(new Set())
+  const [boardHealth, setBoardHealth] = useState<Record<string, number[]>>({})
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
   const [entries, setEntries] = useState<ProgressEntry[]>([])
@@ -83,6 +86,23 @@ export default function ScanJobsPage() {
       if (timerRef.current) clearInterval(timerRef.current)
       timerRef.current = null
     }
+  }, [])
+
+  // Load available boards and health data
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([api.listBoards(), api.getBoardHealth()])
+      .then(([boards, health]) => {
+        if (cancelled) return
+        setAllBoards(boards)
+        setBoardHealth(health)
+        // Default: all selected
+        setSelectedBoards(new Set(boards.map((b) => b.name)))
+      })
+      .catch((err) => {
+        console.error('Failed to load boards/health:', err)
+      })
+    return () => { cancelled = true }
   }, [])
 
   // Default the location to the user's preferred location from settings
@@ -152,9 +172,12 @@ export default function ScanJobsPage() {
       const r = await api.scanBoards({
         keywords: keywords || undefined,
         location: location || undefined,
-        workType
+        workType,
+        boards: selectedBoards.size < allBoards.length ? Array.from(selectedBoards) : undefined
       })
       if (mountedRef.current) setResult(r)
+      // Refresh health data after scan completes
+      api.getBoardHealth().then((h) => { if (mountedRef.current) setBoardHealth(h) })
     } catch (err) {
       if (mountedRef.current) {
         alert(`Scan failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -209,9 +232,71 @@ export default function ScanJobsPage() {
             ))}
           </div>
         </div>
+        <div className="form-group">
+          <label>
+            Job boards ({selectedBoards.size} of {allBoards.length} selected)
+          </label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setSelectedBoards(new Set(allBoards.map((b) => b.name)))}
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setSelectedBoards(new Set())}
+            >
+              Deselect all
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', padding: 8, background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--border)' }}>
+            {allBoards.map((b) => {
+              const checked = selectedBoards.has(b.name)
+              const history = boardHealth[b.name] || []
+              // Red if the last 5 results were all zero/errored
+              const allBad = history.length >= 5 && history.every((h) => h <= 0)
+              return (
+                <label
+                  key={b.name}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 13,
+                    color: allBad ? '#ef4444' : undefined,
+                    fontWeight: allBad ? 600 : undefined,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                      setSelectedBoards((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(b.name)) next.delete(b.name)
+                        else next.add(b.name)
+                        return next
+                      })
+                    }}
+                  />
+                  <span>{b.name}</span>
+                  {allBad && (
+                    <span style={{ fontSize: 10, color: '#ef4444' }}>(5 empty scans)</span>
+                  )}
+                </label>
+              )
+            })}
+          </div>
+        </div>
         <div style={{ marginTop: 12 }}>
-          <button className="btn btn-primary" onClick={handleScan} disabled={scanning}>
-            {scanning ? 'Scanning boards...' : 'Scan all boards'}
+          <button className="btn btn-primary" onClick={handleScan} disabled={scanning || selectedBoards.size === 0}>
+            {scanning ? 'Scanning boards...' : selectedBoards.size < allBoards.length
+              ? `Scan ${selectedBoards.size} selected board${selectedBoards.size === 1 ? '' : 's'}`
+              : 'Scan all boards'}
           </button>
         </div>
       </div>
@@ -300,7 +385,7 @@ export default function ScanJobsPage() {
           </table>
           {result.errors.length > 0 && (
             <div style={{ marginTop: 8, fontSize: 12, color: '#ef4444' }}>
-              {result.errors.map((e, i) => <div key={i}>{e}</div>)}
+              {Array.from(new Set(result.errors)).map((e, i) => <div key={i}>{e}</div>)}
             </div>
           )}
           {result.totalAdded > 0 && (

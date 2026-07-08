@@ -72,6 +72,8 @@ export interface Api {
   clearAllData: () => Promise<void>
   exportAllData: () => Promise<string | null>
   listAIQueue: () => Promise<AIQueueItem[]>
+  listBoards: () => Promise<{ name: string; useBrowser: boolean }[]>
+  getBoardHealth: () => Promise<Record<string, number[]>>
   retryAIQueueItem: (id: number) => Promise<AIQueueItem[]>
   removeAIQueueItem: (id: number) => Promise<AIQueueItem[]>
   openExternal: (url: string) => Promise<void>
@@ -133,6 +135,8 @@ const api: Api = {
   clearAllData: () => ipcRenderer.invoke('db:clearAllData'),
   exportAllData: () => ipcRenderer.invoke('db:exportAll'),
   listAIQueue: () => ipcRenderer.invoke('aiQueue:list'),
+  listBoards: () => ipcRenderer.invoke('boards:list'),
+  getBoardHealth: () => ipcRenderer.invoke('boards:health'),
   retryAIQueueItem: (id) => ipcRenderer.invoke('aiQueue:retry', id),
   removeAIQueueItem: (id) => ipcRenderer.invoke('aiQueue:remove', id),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),

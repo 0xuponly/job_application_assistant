@@ -73,6 +73,8 @@ export interface Api {
   openExternal: (url: string) => Promise<void>
   getSecurityStatus: () => Promise<{ mode: 'sealed' | 'plaintext-fallback' | 'uninitialized' }>
   listAIQueue: () => Promise<AIQueueItem[]>
+  listBoards: () => Promise<{ name: string; useBrowser: boolean }[]>
+  getBoardHealth: () => Promise<Record<string, number[]>>
   retryAIQueueItem: (id: number) => Promise<AIQueueItem[]>
   removeAIQueueItem: (id: number) => Promise<AIQueueItem[]>
 }

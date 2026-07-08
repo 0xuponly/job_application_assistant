@@ -113,6 +113,7 @@ export interface Settings {
   base_cv: string
   job_search_keywords: string
   job_search_location: string
+  deleted_jobs_cap: number
 }
 
 export interface DashboardStats {
@@ -159,6 +160,14 @@ export interface ScanFilters {
   keywords?: string
   location?: string
   workType?: WorkType
+  boards?: string[] // names of boards to scan; undefined = scan all
+}
+
+export interface BoardHealth {
+  name: string
+  // Last 5 scan results (oldest first). Each is the total found across locations
+  // for that scan, or -1 if the scan errored out.
+  history: number[]
 }
 
 export interface ScanBoardResult {
@@ -199,4 +208,16 @@ export interface AIQueueItem {
   lastError?: string
   createdAt: number
   nextRetryAt: number
+}
+
+export interface DeletedJobRecord {
+  // Key fields that identify the job (enough to dedup against future scans)
+  url: string | null
+  title: string
+  company: string
+  location: string | null
+  // Last known fit score (0-1). If < 0.3, the user likely deleted because it was
+  // low-fit, so future scans should not re-add this job.
+  score: number | null
+  deletedAt: number
 }

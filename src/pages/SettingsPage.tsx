@@ -21,6 +21,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     Promise.all([api.getSettings(), api.listApiModels(), api.getSecurityStatus()]).then(([s, m, sec]) => {
+      // Ensure new settings fields default sensibly for users on older stores
+      if (typeof s.deleted_jobs_cap !== 'number' || s.deleted_jobs_cap <= 0) {
+        s.deleted_jobs_cap = 50000
+      }
       setSettings(s)
       setModels(m.length > 0 ? m : PRESETS.map((p, i) => ({ id: `model-${i + 1}`, ...p.model })))
       setEncryptionMode(sec.mode)
@@ -40,8 +44,8 @@ export default function SettingsPage() {
     }
   }
 
-  function update(field: keyof Settings, value: string) {
-    setSettings((prev) => (prev ? { ...prev, [field]: value } : prev))
+  function update(field: keyof Settings, value: string | number) {
+    setSettings((prev) => (prev ? { ...prev, [field]: value as never } : prev))
   }
 
   function updateModel(i: number, field: keyof ApiModelConfig, value: string) {
@@ -117,6 +121,22 @@ export default function SettingsPage() {
               placeholder="e.g. London, Remote"
             />
           </div>
+        </div>
+        <div className="form-group" style={{ marginTop: 4 }}>
+          <label>Deleted-jobs blacklist cap</label>
+          <input
+            type="number"
+            min={100}
+            step={1000}
+            value={settings.deleted_jobs_cap}
+            onChange={(e) => {
+              const n = parseInt(e.target.value, 10)
+              if (!isNaN(n) && n > 0) update('deleted_jobs_cap', n)
+            }}
+          />
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+            How many manually-deleted low-fit jobs to remember so the scanner doesn't re-add them. Older entries are dropped when this cap is exceeded.
+          </p>
         </div>
       </div>
 
