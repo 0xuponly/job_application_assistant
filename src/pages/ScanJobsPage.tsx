@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import type { ScanResult, WorkType } from '../types'
+import { BOARD_TYPES } from '../boardTypes'
 
 function formatDuration(s: number): string {
   const h = Math.floor(s / 3600)
@@ -236,7 +237,7 @@ export default function ScanJobsPage() {
           <label>
             Job boards ({selectedBoards.size} of {allBoards.length} selected)
           </label>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
             <button
               type="button"
               className="btn btn-sm btn-secondary"
@@ -251,6 +252,68 @@ export default function ScanJobsPage() {
             >
               Deselect all
             </button>
+            <span style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+            {(() => {
+              const frequentErrors = allBoards
+                .filter((b) => {
+                  const history = boardHealth[b.name] || []
+                  return history.length >= 5 && history.every((h) => h <= 0)
+                })
+                .map((b) => b.name)
+              if (frequentErrors.length === 0) return null
+              const allSelected = frequentErrors.every((n) => selectedBoards.has(n))
+              const anySelected = frequentErrors.some((n) => selectedBoards.has(n))
+              const label = allSelected
+                ? 'Deselect Frequent Errors'
+                : anySelected
+                  ? 'Select all Frequent Errors'
+                  : 'Select Frequent Errors'
+              return (
+                <button
+                  key="frequent-errors"
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setSelectedBoards((prev) => {
+                    const next = new Set(prev)
+                    if (allSelected) {
+                      for (const name of frequentErrors) next.delete(name)
+                    } else {
+                      for (const name of frequentErrors) next.add(name)
+                    }
+                    return next
+                  })}
+                >
+                  {label}
+                </button>
+              )
+            })()}
+            {BOARD_TYPES.map((t) => {
+              const allSelected = t.boards.every((n) => selectedBoards.has(n))
+              const anySelected = t.boards.some((n) => selectedBoards.has(n))
+              const label = allSelected
+                ? `Deselect ${t.label}`
+                : anySelected
+                  ? `Select all ${t.label}`
+                  : `Select ${t.label}`
+              return (
+                <button
+                  key={t.label}
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setSelectedBoards((prev) => {
+                    const next = new Set(prev)
+                    if (allSelected) {
+                      for (const name of t.boards) next.delete(name)
+                    } else {
+                      for (const name of t.boards) next.add(name)
+                    }
+                    return next
+                  })}
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
           <div style={{
             display: 'grid',
@@ -346,39 +409,41 @@ export default function ScanJobsPage() {
         </div>
       )}
 
-      {result && (
-        <div className="card" style={{ maxWidth: 800, marginTop: 16 }}>
-          <h3 style={{ marginBottom: 12 }}>
-            Found {result.totalFound} postings — added {result.totalAdded}, skipped {result.totalSkipped}
-          </h3>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Board</th>
-                <th>Found</th>
-                <th>Added</th>
-                <th>Skipped</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                // Merge duplicates from multi-location scans: sum counts per board
-                const merged = new Map<string, { board: string; found: number; added: number; skipped: number; error?: string }>()
-                for (const b of result.boards) {
-                  const existing = merged.get(b.board)
-                  if (existing) {
-                    existing.found += b.found
-                    existing.added += b.added
-                    existing.skipped += b.skipped
-                    if (b.error && !existing.error) existing.error = b.error
-                  } else {
-                    merged.set(b.board, { ...b })
-                  }
-                }
-                return Array.from(merged.values())
-                  .filter((b) => b.found > 0 || b.added > 0 || b.skipped > 0 || !!b.error)
-                  .map((b) => (
+      {result && (() => {
+        // Merge duplicates from multi-location scans: sum counts per board
+        const merged = new Map<string, { board: string; found: number; added: number; skipped: number; error?: string }>()
+        for (const b of result.boards) {
+          const existing = merged.get(b.board)
+          if (existing) {
+            existing.found += b.found
+            existing.added += b.added
+            existing.skipped += b.skipped
+            if (b.error && !existing.error) existing.error = b.error
+          } else {
+            merged.set(b.board, { ...b })
+          }
+        }
+        const rows = Array.from(merged.values()).filter(
+          (b) => b.found > 0 || b.added > 0 || b.skipped > 0 || !!b.error
+        )
+        if (rows.length === 0) return null
+        return (
+          <div className="card" style={{ maxWidth: 800, marginTop: 16 }}>
+            <h3 style={{ marginBottom: 12 }}>
+              Found {result.totalFound} postings — added {result.totalAdded}, skipped {result.totalSkipped}
+            </h3>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Board</th>
+                  <th>Found</th>
+                  <th>Added</th>
+                  <th>Skipped</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((b) => (
                   <tr key={b.board}>
                     <td><strong>{b.board}</strong></td>
                     <td>{b.found}</td>
@@ -388,22 +453,22 @@ export default function ScanJobsPage() {
                       {b.error && <span style={{ color: '#ef4444', fontSize: 12 }}>{b.error}</span>}
                     </td>
                   </tr>
-                ))
-              })()}
-            </tbody>
-          </table>
-          {result.errors.length > 0 && (
-            <div style={{ marginTop: 8, fontSize: 12, color: '#ef4444' }}>
-              {Array.from(new Set(result.errors)).map((e, i) => <div key={i}>{e}</div>)}
-            </div>
-          )}
-          {result.totalAdded > 0 && (
-            <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-              New jobs added. Go to <strong>Job Board</strong> to view and manage them.
-            </p>
-          )}
-        </div>
-      )}
+                ))}
+              </tbody>
+            </table>
+            {result.errors.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#ef4444' }}>
+                {Array.from(new Set(result.errors)).map((e, i) => <div key={i}>{e}</div>)}
+              </div>
+            )}
+            {result.totalAdded > 0 && (
+              <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
+                New jobs added. Go to <strong>Job Board</strong> to view and manage them.
+              </p>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
