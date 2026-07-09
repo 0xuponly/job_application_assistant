@@ -97,14 +97,15 @@ export async function fetchHtmlViaBrowser(url: string): Promise<string> {
       }
     })
 
-    // Inject the stealth script at document-start, before any site scripts run
-    ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
-      ses.webContents.executeJavaScriptInIsolatedWorld(
-        0,
-        [{ code: STEALTH_SCRIPT }]
-      ).catch(() => {})
-      callback({})
-    })
+    // Inject the stealth script as early as possible (before page scripts run).
+    // 'will-frame-navigate' fires before any frame's JS executes.
+    const injectStealth = (e: Electron.Event, details: Electron.Event) => {
+      if (!win.isDestroyed()) {
+        win.webContents.executeJavaScript(STEALTH_SCRIPT, true).catch(() => {})
+      }
+    }
+    win.webContents.on('will-frame-navigate', injectStealth)
+    win.webContents.on('did-start-loading', injectStealth)
 
     ses.webRequest.onBeforeSendHeaders((details, callback) => {
       details.requestHeaders['User-Agent'] = ua

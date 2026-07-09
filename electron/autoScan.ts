@@ -83,6 +83,7 @@ async function runAutoScan() {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send('scan:progress', `[auto-scan] Complete: found ${result.totalFound}, added ${result.totalAdded}, skipped ${result.totalSkipped}`)
+        win.webContents.send('scan:complete', result)
       }
     }
     scheduleNextAutoScan()

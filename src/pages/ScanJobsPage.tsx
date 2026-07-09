@@ -40,6 +40,23 @@ export default function ScanJobsPage() {
   const mountedRef = useRef(true)
   const scanActiveRef = useRef(false)
 
+  // Listen for scan completion (works whether or not the user is on this tab)
+  useEffect(() => {
+    let cancelled = false
+    const unsub = api.onScanComplete((result) => {
+      if (cancelled || !mountedRef.current) return
+      setResult(result)
+      setScanning(false)
+      setElapsed(Math.round((typeof result.durationMs === 'number' && Number.isFinite(result.durationMs) ? result.durationMs : 0) / 1000))
+      // Refresh health data after a completed scan
+      api.getBoardHealth().then((h) => { if (mountedRef.current) setBoardHealth(h) })
+    })
+    return () => {
+      cancelled = true
+      unsub()
+    }
+  }, [])
+
   // On mount, re-attach to an in-progress or completed scan
   useEffect(() => {
     let cancelled = false
