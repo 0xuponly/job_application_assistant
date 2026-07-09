@@ -445,23 +445,38 @@ export default function ScanJobsPage() {
           </p>
           <div style={{ fontSize: 12, lineHeight: 1.7, maxHeight: 320, overflowY: 'auto' }}>
             {(() => {
-              const latestBlueId = entries.filter(e => e.msg.startsWith('Scanning')).at(-1)?.id ?? -1
-              return entries.slice(-20).map((e) => {
-                const isBlue = e.msg.startsWith('Scanning')
-                const isCurrentBlue = isBlue && e.id === latestBlueId
-                const shouldFade = !e.msg.startsWith('✓') && !isCurrentBlue
-                return (
-                  <div
-                    key={e.id}
-                    style={{
-                      color: e.msg.startsWith('✓') ? '#22c55e' : isBlue ? '#3b82f6' : 'var(--text-muted)',
-                      animation: shouldFade ? 'fade-grey-line 5s linear forwards' : undefined
-                    }}
-                  >
-                    {e.msg}
-                  </div>
-                )
-              })
+              // Show all green (✓) lines + all blue (Scanning) lines, but only the
+              // most recent grey line. Each new grey line replaces the previous
+              // one in-place instead of stacking.
+              const greens = entries.filter((e) => e.msg.startsWith('✓'))
+              const blues = entries.filter((e) => e.msg.startsWith('Scanning'))
+              const greys = entries.filter((e) => !e.msg.startsWith('✓') && !e.msg.startsWith('Scanning'))
+              const latestGrey = greys.at(-1)
+              return (
+                <>
+                  {[...blues, ...greens].map((e) => (
+                    <div
+                      key={e.id}
+                      style={{
+                        color: e.msg.startsWith('✓') ? '#22c55e' : '#3b82f6'
+                      }}
+                    >
+                      {e.msg}
+                    </div>
+                  ))}
+                  {latestGrey && (
+                    <div
+                      key={latestGrey.id}
+                      style={{
+                        color: 'var(--text-muted)',
+                        animation: 'fade-grey-line 5s linear forwards'
+                      }}
+                    >
+                      {latestGrey.msg}
+                    </div>
+                  )}
+                </>
+              )
             })()}
           </div>
         </div>
