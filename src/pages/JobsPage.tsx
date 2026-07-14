@@ -1430,7 +1430,7 @@ export default function JobsPage() {
           </div>
           <div className="form-group">
             <label>Salary range</label>
-            <input value={form.salary_range} onChange={(e) => updateField('salary_range', e.target.value)} />
+            <input value={form.salary_range ?? ''} onChange={(e) => updateField('salary_range', e.target.value)} />
           </div>
         </div>
         <div className="form-group">
