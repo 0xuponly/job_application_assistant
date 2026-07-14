@@ -424,6 +424,28 @@ async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: stri
   extractSalaryAndMetadata(result, html)
   extractPostingDateFromHtml(result, html)
 
+  // Vancouver Jobs: BC public-sector pay grades (Pay Grade RNG-, EXM-,
+  // etc.) quote an hourly rate but suffix it with "per annum" —
+  // government HR phrasing for "the annualized equivalent of the hourly
+  // rate." If we left the literal "per annum" in the saved string,
+  // normalizeSalary would detectPeriod='year' and store the hourly
+  // rate as if it were annual ($60.26 - $75.32 instead of ~$120k).
+  // Rewrite the period marker to "per hour" so annualization kicks in.
+  // MUST run after extractSalaryAndMetadata (which sets salary_range)
+  // and the description must be populated for the Pay Grade label
+  // check. Other sources that say "per annum" without the Pay Grade
+  // prefix are left alone.
+  if (
+    result.source === 'Vancouver Jobs' &&
+    result.salary_range &&
+    result.description &&
+    /pay\s*grade\s+[A-Z]{2,4}-/i.test(result.description)
+  ) {
+    result.salary_range = result.salary_range
+      .replace(/\s*per\s*annum\b/gi, ' per hour')
+      .replace(/\s*annually\b/gi, ' per hour')
+  }
+
   if (result.title) {
     result.title = cleanTitle(result.title, result.company, result.source)
   }
@@ -893,26 +915,10 @@ function applyVancouverJobs(result: ScrapedJob, html: string): void {
     if (regionMatch && result.location) result.location += `, ${  decodeHtmlEntities(regionMatch[1].trim())}`
   }
 
-  // BC public-sector pay grades (Pay Grade RNG-, EXM-, etc.) quote an
-  // hourly rate but suffix it with "per annum" — government HR phrasing
-  // for "the annualized equivalent of the hourly rate." If we left the
-  // literal "per annum" in the saved string, normalizeSalary would
-  // detectPeriod='year' and store the hourly rate as if it were
-  // annual ($60.26 - $75.32 instead of ~$120k). Rewrite the period
-  // marker to "per hour" so annualization kicks in correctly. The
-  // trigger is on the description (where the "Pay Grade RNG-XXX:" label
-  // actually appears), not on the salary string itself, which only
-  // contains the amount + period suffix. Other sources that say
-  // "per annum" without the Pay Grade prefix are left alone.
-  if (
-    result.salary_range &&
-    result.description &&
-    /pay\s*grade\s+[A-Z]{2,4}-/i.test(result.description)
-  ) {
-    result.salary_range = result.salary_range
-      .replace(/\s*per\s*annum\b/gi, ' per hour')
-      .replace(/\s*annually\b/gi, ' per hour')
-  }
+  // The "per annum" → "per hour" rewrite for BC pay-grade hourly rates
+  // lives in the post-processing block (after extractSalaryAndMetadata)
+  // — it needs salary_range to already be populated, which doesn't
+  // happen until after this function returns.
 }
 
 function applyMonster(result: ScrapedJob, html: string): void {
