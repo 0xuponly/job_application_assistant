@@ -274,15 +274,21 @@ const SMALL_WORDS = new Set([
 /**
  * Returns true for tokens that should be passed through unchanged because
  * they have intentional casing or non-letter content. Catches:
- *   - mixed-case with internal uppercase: "iOS", "GitHub", "McDonalds"
- *   - any non-letter content: "v2", "SQL2008", "C++", "Node.js"
- *   - apostrophes are also treated as letter content (so "Sum's" goes
- *     through the regular case path and becomes "Sum's", not "Sum's")
+ *   - genuine mixed case: "iOS", "GitHub", "McDonalds" (has both upper
+ *     and lower letters)
+ *   - all-non-letters: "v2", "SQL2008", "C++", "Node.js" (only digits /
+ *     punctuation / symbols, no plain english word)
+ *
+ * All-caps tokens ("SENIOR", "ACME") and all-lower tokens ("senior",
+ * "acme") are NOT preserved — they go through the case path so they get
+ * normalized. Apostrophes are treated as letter content so "Sum's"
+ * becomes "Sum's" via the regular case path, not preserved verbatim.
  */
 function shouldPreserveToken(word: string): boolean {
-  if (!/[a-z]/.test(word)) return true              // no lowercase letter => not a plain english word
-  if (/[A-Z]/.test(word.slice(1))) return true       // uppercase in the middle => mixed case
-  if (/[^A-Za-z'’]/.test(word)) return true          // any non-letter non-apostrophe => preserve
+  const hasLower = /[a-z]/.test(word)
+  const hasUpper = /[A-Z]/.test(word)
+  if (hasLower && hasUpper) return true
+  if (!hasLower && !hasUpper) return true
   return false
 }
 
