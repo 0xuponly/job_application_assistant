@@ -39,7 +39,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        Apply<span>Assistant</span>
+        Flow<span>Job</span>
       </div>
       <nav>
         {NAV_ITEMS.map((item) => (
