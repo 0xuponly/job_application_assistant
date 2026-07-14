@@ -241,7 +241,7 @@ textarea {
 
 .table th.col-check,
 .table th.col-fit {
-  padding: 6px 4px;
+  padding: 5px 12px;
 }
 
 .table th.col-check {
@@ -342,7 +342,6 @@ textarea {
 }
 
 .table .col-check {
-  padding: 6px 4px;
   text-align: center;
 }
 
@@ -354,18 +353,7 @@ textarea {
 }
 
 .table .col-fit {
-  padding: 6px 4px;
   text-align: center;
-}
-
-.table .col-fit .filter-header span {
-  font-size: 10px;
-}
-
-.table .col-fit .filter-dropdown-btn {
-  font-size: 9px;
-  padding: 1px 3px;
-  gap: 2px;
 }
 
 .table .col-fit .fit-dot {
