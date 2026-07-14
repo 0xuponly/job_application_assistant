@@ -10,6 +10,12 @@ export type JobStatus =
   | 'rejected'
   | 'withdrawn'
 
+export interface FitBreakdown {
+  matched_skills: string[]
+  missing_skills: string[]
+  experience_years_match: boolean | null
+}
+
 export interface Job {
   id: number
   title: string
@@ -26,6 +32,9 @@ export interface Job {
   source: string | null
   status: JobStatus
   score: number | null
+  fit_rationale: string | null
+  fit_breakdown: FitBreakdown | null
+  fit_score_version: number | null
   notes: string | null
   date_posted: string | null
   last_updated: string | null

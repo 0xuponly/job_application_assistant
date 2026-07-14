@@ -1,10 +1,11 @@
 import { getSettings, listApiModels, getDocument, updateDocument, updateDocumentVerification, listApplications, updateApplication } from './database'
-import type { ApiModelConfig, Job, TailorRequest, TailorResult, VerificationResult } from './types'
+import type { ApiModelConfig, FitBreakdown, Job, TailorRequest, TailorResult, VerificationResult } from './types'
 import { createDocument, getJob } from './database'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import mammoth from 'mammoth'
+import { scoreCompatibility, extractEducationLevel, extractYearsExperience } from './fitHeuristic'
 
 export class RateLimitError extends Error {
   constructor(message: string) {
@@ -488,4 +489,150 @@ Rewrite only this section's body.`
   updateDocument(documentId, doc.title, updatedContent)
 
   return updatedContent
+}
+
+export interface JobFitResult {
+  score: number
+  rationale: string
+  breakdown: FitBreakdown
+  source: 'llm' | 'heuristic'
+}
+
+function emptyBreakdown(): FitBreakdown {
+  return { matched_skills: [], missing_skills: [], experience_years_match: null }
+}
+
+function heuristicFit(input: {
+  title: string
+  description: string | null
+  requirements: string | null
+  baseCv: string
+  cvEduLevel: number
+  cvYears: number
+}): JobFitResult {
+  const score = scoreCompatibility(input.title, input.description || '', input.baseCv)
+  return {
+    score,
+    rationale: `Heuristic score based on keyword overlap. CV education level: ${input.cvEduLevel || 'unspecified'}, years experience: ${input.cvYears || 'unspecified'}.`,
+    breakdown: emptyBreakdown(),
+    source: 'heuristic'
+  }
+}
+
+/**
+ * Score how well a job matches the candidate's base CV.
+ *
+ * Calls the configured LLM to perform a semantic comparison of the candidate's
+ * actual experience against the job's requirements. On rate-limit or other
+ * failure, falls back to a deterministic keyword heuristic so the user always
+ * gets a number.
+ */
+export async function scoreJobFit(input: {
+  title: string
+  description: string | null
+  requirements: string | null
+  baseCv: string
+}): Promise<JobFitResult> {
+  const cvEduLevel = extractEducationLevel(input.baseCv)
+  const cvYears = extractYearsExperience(input.baseCv)
+
+  const fallback = (): JobFitResult =>
+    heuristicFit({ ...input, cvEduLevel, cvYears })
+
+  if (!input.baseCv) {
+    return {
+      score: 0.5,
+      rationale: 'No base CV configured; returning neutral score.',
+      breakdown: emptyBreakdown(),
+      source: 'heuristic'
+    }
+  }
+
+  const systemPrompt = `You are an expert technical recruiter scoring how well a candidate's CV matches a specific job posting.
+
+You will receive:
+- The candidate's BASE CV (their full background — work history, education, skills, projects).
+- The job title, description, and explicit requirements.
+- Optional parsed context: the candidate's detected education level (0-5, higher=more advanced) and years of experience extracted from the CV. Treat these as hints, not ground truth.
+
+Your job: return a fit score between 0.0 and 1.0, where:
+- 1.0 = exceptional match, candidate clearly meets or exceeds all must-have requirements.
+- 0.6-0.8 = strong match on most requirements, minor gaps.
+- 0.3-0.5 = partial match, several important requirements unmet.
+- 0.0-0.2 = poor match, candidate's experience is largely unrelated.
+
+RULES (these override anything else):
+- Only credit the candidate for skills and experience that are EVIDENT in the base CV. Do not invent.
+- Required years of experience, education level, and must-have skills are weighted heavily. Nice-to-haves are weighted lightly.
+- Do NOT penalize a candidate for not having a specific technology if they have an adjacent/equivalent one AND the posting does not strictly require that exact tool.
+- Do NOT penalize a candidate for not meeting an exact degree requirement if their equivalent professional experience clearly compensates.
+- A job with a "5+ years" requirement does not automatically disqualify a candidate with 3 years of directly relevant, senior-level experience.
+- Be honest. If the job is senior/staff level and the candidate is junior, the score should reflect that.
+
+OUTPUT: a single JSON object, no markdown, no commentary:
+{"score": <0.0-1.0>, "rationale": "<one short sentence, <= 30 words, explaining the score>", "matched_skills": ["<short skill>", ...], "missing_skills": ["<short skill>", ...], "experience_years_match": <true | false | null>}
+
+- matched_skills / missing_skills: list up to 8 each, focused on the most decision-relevant skills mentioned in the posting. Empty arrays if not applicable.
+- experience_years_match: true if the candidate's years of relevant experience plausibly meet the posting's requirement, false if clearly short, null if the posting does not specify a years requirement.`
+
+  const userPrompt = `JOB TITLE: ${input.title}
+
+JOB DESCRIPTION:
+${input.description || '(none)'}
+
+JOB REQUIREMENTS:
+${input.requirements || '(none)'}
+
+CANDIDATE BASE CV:
+${input.baseCv}
+
+PARSED CONTEXT (hints only — verify against the CV above):
+- Detected CV education level: ${cvEduLevel > 0 ? cvEduLevel : 'unspecified'}
+- Detected CV years of experience: ${cvYears > 0 ? cvYears : 'unspecified'}
+
+Return the JSON object now.`
+
+  try {
+    const result = await callAI(systemPrompt, userPrompt, 0.2, 20000)
+    const content = result.content || ''
+    // Try to locate a JSON object in the response (defensive against stray prose)
+    const match = content.match(/\{[\s\S]*\}/)
+    if (!match) return fallback()
+    const parsed = JSON.parse(match[0]) as {
+      score?: number
+      rationale?: string
+      matched_skills?: unknown
+      missing_skills?: unknown
+      experience_years_match?: unknown
+    }
+    const rawScore = Number(parsed.score)
+    if (!Number.isFinite(rawScore)) return fallback()
+    const score = Math.max(0, Math.min(1, rawScore))
+    const matched = Array.isArray(parsed.matched_skills)
+      ? parsed.matched_skills.filter((s): s is string => typeof s === 'string').slice(0, 8)
+      : []
+    const missing = Array.isArray(parsed.missing_skills)
+      ? parsed.missing_skills.filter((s): s is string => typeof s === 'string').slice(0, 8)
+      : []
+    const expMatch =
+      typeof parsed.experience_years_match === 'boolean'
+        ? parsed.experience_years_match
+        : null
+    const rationale =
+      typeof parsed.rationale === 'string' && parsed.rationale.trim().length > 0
+        ? parsed.rationale.trim().slice(0, 300)
+        : `LLM score ${score.toFixed(2)}.`
+    return {
+      score,
+      rationale,
+      breakdown: {
+        matched_skills: matched,
+        missing_skills: missing,
+        experience_years_match: expMatch
+      },
+      source: 'llm'
+    }
+  } catch {
+    return fallback()
+  }
 }

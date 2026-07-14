@@ -212,6 +212,22 @@ function loadStore(): Store {
         j.last_updated = j.created_at
         jobsMigrated = true
       }
+      if (j.fit_rationale === undefined) {
+        j.fit_rationale = null
+        jobsMigrated = true
+      }
+      if (j.fit_breakdown === undefined) {
+        j.fit_breakdown = null
+        jobsMigrated = true
+      }
+      if (j.fit_score_version === undefined) {
+        j.fit_score_version = null
+        jobsMigrated = true
+      }
+    }
+    if (typeof store.settings.cv_version !== 'number') {
+      store.settings.cv_version = 0
+      jobsMigrated = true
     }
     if (jobsMigrated) {
       persistStore()
@@ -333,6 +349,9 @@ export function createJob(input: CreateJobInput): Job {
     source: input.source ?? null,
     status: 'sourced',
     score: input.score !== undefined ? (input.score ?? null) : 0.5,
+    fit_rationale: input.fit_rationale ?? null,
+    fit_breakdown: input.fit_breakdown ?? null,
+    fit_score_version: input.fit_score_version ?? null,
     notes: input.notes ?? null,
     date_posted: input.date_posted ?? null,
     last_updated: now(),
@@ -374,6 +393,9 @@ export function updateJob(
     source: fields.source !== undefined ? (fields.source ?? null) : existing.source,
     status: fields.status ?? existing.status,
     score: fields.score !== undefined ? (fields.score ?? null) : existing.score,
+    fit_rationale: fields.fit_rationale !== undefined ? (fields.fit_rationale ?? null) : existing.fit_rationale,
+    fit_breakdown: fields.fit_breakdown !== undefined ? (fields.fit_breakdown ?? null) : existing.fit_breakdown,
+    fit_score_version: fields.fit_score_version !== undefined ? (fields.fit_score_version ?? null) : existing.fit_score_version,
     notes: fields.notes !== undefined ? (fields.notes ?? null) : existing.notes,
     date_posted: fields.date_posted !== undefined ? (fields.date_posted ?? null) : existing.date_posted,
     last_updated: fields.last_updated !== undefined ? (fields.last_updated ?? null) : existing.last_updated,
@@ -708,6 +730,25 @@ export function updateInterview(id: number, fields: Partial<Interview>): Intervi
   return s.interviews[idx]
 }
 
+// Fit scoring
+
+export function updateJobFit(
+  id: number,
+  fit: {
+    score: number
+    rationale: string
+    breakdown: { matched_skills: string[]; missing_skills: string[]; experience_years_match: boolean | null }
+    scoreVersion: number
+  }
+): Job {
+  return updateJob(id, {
+    score: fit.score,
+    fit_rationale: fit.rationale,
+    fit_breakdown: fit.breakdown,
+    fit_score_version: fit.scoreVersion
+  })
+}
+
 // Settings
 
 export function getSettings(): Settings {
@@ -727,6 +768,10 @@ export function updateSettings(partial: Partial<Settings>): Settings {
     if (value !== undefined) {
       s.settings[key] = value
     }
+  }
+  // If the base CV changed, bump cv_version so any cached fit scores can be invalidated.
+  if (partial.base_cv !== undefined) {
+    s.settings.cv_version = (typeof s.settings.cv_version === 'number' ? s.settings.cv_version : 0) + 1
   }
   persistStore()
   return getSettings()

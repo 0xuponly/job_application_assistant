@@ -15,6 +15,7 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
   const [application, setApplication] = useState<Application | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
   const [tailoring, setTailoring] = useState<'cv' | 'cover_letter' | null>(null)
+  const [recomputingFit, setRecomputingFit] = useState(false)
   const [showApply, setShowApply] = useState(false)
   const [applyMethod, setApplyMethod] = useState('Email')
   const [contactEmail, setContactEmail] = useState('')
@@ -402,6 +403,84 @@ export default function JobDetail({ job, onBack, onUpdate }: Props) {
             <div className="card" style={{ flex: '1 0 200px', padding: '8px 12px' }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Hiring manager</div>
               <div style={{ fontSize: 13 }}>{job.hiring_manager || '—'}</div>
+            </div>
+            <div className="card" style={{ flex: '1 0 120px', padding: '8px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Fit</div>
+                <button
+                  type="button"
+                  title="Recompute Fit"
+                  aria-label="Recompute Fit"
+                  onClick={async () => {
+                    if (recomputingFit) return
+                    setRecomputingFit(true)
+                    try {
+                      const updated = await api.recomputeFit(job.id)
+                      onUpdate(updated)
+                    } catch (err) {
+                      console.error('Recompute fit failed:', err)
+                      alert(`Recompute failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+                    } finally {
+                      setRecomputingFit(false)
+                    }
+                  }}
+                  disabled={recomputingFit}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: recomputingFit ? 'wait' : 'pointer',
+                    color: 'var(--text-muted)',
+                    fontSize: 12,
+                    padding: 0,
+                    lineHeight: 1
+                  }}
+                >
+                  {recomputingFit ? '…' : '↻'}
+                </button>
+              </div>
+              <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {job.score == null ? (
+                  <span>—</span>
+                ) : (
+                  <>
+                    <span
+                      className="fit-dot"
+                      style={{
+                        background:
+                          job.score >= 0.6 ? 'var(--success)' :
+                          job.score >= 0.3 ? 'var(--warning)' :
+                          'var(--danger)',
+                      }}
+                    />
+                    <span>{job.score.toFixed(2)}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                      ({job.score >= 0.6 ? 'High' : job.score >= 0.3 ? 'Medium' : 'Low'})
+                    </span>
+                  </>
+                )}
+              </div>
+              {job.fit_rationale && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
+                  {job.fit_rationale}
+                </div>
+              )}
+              {job.fit_breakdown && (job.fit_breakdown.matched_skills.length > 0 || job.fit_breakdown.missing_skills.length > 0 || job.fit_breakdown.experience_years_match != null) && (
+                <div style={{ fontSize: 10, marginTop: 6, lineHeight: 1.4, color: 'var(--text-muted)' }}>
+                  {job.fit_breakdown.matched_skills.length > 0 && (
+                    <div>
+                      <span style={{ color: 'var(--success)' }}>✓</span> {job.fit_breakdown.matched_skills.slice(0, 5).join(', ')}
+                    </div>
+                  )}
+                  {job.fit_breakdown.missing_skills.length > 0 && (
+                    <div>
+                      <span style={{ color: 'var(--danger)' }}>✗</span> {job.fit_breakdown.missing_skills.slice(0, 5).join(', ')}
+                    </div>
+                  )}
+                  {job.fit_breakdown.experience_years_match === false && (
+                    <div style={{ color: 'var(--warning)' }}>Years experience below posting's stated requirement</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

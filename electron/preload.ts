@@ -29,7 +29,8 @@ export interface Api {
   searchJobs: (query: string) => Promise<Job[]>
   importJobFromUrl: (url: string) => Promise<Job>
   scanBoards: (filters?: ScanFilters) => Promise<ScanResult>
-  batchScore: () => Promise<void>
+  batchScore: () => Promise<{ updated: number }>
+  recomputeFit: (id: number) => Promise<Job>
   backfillJobDates: () => Promise<number>
   listDocuments: (jobId?: number) => Promise<Document[]>
   createDocument: (type: 'cv' | 'cover_letter', title: string, content: string, jobId?: number) => Promise<Document>
@@ -92,6 +93,7 @@ const api: Api = {
   importJobFromUrl: (url) => ipcRenderer.invoke('jobs:importFromUrl', url),
   scanBoards: (filters) => ipcRenderer.invoke('jobs:scanBoards', filters),
   batchScore: () => ipcRenderer.invoke('jobs:batchScore'),
+  recomputeFit: (id) => ipcRenderer.invoke('jobs:recomputeFit', id),
   backfillJobDates: () => ipcRenderer.invoke('jobs:backfillDates'),
   getScanStatus: () => ipcRenderer.invoke('scan:status'),
   clearScanResult: () => ipcRenderer.invoke('scan:clearResult'),

@@ -2,9 +2,9 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import * as db from './database'
-import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocumentContent, RateLimitError } from './ai'
+import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocumentContent, scoreJobFit, RateLimitError } from './ai'
 import { scrapeJobFromUrl } from './jobScraper'
-import { scanAllBoards, scoreCompatibility, BOARDS } from './jobSearch'
+import { scanAllBoards, BOARDS } from './jobSearch'
 import { startQueueProcessor, stopQueueProcessor, enqueue } from './aiQueue'
 import { scheduleNextAutoScan, cancelAutoScan, markScanStarted, markScanCompleted, restartAutoScanTimer } from './autoScan'
 import type {
@@ -89,16 +89,76 @@ function registerIpc(): void {
     return job
   })
 
-  ipcMain.handle('jobs:batchScore', () => {
+  ipcMain.handle('jobs:batchScore', async () => {
     const settings = db.getSettings()
     const baseCv = settings.base_cv || ''
+    const currentVersion = settings.cv_version ?? 0
     const jobs = db.listJobs()
+    let updated = 0
     for (const job of jobs) {
-      if (job.score != null) continue
-      const desc = job.description || ''
-      const score = scoreCompatibility(job.title, desc, baseCv)
-      db.updateJob(job.id, { score })
+      // Only re-score jobs that have never been scored, or whose score was
+      // computed against a previous version of the base CV.
+      const needsScore = job.score == null || job.fit_score_version !== currentVersion
+      if (!needsScore) continue
+      if (!baseCv) {
+        // No CV configured; keep the row at neutral but mark it as scored
+        // against the current CV version so we don't retry every load.
+        db.updateJob(job.id, {
+          score: 0.5,
+          fit_rationale: 'No base CV configured.',
+          fit_breakdown: { matched_skills: [], missing_skills: [], experience_years_match: null },
+          fit_score_version: currentVersion
+        })
+        updated++
+        continue
+      }
+      try {
+        const fit = await scoreJobFit({
+          title: job.title,
+          description: job.description,
+          requirements: job.requirements,
+          baseCv
+        })
+        db.updateJob(job.id, {
+          score: fit.score,
+          fit_rationale: fit.rationale,
+          fit_breakdown: fit.breakdown,
+          fit_score_version: currentVersion
+        })
+        updated++
+      } catch {
+        // Swallow per-job errors so one bad job doesn't block the rest
+      }
     }
+    return { updated }
+  })
+
+  ipcMain.handle('jobs:recomputeFit', async (_e, id: number) => {
+    const job = db.getJob(id)
+    if (!job) throw new Error('Job not found')
+    const settings = db.getSettings()
+    const baseCv = settings.base_cv || ''
+    const currentVersion = settings.cv_version ?? 0
+    if (!baseCv) {
+      return db.updateJob(id, {
+        score: 0.5,
+        fit_rationale: 'No base CV configured.',
+        fit_breakdown: { matched_skills: [], missing_skills: [], experience_years_match: null },
+        fit_score_version: currentVersion
+      })
+    }
+    const fit = await scoreJobFit({
+      title: job.title,
+      description: job.description,
+      requirements: job.requirements,
+      baseCv
+    })
+    return db.updateJob(id, {
+      score: fit.score,
+      fit_rationale: fit.rationale,
+      fit_breakdown: fit.breakdown,
+      fit_score_version: currentVersion
+    })
   })
 
   ipcMain.handle('jobs:backfillDates', () => db.backfillJobPostingDates())
