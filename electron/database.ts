@@ -319,9 +319,12 @@ export function findDuplicateJob(input: CreateJobInput): Job | undefined {
 }
 
 export function isBlacklisted(input: { url?: string | null; title: string; company: string; location?: string | null }): boolean {
-  // A job is blacklisted (do not re-add) if the user deleted it AND its last
-  // known fit score was low (< 0.3). Medium/high-fit deletions are still
-  // re-added on future scans since the user might want them back.
+  // A job is blacklisted (do not re-add) if the user deleted it. All
+  // deletions are now permanent regardless of fit score — the previous
+  // "only low-fit deletions stick" rule caused deleted medium/high-fit
+  // jobs to silently come back on the next scan, which surprised
+  // users. If you want a job back, re-add it via the Add-from-link
+  // flow or manual import.
   const s = loadStore()
   if (s.deleted_jobs && s.deleted_jobs.length > 0) {
     const urlDk = input.url ? dedupKey(input.url) : null
@@ -329,7 +332,6 @@ export function isBlacklisted(input: { url?: string | null; title: string; compa
     const company = input.company?.trim().toLowerCase()
     const location = input.location?.trim().toLowerCase() || null
     for (const d of s.deleted_jobs) {
-      if (d.score == null || d.score >= 0.3) continue
       if (urlDk && d.url && dedupKey(d.url) === urlDk) return true
       if (title && company && d.title.toLowerCase() === title && d.company.toLowerCase() === company) {
         const dLoc = d.location?.toLowerCase().trim() || null
