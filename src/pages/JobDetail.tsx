@@ -438,9 +438,9 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
               {currentJob.company}{currentJob.location ? ` · ${currentJob.location}` : ''}
               {(job.date_posted || job.last_updated) && (
                 <span style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {currentJob.date_posted && <>Posted {new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
-                  {currentJob.date_posted && job.last_updated && ' · '}
-                  {currentJob.last_updated && <>Last updated {new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
+                  {job.date_posted && <>Posted {new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
+                  {job.date_posted && job.last_updated && ' · '}
+                  {job.last_updated && <>Last updated {new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
                 </span>
               )}
             </p>
