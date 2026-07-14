@@ -476,13 +476,13 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
               <textarea rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Notes..." style={{ width: '100%', marginTop: 8 }} />
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <input value={editSalaryRange} onChange={(e) => setEditSalaryRange(e.target.value)} placeholder="Salary" style={{ flex: 1 }} />
-                <select value={editEmploymentType} onChange={(e) => setEditEmploymentType(e.target.value)} style={{ flex: 1, paddingRight: 12 }}>
+                <select value={editEmploymentType} onChange={(e) => setEditEmploymentType(e.target.value)} style={{ flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4 L6 8 L10 4' fill='none' stroke='%238b93a7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '10px 10px', paddingRight: 32 }}>
                   <option value="">—</option>
                   {EMPLOYMENT_TYPES.map((t) => (
                     <option key={t} value={t}>{EMPLOYMENT_TYPE_LABELS[t]}</option>
                   ))}
                 </select>
-                <select value={editWorkMode} onChange={(e) => setEditWorkMode(e.target.value)} style={{ flex: 1, paddingRight: 12 }}>
+                <select value={editWorkMode} onChange={(e) => setEditWorkMode(e.target.value)} style={{ flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4 L6 8 L10 4' fill='none' stroke='%238b93a7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '10px 10px', paddingRight: 32 }}>
                   <option value="">—</option>
                   {WORK_MODES.map((m) => (
                     <option key={m} value={m}>{m}</option>
