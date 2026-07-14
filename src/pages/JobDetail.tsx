@@ -418,6 +418,13 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
             <h1>{currentJob.title}</h1>
             <p>
               {currentJob.company}{currentJob.location ? ` · ${currentJob.location}` : ''}
+              {(job.date_posted || job.last_updated) && (
+                <span style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+                  {currentJob.date_posted && <>Posted {new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
+                  {currentJob.date_posted && job.last_updated && ' · '}
+                  {currentJob.last_updated && <>Last updated {new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
+                </span>
+              )}
             </p>
           </>
         )}
@@ -428,7 +435,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
         style={{
           background: `${STATUS_COLORS[job.status]}22`,
           color: STATUS_COLORS[job.status],
-          marginBottom: 16,
+          marginBottom: 8,
           display: 'inline-block'
         }}
       >
