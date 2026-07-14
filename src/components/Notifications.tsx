@@ -6,6 +6,7 @@ interface Toast {
   type: 'info' | 'success' | 'error'
   ttl: number
   dismissing?: boolean
+  copied?: boolean
 }
 
 let nextId = 0
@@ -44,6 +45,31 @@ export default function Notifications() {
     }, 250)
   }
 
+  // Copy the toast's text to the clipboard. Stop propagation so clicking
+  // the icon doesn't also dismiss the toast via the parent's onClick.
+  // The `copied` flag flips the icon to a checkmark for ~1.5s as feedback;
+  // the toast then auto-dismisses so the user can move on.
+  function handleCopy(id: number, message: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(message).catch(() => {
+        // Fallback for environments without clipboard API: select the
+        // text in a hidden textarea and execCommand. Rare in Electron,
+        // but harmless to keep.
+        const ta = document.createElement('textarea')
+        ta.value = message
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        try { document.execCommand('copy') } catch {}
+        document.body.removeChild(ta)
+      })
+    }
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, copied: true } : t)))
+    setTimeout(() => startDismiss(id), 1500)
+  }
+
   if (toasts.length === 0) return null
 
   return (
@@ -64,7 +90,7 @@ export default function Notifications() {
             key={t.id}
             onClick={() => startDismiss(t.id)}
             style={{
-              padding: '12px 20px',
+              padding: '12px 44px 12px 20px',
               borderRadius: 10,
               background: 'transparent',
               backdropFilter: 'blur(20px) saturate(180%)',
@@ -81,10 +107,35 @@ export default function Notifications() {
               transform: t.dismissing ? 'translateY(10px)' : 'translateY(0)',
               whiteSpace: 'pre-line',
               pointerEvents: 'auto',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              position: 'relative'
             }}
           >
             {t.message}
+            <button
+              onClick={(e) => handleCopy(t.id, t.message, e)}
+              title={t.copied ? 'Copied' : 'Copy to clipboard'}
+              aria-label={t.copied ? 'Copied to clipboard' : 'Copy toast text to clipboard'}
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                width: 24,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'transparent',
+                border: 'none',
+                color: t.copied ? '#22c55e' : 'rgba(255,255,255,0.6)',
+                cursor: 'pointer',
+                padding: 0,
+                fontSize: 14,
+                lineHeight: 1
+              }}
+            >
+              {t.copied ? '✓' : '⧉'}
+            </button>
           </div>
         )
       })}
