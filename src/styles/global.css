@@ -352,7 +352,8 @@ textarea {
   cursor: pointer;
 }
 
-.table .col-fit {
+.table th.col-fit,
+.table td.col-fit {
   text-align: center;
 }
 
