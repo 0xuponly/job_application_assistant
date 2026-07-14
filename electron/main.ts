@@ -511,6 +511,11 @@ ${htmlBody}
     return result
   })
 
+  // Company blacklist
+  ipcMain.handle('blacklist:list', () => db.listBlacklistedCompanies())
+  ipcMain.handle('blacklist:add', (_e, name: string) => db.addBlacklistedCompany(name))
+  ipcMain.handle('blacklist:remove', (_e, name: string) => db.removeBlacklistedCompany(name))
+
   ipcMain.handle('db:exportAll', async () => {
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Export all data',

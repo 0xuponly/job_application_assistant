@@ -53,6 +53,7 @@ interface Store {
   ai_queue: AIQueueItem[]
   board_health: Record<string, number[]>
   deleted_jobs: DeletedJobRecord[]
+  blacklisted_companies?: string[]
 }
 
 let store: Store | null = null
@@ -94,7 +95,8 @@ function defaultStore(): Store {
     seen_urls: [],
     ai_queue: [],
     board_health: {},
-    deleted_jobs: []
+    deleted_jobs: [],
+    blacklisted_companies: []
   }
 }
 
@@ -192,6 +194,9 @@ function loadStore(): Store {
     }
     if (!store.deleted_jobs) {
       store.deleted_jobs = []
+    }
+    if (!store.blacklisted_companies) {
+      store.blacklisted_companies = []
     }
     if (typeof store.settings.auto_scan_enabled !== 'boolean') {
       store.settings.auto_scan_enabled = true
@@ -317,22 +322,67 @@ export function isBlacklisted(input: { url?: string | null; title: string; compa
   // known fit score was low (< 0.3). Medium/high-fit deletions are still
   // re-added on future scans since the user might want them back.
   const s = loadStore()
-  if (!s.deleted_jobs || s.deleted_jobs.length === 0) return false
-  const urlDk = input.url ? dedupKey(input.url) : null
-  const title = input.title?.trim().toLowerCase()
-  const company = input.company?.trim().toLowerCase()
-  const location = input.location?.trim().toLowerCase() || null
-  for (const d of s.deleted_jobs) {
-    if (d.score == null || d.score >= 0.3) continue
-    if (urlDk && d.url && dedupKey(d.url) === urlDk) return true
-    if (title && company && d.title.toLowerCase() === title && d.company.toLowerCase() === company) {
-      const dLoc = d.location?.toLowerCase().trim() || null
-      if ((location === null && dLoc === null) || (location !== null && dLoc !== null && (dLoc.includes(location) || location.includes(dLoc)))) {
-        return true
+  if (s.deleted_jobs && s.deleted_jobs.length > 0) {
+    const urlDk = input.url ? dedupKey(input.url) : null
+    const title = input.title?.trim().toLowerCase()
+    const company = input.company?.trim().toLowerCase()
+    const location = input.location?.trim().toLowerCase() || null
+    for (const d of s.deleted_jobs) {
+      if (d.score == null || d.score >= 0.3) continue
+      if (urlDk && d.url && dedupKey(d.url) === urlDk) return true
+      if (title && company && d.title.toLowerCase() === title && d.company.toLowerCase() === company) {
+        const dLoc = d.location?.toLowerCase().trim() || null
+        if ((location === null && dLoc === null) || (location !== null && dLoc !== null && (dLoc.includes(location) || location.includes(dLoc)))) {
+          return true
+        }
       }
     }
   }
+  // Explicit company blacklist maintained by the user.
+  if (isCompanyBlacklisted(input.company)) return true
   return false
+}
+
+// User-managed company blacklist. Companies in this list are never
+// re-sourced via Job Scan. Case-insensitive; matching ignores surrounding
+// whitespace. Stored as the user typed it (preserving original casing for
+// display), but lookup is lowercased.
+export function isCompanyBlacklisted(name: string | null | undefined): boolean {
+  if (!name) return false
+  const lc = name.trim().toLowerCase()
+  if (!lc) return false
+  const s = loadStore()
+  if (!s.blacklisted_companies) return false
+  return s.blacklisted_companies.some((c) => c.toLowerCase() === lc)
+}
+
+export function listBlacklistedCompanies(): string[] {
+  const s = loadStore()
+  if (!s.blacklisted_companies) return []
+  // Sort alphabetically (case-insensitive) for stable UI.
+  return [...s.blacklisted_companies].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+}
+
+export function addBlacklistedCompany(name: string): string[] {
+  const trimmed = name.trim()
+  if (!trimmed) return listBlacklistedCompanies()
+  const s = loadStore()
+  if (!s.blacklisted_companies) s.blacklisted_companies = []
+  const lc = trimmed.toLowerCase()
+  if (!s.blacklisted_companies.some((c) => c.toLowerCase() === lc)) {
+    s.blacklisted_companies.push(trimmed)
+    persistStore()
+  }
+  return listBlacklistedCompanies()
+}
+
+export function removeBlacklistedCompany(name: string): string[] {
+  const s = loadStore()
+  if (!s.blacklisted_companies) return []
+  const lc = name.trim().toLowerCase()
+  s.blacklisted_companies = s.blacklisted_companies.filter((c) => c.toLowerCase() !== lc)
+  persistStore()
+  return listBlacklistedCompanies()
 }
 
 export class JobBlacklistedError extends Error {

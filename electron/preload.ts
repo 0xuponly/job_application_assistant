@@ -81,6 +81,9 @@ export interface Api {
   removeAIQueueItem: (id: number) => Promise<AIQueueItem[]>
   openExternal: (url: string) => Promise<void>
   getSecurityStatus: () => Promise<{ mode: 'sealed' | 'plaintext-fallback' | 'uninitialized' }>
+  listBlacklistedCompanies: () => Promise<string[]>
+  addBlacklistedCompany: (name: string) => Promise<string[]>
+  removeBlacklistedCompany: (name: string) => Promise<string[]>
 }
 
 const api: Api = {
@@ -150,7 +153,10 @@ const api: Api = {
   retryAIQueueItem: (id) => ipcRenderer.invoke('aiQueue:retry', id),
   removeAIQueueItem: (id) => ipcRenderer.invoke('aiQueue:remove', id),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
-  getSecurityStatus: () => ipcRenderer.invoke('security:status')
+  getSecurityStatus: () => ipcRenderer.invoke('security:status'),
+  listBlacklistedCompanies: () => ipcRenderer.invoke('blacklist:list'),
+  addBlacklistedCompany: (name) => ipcRenderer.invoke('blacklist:add', name),
+  removeBlacklistedCompany: (name) => ipcRenderer.invoke('blacklist:remove', name)
 }
 
 contextBridge.exposeInMainWorld('api', api)
