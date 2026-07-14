@@ -1,4 +1,4 @@
-import { createJob, findDuplicateJob, getSeenUrls, getSettings, listJobs, recordBoardResults, JobBlacklistedError } from './database'
+import { createJob, findDuplicateJob, getSeenUrls, getSettings, listJobs, recordBoardResults, JobBlacklistedError, JobDuplicateError } from './database'
 import { decodeEntities } from './utils'
 import { scrapeJobFromUrl } from './jobScraper'
 import { fetchHtmlViaBrowser, isChallengePage } from './browserScraper'
@@ -498,6 +498,10 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
   } catch (err) {
     if (err instanceof JobBlacklistedError) {
       return { action: 'skipped', reason: 'Previously deleted with low fit' }
+    }
+    if (err instanceof JobDuplicateError) {
+      // Race: another concurrent scan call won the dedupe race. Not an error.
+      return { action: 'skipped', reason: 'Duplicate (race lost)' }
     }
     return { action: 'error', reason: `Create failed: ${err instanceof Error ? err.message : 'Unknown'}` }
   }

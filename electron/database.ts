@@ -342,8 +342,20 @@ export class JobBlacklistedError extends Error {
   }
 }
 
-export function createJob(input: CreateJobInput): Job {
+export class JobDuplicateError extends Error {
+  constructor() {
+    super('Job with this URL or company+title+location already exists.')
+    this.name = 'JobDuplicateError'
+  }
+}
+
+export function createJob(input: CreateJobInput, opts: { skipDuplicateCheck?: boolean } = {}): Job {
   if (isBlacklisted(input)) throw new JobBlacklistedError()
+  // Defense in depth: even when the caller pre-checked, a concurrent scan
+  // can race past the in-memory dedupe and try to insert the same job twice.
+  // The DB check here is the last line of defense. Callers that intentionally
+  // want to re-add (manual add from link) can opt out via skipDuplicateCheck.
+  if (!opts.skipDuplicateCheck && findDuplicateJob(input)) throw new JobDuplicateError()
   const s = loadStore()
   const job: Job = {
     id: nextId(),
