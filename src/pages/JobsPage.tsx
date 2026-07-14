@@ -467,6 +467,7 @@ export default function JobsPage() {
     // it) is visible to the user immediately rather than hidden until
     // the next refresh.
     const data = await (search ? api.searchJobs(search) : api.listJobs())
+    console.log(`[JobsPage.handleBatchDelete] deleteJobs deleted=${result.deleted}/${result.requested}, listJobs returned ${data.length} jobs, ids in data: [${data.map((j) => j.id).join(',')}]`)
     setJobs(dedupeJobs(data.map(cleanJob)))
     setSelectedIds(new Set())
     if (selectedJob && ids.includes(selectedJob.id)) setSelectedJob(null)
