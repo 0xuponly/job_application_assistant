@@ -1,20 +1,85 @@
+// Comprehensive HTML entity table. Covers the named entities that actually
+// appear in scraped job-board HTML (curly quotes, dashes, bullets, etc.)
+// plus the basic XML/HTML core. Numeric entities (&#NNN; / &#xHH;) are
+// handled by the decoder function, not by this table.
 const ENTITY_MAP: Record<string, string> = {
+  // Core XML/HTML
   '&amp;': '&',
   '&lt;': '<',
   '&gt;': '>',
   '&quot;': '"',
+  '&apos;': "'",
+  // Apostrophe / quotes
   '&#39;': "'",
   '&#x27;': "'",
-  '&#x2F;': '/',
-  '&8211;': '–',
-  '&8212;': '—',
-  '&8230;': '…',
-  '&160;': ' ',
+  '&lsquo;': '\u2018',  // '
+  '&rsquo;': '\u2019',  // '
+  '&ldquo;': '\u201C',  // "
+  '&rdquo;': '\u201D',  // "
+  '&sbquo;': '\u201A',  // ‚
+  '&bdquo;': '\u201E',  // „
+  '&laquo;': '\u00AB',  // «
+  '&raquo;': '\u00BB',  // »
+  // Dashes
+  '&ndash;': '\u2013',  // –
+  '&mdash;': '\u2014',  // —
+  '&minus;': '\u2212',  // −
+  // Spaces
   '&nbsp;': ' ',
+  '&thinsp;': '\u2009',
+  '&ensp;': '\u2002',
+  '&emsp;': '\u2003',
+  // Ellipsis
+  '&hellip;': '\u2026', // …
+  '&mldr;': '\u2026',
+  // Bullets / markers
+  '&bull;': '\u2022',   // •
+  '&middot;': '\u00B7', // ·
+  '&bullets;': '\u2022',
+  '&bullet;': '\u2022',
+  // Misc punctuation
+  '&copy;': '\u00A9',   // ©
+  '&reg;': '\u00AE',    // ®
+  '&trade;': '\u2122',  // ™
+  '&deg;': '\u00B0',    // °
+  '&para;': '\u00B6',   // ¶
+  '&sect;': '\u00A7',   // §
+  '&times;': '\u00D7',  // ×
+  '&divide;': '\u00F7', // ÷
+  '&plusmn;': '\u00B1', // ±
+  '&micro;': '\u00B5',  // µ
+  '&euro;': '\u20AC',   // €
+  '&pound;': '\u00A3',  // £
+  '&cent;': '\u00A2',   // ¢
+  '&yen;': '\u00A5',    // ¥
+  // Arrows
+  '&larr;': '\u2190',
+  '&rarr;': '\u2192',
+  '&uarr;': '\u2191',
+  '&darr;': '\u2193',
+  '&harr;': '\u2194'
 }
 
 export function decodeEntities(s: string): string {
-  return s.replace(/&[#\w]+;/g, (m) => ENTITY_MAP[m] ?? m)
+  return s.replace(/&[#\w]+;/g, (m) => {
+    // Numeric decimal entity: &#NNN;
+    if (m.startsWith('&#') && !m.startsWith('&#x') && !m.startsWith('&#X')) {
+      const code = parseInt(m.slice(2, -1), 10)
+      if (!isNaN(code) && code > 0 && code <= 0x10FFFF) {
+        try { return String.fromCodePoint(code) } catch { return m }
+      }
+      return m
+    }
+    // Hex entity: &#xHH; or &#XHH;
+    if (m.startsWith('&#x') || m.startsWith('&#X')) {
+      const code = parseInt(m.slice(3, -1), 16)
+      if (!isNaN(code) && code > 0 && code <= 0x10FFFF) {
+        try { return String.fromCodePoint(code) } catch { return m }
+      }
+      return m
+    }
+    return ENTITY_MAP[m] ?? m
+  })
 }
 
 // ---------------------------------------------------------------------------

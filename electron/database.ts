@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { cleanDescription, scrapePostingDateFromUrl } from './jobScraper'
 import { getOrCreateDek, encryptJson, decryptJson, deleteDek, encryptionMode } from './secureStore'
-import { formatLocation } from './utils'
+import { formatLocation, decodeEntities } from './utils'
 import type {
   ApiModelConfig,
   AIQueueItem,
@@ -408,19 +408,25 @@ export function createJob(input: CreateJobInput, opts: { skipDuplicateCheck?: bo
   // want to re-add (manual add from link) can opt out via skipDuplicateCheck.
   if (!opts.skipDuplicateCheck && findDuplicateJob(input)) throw new JobDuplicateError()
   const s = loadStore()
+  // Strip HTML entities from all text fields at the persistence boundary.
+  // Scrapers should already have decoded, but a defense-in-depth pass here
+  // ensures stray entities (&ldquo;, &amp;, &#NNN;, etc.) never land in
+  // the database, regardless of which scraper produced the input.
+  const de = (v: string | null | undefined): string | null =>
+    v == null ? null : decodeEntities(v)
   const job: Job = {
     id: nextId(),
-    title: input.title,
-    company: input.company,
+    title: de(input.title)!,
+    company: de(input.company)!,
     location: normalizeLocation(input.location ?? null),
     url: input.url ?? null,
-    description: input.description ? cleanDescription(input.description) : null,
-    salary_range: input.salary_range ?? null,
-    requirements: input.requirements ?? null,
-    application_requirements: input.application_requirements ?? null,
-    hiring_manager: input.hiring_manager ?? null,
-    employment_type: input.employment_type ?? null,
-    work_mode: input.work_mode ?? null,
+    description: input.description ? cleanDescription(decodeEntities(input.description)) : null,
+    salary_range: de(input.salary_range ?? null),
+    requirements: de(input.requirements ?? null),
+    application_requirements: de(input.application_requirements ?? null),
+    hiring_manager: de(input.hiring_manager ?? null),
+    employment_type: de(input.employment_type ?? null),
+    work_mode: de(input.work_mode ?? null),
     source: input.source ?? null,
     status: 'sourced',
     score: input.score !== undefined ? (input.score ?? null) : 0.5,
@@ -428,7 +434,7 @@ export function createJob(input: CreateJobInput, opts: { skipDuplicateCheck?: bo
     fit_breakdown: input.fit_breakdown ?? null,
     fit_score_version: input.fit_score_version ?? null,
     fit_last_error: input.fit_last_error ?? null,
-    notes: input.notes ?? null,
+    notes: de(input.notes ?? null),
     date_posted: input.date_posted ?? null,
     last_updated: now(),
     created_at: now(),
@@ -453,19 +459,21 @@ export function updateJob(
   const idx = s.jobs.findIndex((j) => j.id === id)
   if (idx === -1) throw new Error('Job not found')
   const existing = s.jobs[idx]
+  const de = (v: string | null | undefined): string | null =>
+    v == null ? null : decodeEntities(v)
   s.jobs[idx] = {
     ...existing,
-    title: fields.title ?? existing.title,
-    company: fields.company ?? existing.company,
+    title: fields.title !== undefined ? de(fields.title) ?? existing.title : existing.title,
+    company: fields.company !== undefined ? de(fields.company) ?? existing.company : existing.company,
     location: fields.location !== undefined ? normalizeLocation(fields.location ?? null) : existing.location,
     url: fields.url !== undefined ? (fields.url ?? null) : existing.url,
-    description: fields.description !== undefined ? (fields.description ? cleanDescription(fields.description) : null) : existing.description,
-    salary_range: fields.salary_range !== undefined ? (fields.salary_range ?? null) : existing.salary_range,
-    requirements: fields.requirements !== undefined ? (fields.requirements ?? null) : existing.requirements,
-    application_requirements: fields.application_requirements !== undefined ? (fields.application_requirements ?? null) : existing.application_requirements,
-    hiring_manager: fields.hiring_manager !== undefined ? (fields.hiring_manager ?? null) : existing.hiring_manager,
-    employment_type: fields.employment_type !== undefined ? (fields.employment_type ?? null) : existing.employment_type,
-    work_mode: fields.work_mode !== undefined ? (fields.work_mode ?? null) : existing.work_mode,
+    description: fields.description !== undefined ? (fields.description ? cleanDescription(decodeEntities(fields.description)) : null) : existing.description,
+    salary_range: fields.salary_range !== undefined ? de(fields.salary_range ?? null) : existing.salary_range,
+    requirements: fields.requirements !== undefined ? de(fields.requirements ?? null) : existing.requirements,
+    application_requirements: fields.application_requirements !== undefined ? de(fields.application_requirements ?? null) : existing.application_requirements,
+    hiring_manager: fields.hiring_manager !== undefined ? de(fields.hiring_manager ?? null) : existing.hiring_manager,
+    employment_type: fields.employment_type !== undefined ? de(fields.employment_type ?? null) : existing.employment_type,
+    work_mode: fields.work_mode !== undefined ? de(fields.work_mode ?? null) : existing.work_mode,
     source: fields.source !== undefined ? (fields.source ?? null) : existing.source,
     status: fields.status ?? existing.status,
     score: fields.score !== undefined ? (fields.score ?? null) : existing.score,
@@ -473,7 +481,7 @@ export function updateJob(
     fit_breakdown: fields.fit_breakdown !== undefined ? (fields.fit_breakdown ?? null) : existing.fit_breakdown,
     fit_score_version: fields.fit_score_version !== undefined ? (fields.fit_score_version ?? null) : existing.fit_score_version,
     fit_last_error: fields.fit_last_error !== undefined ? (fields.fit_last_error ?? null) : existing.fit_last_error,
-    notes: fields.notes !== undefined ? (fields.notes ?? null) : existing.notes,
+    notes: fields.notes !== undefined ? de(fields.notes ?? null) : existing.notes,
     date_posted: fields.date_posted !== undefined ? (fields.date_posted ?? null) : existing.date_posted,
     last_updated: fields.last_updated !== undefined ? (fields.last_updated ?? null) : existing.last_updated,
     updated_at: now()
