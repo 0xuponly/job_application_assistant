@@ -49,6 +49,35 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
     load()
   }, [job.id])
 
+  // Local mirror of the job prop. The parent owns navigation (it decides
+  // whether JobDetail is shown at all), but it intentionally does NOT push
+  // in-place mutations back into the `job` prop on the next render — that
+  // would race with the user's Back button. Instead, the parent propagates
+  // list-state changes only. We mirror the latest job locally so that an
+  // action like Save Edits or Recompute Fit updates the page immediately
+  // (title, description, score, etc.) without waiting for the user to
+  // navigate away and back.
+  const [currentJob, setCurrentJob] = useState<Job>(job)
+  useEffect(() => {
+    setCurrentJob(job)
+    // Keep the edit form in sync with the latest saved values so that if
+    // the user re-enters edit mode after a save, the fields show what was
+    // just persisted (not the values they had typed before saving).
+    if (!editing) {
+      setEditTitle(job.title)
+      setEditCompany(job.company)
+      setEditLocation(job.location ?? '')
+      setEditDesc(job.description ?? '')
+      setEditNotes(job.notes ?? '')
+      setEditSalaryRange(job.salary_range ?? '')
+      setEditRequirements(job.requirements ?? '')
+      setEditApplicationRequirements(job.application_requirements ?? '')
+      setEditHiringManager(job.hiring_manager ?? '')
+      setEditEmploymentType(job.employment_type ?? '')
+      setEditWorkMode(job.work_mode ?? '')
+    }
+  }, [job, editing])
+
   // Surface the fit-scorer failure as a toast when the page opens with one
   // already set AND there's no prior score to fall back on. If a prior
   // score/rationale/breakdown are present, the card is the source of truth
@@ -57,7 +86,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
   useEffect(() => {
     if (fitErrorToasted.current) return
     if (job.fit_last_error && job.score == null) {
-      notify(`Fit score unavailable: ${job.fit_last_error}`, 'error', 12000)
+      notify(`Fit score unavailable: ${currentJob.fit_last_error}`, 'error', 12000)
       fitErrorToasted.current = true
     }
   }, [job.id, job.fit_last_error, job.score])
@@ -84,12 +113,12 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
       if (companyBlacklisted) {
         await api.removeBlacklistedCompany(job.company)
         setCompanyBlacklisted(false)
-        notify(`${job.company} removed from blacklist.`, 'info')
+        notify(`${currentJob.company} removed from blacklist.`, 'info')
       } else {
-        if (!confirm(`Stop sourcing new jobs from ${job.company}?`)) return
+        if (!confirm(`Stop sourcing new jobs from ${currentJob.company}?`)) return
         await api.addBlacklistedCompany(job.company)
         setCompanyBlacklisted(true)
-        notify(`${job.company} blacklisted — future scans will skip them.`, 'info')
+        notify(`${currentJob.company} blacklisted — future scans will skip them.`, 'info')
       }
     } catch (err) {
       notify(`Blacklist update failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
@@ -126,7 +155,10 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
     // (recomputeJobStatusFromDocs in electron/database.ts). The frontend
     // re-fetches the job below to pick up the new status.
     const refreshed = await api.getJob(job.id)
-    if (refreshed) onUpdate(refreshed)
+    if (refreshed) {
+      setCurrentJob(refreshed)
+      onUpdate(refreshed)
+    }
   }
 
   async function ensureDocVerified(doc: Document): Promise<Document | null> {
@@ -185,6 +217,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
         [type === 'cv' ? 'cv_document_id' : 'cover_letter_document_id']: result.document_id
       })
       const updated = await api.updateJob(job.id, { status: 'tailoring' })
+      setCurrentJob(updated)
       onUpdate(updated)
       await load()
     } catch (err) {
@@ -198,6 +231,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
     if (!application) return
     await api.markApplied(application.id, applyMethod, contactEmail || undefined, contactName || undefined)
     const updated = await api.updateJob(job.id, { status: 'applied' })
+    setCurrentJob(updated)
     onUpdate(updated)
     setShowApply(false)
     await load()
@@ -306,6 +340,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
       employment_type: editEmploymentType || null,
       work_mode: editWorkMode || null
     })
+    setCurrentJob(updated)
     onUpdate(updated)
     setEditing(false)
   }
@@ -344,7 +379,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
         >
           Delete
         </button>
-        {job.url && (
+        {currentJob.url && (
           <button className="btn btn-secondary" onClick={() => api.openExternal(job.url!)}>
             Open posting
           </button>
@@ -362,14 +397,14 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
           </div>
         ) : (
           <>
-            <h1>{job.title}</h1>
+            <h1>{currentJob.title}</h1>
             <p>
-              {job.company}{job.location ? ` · ${job.location}` : ''}
+              {currentJob.company}{currentJob.location ? ` · ${currentJob.location}` : ''}
               {(job.date_posted || job.last_updated) && (
                 <span style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {job.date_posted && <>Posted {new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
-                  {job.date_posted && job.last_updated && ' · '}
-                  {job.last_updated && <>Last updated {new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
+                  {currentJob.date_posted && <>Posted {new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
+                  {currentJob.date_posted && job.last_updated && ' · '}
+                  {currentJob.last_updated && <>Last updated {new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
                 </span>
               )}
             </p>
@@ -413,10 +448,10 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
             </>
           ) : (
             <div className="card" style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6 }}>
-              {job.description || 'No description.'}
-              {job.notes && (
+              {currentJob.description || 'No description.'}
+              {currentJob.notes && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                  <strong>Notes:</strong> {job.notes}
+                  <strong>Notes:</strong> {currentJob.notes}
                 </div>
               )}
             </div>
@@ -425,27 +460,27 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
             <div className="card" style={{ flex: '1 0 140px', padding: '8px 12px' }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Date posted</div>
-              <div style={{ fontSize: 13 }}>{job.date_posted ? new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
+              <div style={{ fontSize: 13 }}>{currentJob.date_posted ? new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
             </div>
             <div className="card" style={{ flex: '1 0 140px', padding: '8px 12px' }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Last updated</div>
-              <div style={{ fontSize: 13 }}>{job.last_updated ? new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
+              <div style={{ fontSize: 13 }}>{currentJob.last_updated ? new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
             </div>
             <div className="card" style={{ flex: '1 0 160px', padding: '8px 12px' }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Salary</div>
-              <div style={{ fontSize: 13 }}>{job.salary_range || '—'}</div>
+              <div style={{ fontSize: 13 }}>{currentJob.salary_range || '—'}</div>
             </div>
             <div className="card" style={{ flex: '1 0 120px', padding: '8px 12px' }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Type</div>
-              <div style={{ fontSize: 13 }}>{job.employment_type || '—'}</div>
+              <div style={{ fontSize: 13 }}>{currentJob.employment_type || '—'}</div>
             </div>
             <div className="card" style={{ flex: '1 0 120px', padding: '8px 12px' }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Work mode</div>
-              <div style={{ fontSize: 13 }}>{job.work_mode || '—'}</div>
+              <div style={{ fontSize: 13 }}>{currentJob.work_mode || '—'}</div>
             </div>
             <div className="card" style={{ flex: '1 0 200px', padding: '8px 12px' }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Hiring manager</div>
-              <div style={{ fontSize: 13 }}>{job.hiring_manager || '—'}</div>
+              <div style={{ fontSize: 13 }}>{currentJob.hiring_manager || '—'}</div>
             </div>
             <div className="card" style={{ flex: '1 0 120px', padding: '8px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -459,6 +494,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                     setRecomputingFit(true)
                     try {
                       const updated = await api.recomputeFit(job.id)
+                      setCurrentJob(updated)
                       onUpdate(updated)
                       if (updated.fit_last_error) {
                         // Backend kept the prior score/rationale/breakdown
@@ -488,7 +524,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                 </button>
               </div>
               <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {job.fit_last_error && job.score == null ? (
+                {currentJob.fit_last_error && job.score == null ? (
                   // Scorer is broken AND we don't have a real score to fall back on.
                   <span style={{ color: 'var(--text-muted)' }}>—</span>
                 ) : job.score == null ? (
@@ -504,36 +540,36 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                           'var(--danger)',
                       }}
                     />
-                    <span>{job.score.toFixed(2)}</span>
+                    <span>{currentJob.score.toFixed(2)}</span>
                     <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                      ({job.score >= 0.6 ? 'High' : job.score >= 0.3 ? 'Medium' : 'Low'})
+                      ({currentJob.score >= 0.6 ? 'High' : job.score >= 0.3 ? 'Medium' : 'Low'})
                     </span>
                   </>
                 )}
               </div>
-              {job.fit_last_error && job.score == null && (
+              {currentJob.fit_last_error && job.score == null && (
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                   Fit score unavailable.
                 </div>
               )}
-              {job.fit_rationale && (
+              {currentJob.fit_rationale && (
                 <div className="fit-card-body" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                  {job.fit_rationale}
+                  {currentJob.fit_rationale}
                 </div>
               )}
-              {job.fit_breakdown && (job.fit_breakdown.matched_skills.length > 0 || job.fit_breakdown.missing_skills.length > 0 || job.fit_breakdown.experience_years_match != null) && (
+              {currentJob.fit_breakdown && (job.fit_breakdown.matched_skills.length > 0 || job.fit_breakdown.missing_skills.length > 0 || job.fit_breakdown.experience_years_match != null) && (
                 <div className="fit-card-body" style={{ fontSize: 10, marginTop: 6, lineHeight: 1.4, color: 'var(--text-muted)' }}>
-                  {job.fit_breakdown.matched_skills.length > 0 && (
+                  {currentJob.fit_breakdown.matched_skills.length > 0 && (
                     <div>
-                      <span style={{ color: 'var(--success)' }}>✓</span> {job.fit_breakdown.matched_skills.slice(0, 5).join(', ')}
+                      <span style={{ color: 'var(--success)' }}>✓</span> {currentJob.fit_breakdown.matched_skills.slice(0, 5).join(', ')}
                     </div>
                   )}
-                  {job.fit_breakdown.missing_skills.length > 0 && (
+                  {currentJob.fit_breakdown.missing_skills.length > 0 && (
                     <div>
-                      <span style={{ color: 'var(--danger)' }}>✗</span> {job.fit_breakdown.missing_skills.slice(0, 5).join(', ')}
+                      <span style={{ color: 'var(--danger)' }}>✗</span> {currentJob.fit_breakdown.missing_skills.slice(0, 5).join(', ')}
                     </div>
                   )}
-                  {job.fit_breakdown.experience_years_match === false && (
+                  {currentJob.fit_breakdown.experience_years_match === false && (
                     <div style={{ color: 'var(--warning)' }}>Years experience below posting's stated requirement</div>
                   )}
                 </div>
@@ -543,12 +579,12 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
 
           <div className="section-title">Requirements</div>
           <div className="card" style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6 }}>
-            {job.requirements || 'No requirements specified.'}
+            {currentJob.requirements || 'No requirements specified.'}
           </div>
 
           <div className="section-title">Application requirements</div>
           <div className="card" style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.6 }}>
-            {job.application_requirements || 'Not specified.'}
+            {currentJob.application_requirements || 'Not specified.'}
           </div>
         </div>
 
