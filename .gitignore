@@ -3,7 +3,8 @@ out/
 dist/
 *.db
 .DS_Store
-docs/
+docs/*
+!docs/templates/
 *.tsbuildinfo
 
 # Claude Code hook config (local-only)
