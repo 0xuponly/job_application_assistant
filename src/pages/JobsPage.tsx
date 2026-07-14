@@ -278,6 +278,23 @@ function formatJobDate(iso: string | null | undefined): string {
   return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${String(d.getFullYear()).slice(-2)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/**
+ * Pull a comparable number out of a salary string for column sorting.
+ * The normalizeSalary boundary emits values like "$85,000", "CAD 85,000
+ * - 125,000", or "$86,000" (already annual). We strip non-digit chars
+ * except for the leading minus (not used here) and return the first
+ * integer we find — that's the low end of the range, which is the
+ * natural value to sort by. Returns null for "—" / unparseable so the
+ * row sorts to the end.
+ */
+function parseSalaryForSort(s: string | null | undefined): number | null {
+  if (!s) return null
+  const m = s.match(/\$?[\d,]+/)
+  if (!m) return null
+  const n = parseInt(m[0].replace(/[$,]/g, ''), 10)
+  return Number.isFinite(n) ? n : null
+}
+
 // Deduplicate jobs that share the same URL (normalized) or the same
 // company+title+location triple. Defends against rows that slipped past
 // the DB-level dedupe (e.g. before the scan-path fix landed, or rows
@@ -334,7 +351,6 @@ export default function JobsPage() {
   const [filterTitle, setFilterTitle] = useState<string[]>([])
   const [filterLocation, setFilterLocation] = useState<string[]>([])
   const [filterStatus, setFilterStatus] = useState<string[]>([])
-  const [filterSource, setFilterSource] = useState<string[]>([])
   const [filterFit, setFilterFit] = useState<string[]>([])
   const [filterDatePosted, setFilterDatePosted] = useState<DateFilter>(EMPTY_DATE_FILTER)
   const [filterLastUpdated, setFilterLastUpdated] = useState<DateFilter>(EMPTY_DATE_FILTER)
@@ -426,6 +442,7 @@ export default function JobsPage() {
         case 'location': return j.location ?? null
         case 'status': return j.status
         case 'source': return j.source ?? null
+        case 'salary_range': return parseSalaryForSort(j.salary_range)
         case 'date_posted': return j.date_posted ?? null
         case 'last_updated': return j.last_updated ?? null
         default: return null
