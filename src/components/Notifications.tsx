@@ -49,24 +49,32 @@ export default function Notifications() {
       gap: 8,
       pointerEvents: 'none'
     }}>
-      {toasts.map((t) => (
-        <div key={t.id} style={{
-          padding: '12px 20px',
-          borderRadius: 8,
-          background: t.type === 'error' ? 'var(--danger)' : t.type === 'success' ? '#22c55e' : 'var(--bg-secondary)',
-          color: t.type === 'error' || t.type === 'success' ? '#fff' : 'var(--text)',
-          fontSize: 13,
-          fontWeight: 500,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-          maxWidth: t.message.includes('\n') ? 480 : 360,
-          border: '1px solid rgba(255,255,255,0.1)',
-          animation: 'toast-slide-in 0.2s ease-out',
-          whiteSpace: 'pre-line',
-          pointerEvents: 'auto'
-        }}>
-          {t.message}
-        </div>
-      ))}
+      {toasts.map((t) => {
+        const accent = t.type === 'error' ? 'var(--danger)' : t.type === 'success' ? '#22c55e' : 'var(--accent)'
+        return (
+          <div
+            key={t.id}
+            style={{
+              padding: '12px 20px',
+              borderRadius: 10,
+              background: t.type === 'info' ? 'rgba(40, 40, 50, 0.55)' : `${accent}cc`,
+              backdropFilter: 'blur(12px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 500,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+              maxWidth: t.message.includes('\n') ? 480 : 360,
+              border: `1px solid ${t.type === 'info' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.18)'}`,
+              animation: 'toast-slide-in 0.2s ease-out',
+              whiteSpace: 'pre-line',
+              pointerEvents: 'auto'
+            }}
+          >
+            {t.message}
+          </div>
+        )
+      })}
     </div>
   )
 }
