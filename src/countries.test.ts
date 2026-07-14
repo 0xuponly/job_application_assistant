@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { COUNTRIES, isRecognizedCountry } from './countries';
 
-// 5 smoke tests for isRecognizedCountry + COUNTRIES length
-
 describe('isRecognizedCountry', () => {
   it('matches exact names', () => {
     expect(isRecognizedCountry('United States')).toBe(true);
