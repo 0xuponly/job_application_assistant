@@ -1179,6 +1179,41 @@ export function markLocationsNormalized(): void {
   persistStore()
 }
 
+export function hasSalaryNormalized(): boolean {
+  return loadStore().settings.salary_normalized === '1'
+}
+
+export function markSalaryNormalized(): void {
+  const s = loadStore()
+  s.settings.salary_normalized = '1'
+  persistStore()
+}
+
+/**
+ * One-shot retrofit: re-run normalizeSalary on every existing job's
+ * salary_range so pre-existing rows that landed in mixed formats
+ * ("$43/hour", "CAD Monthly", "100k/year", etc.) get the same
+ * annualization as new rows going forward. Idempotent: re-running on
+ * already-normalized rows is a no-op (normalizeSalary is stable).
+ * Gated by `salary_normalized` setting so it only runs once per
+ * store, mirroring the `locations_normalized_v2` pattern.
+ */
+export function retrofitSalaryNormalization(): { updated: number; total: number } {
+  const s = loadStore()
+  let updated = 0
+  for (const j of s.jobs) {
+    if (!j.salary_range) continue
+    const normalized = normalizeSalary(j.salary_range, j.description)
+    if (normalized && normalized !== j.salary_range) {
+      j.salary_range = normalized
+      j.updated_at = now()
+      updated++
+    }
+  }
+  if (updated > 0) persistStore()
+  return { updated, total: s.jobs.length }
+}
+
 /**
  * Increment the global CV version. The next time the bootstrap score pass
  * runs, it will re-score every job whose `fit_score_version` doesn't match

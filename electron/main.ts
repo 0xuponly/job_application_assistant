@@ -613,6 +613,24 @@ app.whenReady().then(() => {
     }
   }
 
+  // One-shot: annualize legacy salary strings ("$43/hour" → "$86,000",
+  // "CAD Monthly" → annual equivalent, etc.) on first load with a
+  // populated store. Idempotent — gated by a flag. New jobs added
+  // after this point are normalized at the persistence boundary
+  // (createJob / updateJob) so the retrofit only touches pre-existing
+  // rows that landed before this feature shipped.
+  if (!db.hasSalaryNormalized() && db.listJobs().length > 0) {
+    try {
+      const result = db.retrofitSalaryNormalization()
+      if (result.updated > 0) {
+        console.log(`[startup] Annualized ${result.updated}/${result.total} job salaries.`)
+      }
+      db.markSalaryNormalized()
+    } catch (err) {
+      console.error('[startup] Salary normalization retrofit failed:', err)
+    }
+  }
+
   // One-shot: recompute every job's status from its current documents the
   // first time the app loads after the doc-derived status rule landed. This
   // backfills statuses that drifted while the recompute was per-handler

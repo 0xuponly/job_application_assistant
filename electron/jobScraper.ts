@@ -1417,8 +1417,10 @@ function applyBrainhunter(result: ScrapedJob, html: string): void {
     }
 
     // 4) Salary: "Salary Range: $43/hour - as a casual employee, ..."
-    // — keep just the first amount + optional unit, drop the long
-    // explanatory text that follows.
+    // — capture just the first amount + optional unit, drop the long
+    // explanatory text that follows. The post-processor and the
+    // boundary normalizer (normalizeSalary) take care of annualizing
+    // hourly/monthly values, so the extractor stays unit-agnostic.
     if (!result.salary_range) {
       const m = body.match(/Salary Range:\s*(\$[\d,]+(?:\.\d+)?(?:\s*\/\s*(?:hour|year|month|week|day|hr|yr|wk))?)/i)
       if (m) result.salary_range = m[1].trim()
