@@ -421,7 +421,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
         )}
       </div>
 
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: 8 }}>
         {editing ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
             <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Job title" style={{ fontSize: 24, fontWeight: 700 }} />
