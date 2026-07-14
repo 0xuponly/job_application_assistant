@@ -1317,9 +1317,9 @@ function extractSalaryFromText(text: string): string | undefined {
 
 function extractEmploymentTypeFromText(text: string): string | undefined {
   const m = text.match(/(?:employment|job)\s*(?:type|status|category)\s*[:\s]+(full[- ]time|part[- ]time|contract|temporary|permanent|internship|freelance)/i)
-  if (m) return m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase().replace(/[- ]/g, '-')
+  if (m) return normalizeEmploymentType(m[1]) ?? undefined
   const m2 = text.match(/(?:type|status|category)\s*[:\s]+(full[- ]time|part[- ]time|contract|temporary|permanent|internship|freelance)/i)
-  if (m2) return m2[1].charAt(0).toUpperCase() + m2[1].slice(1).toLowerCase().replace(/[- ]/g, '-')
+  if (m2) return normalizeEmploymentType(m2[1]) ?? undefined
   return undefined
 }
 
