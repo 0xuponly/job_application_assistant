@@ -1,4 +1,4 @@
-# Job Application Assistant
+# FlowJob
 
 Desktop assistant for the full job application lifecycle — track jobs, generate tailored Harvard-format CVs and cover letters, scan job boards, and manage your pipeline.
 
