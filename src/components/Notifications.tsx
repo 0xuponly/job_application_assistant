@@ -57,7 +57,7 @@ export default function Notifications() {
             style={{
               padding: '12px 20px',
               borderRadius: 10,
-              background: t.type === 'info' ? 'rgba(40, 40, 50, 0.55)' : `${accent}cc`,
+              background: 'rgba(20, 22, 30, 0.6)',
               backdropFilter: 'blur(12px) saturate(160%)',
               WebkitBackdropFilter: 'blur(12px) saturate(160%)',
               color: '#fff',
@@ -65,7 +65,8 @@ export default function Notifications() {
               fontWeight: 500,
               boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
               maxWidth: t.message.includes('\n') ? 480 : 360,
-              border: `1px solid ${t.type === 'info' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.18)'}`,
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderLeft: `3px solid ${accent}`,
               animation: 'toast-slide-in 0.2s ease-out',
               whiteSpace: 'pre-line',
               pointerEvents: 'auto'
