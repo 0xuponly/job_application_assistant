@@ -421,7 +421,7 @@ function matchesLocation(jobLocation: string | null, filterLocation: string): bo
   return jl.includes(fl) || fl.includes(jl)
 }
 
-async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<string>, scanSeenUrlsSet: Set<string>, workType: WorkType, filterLocation?: string, onJobAdded?: (job: Job) => void): Promise<{ action: 'added' | 'skipped' | 'incompatible' | 'error'; job?: Job; reason?: string }> {
+async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<string>, scanSeenUrlsSet: Set<string>, workType: WorkType, filterLocation?: string): Promise<{ action: 'added' | 'skipped' | 'incompatible' | 'error'; job?: Job; reason?: string }> {
   const dk = dedupKey(url)
   if (seenUrlsSet.has(dk)) return { action: 'skipped', reason: 'Already in database' }
 
@@ -504,8 +504,6 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
           }),
       fit_last_error: isHeuristic ? (fit.error || 'LLM scorer fell back to heuristic.') : null
     })
-    // Fire-and-forget auto-generation of CV and cover letter
-    onJobAdded?.(job)
     // Update in-memory dedup sets so concurrent calls see this URL as already-processed
     seenUrlsSet.add(dk)
     scanSeenUrlsSet.add(dk)
@@ -522,7 +520,7 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
   }
 }
 
-export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: string) => void, onJobAdded?: (job: Job) => void): Promise<ScanResult> {
+export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: string) => void): Promise<ScanResult> {
   const settings = getSettings()
   const keywords = (filters?.keywords || settings.job_search_keywords || '').trim()
   const locationInput = (filters?.location || settings.job_search_location || '').trim()
@@ -587,7 +585,7 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
         const results = await Promise.allSettled(
             batch.map(async (l) => {
                 progress(`Scraping ${board.name}${location ? ` (${location})` : ''} — ${decodeEntities(l.company || l.title || l.url)}`)
-              return fetchAndScore(l.url, baseCv, seenUrls, scanSeenUrls, workType, location, onJobAdded)
+              return fetchAndScore(l.url, baseCv, seenUrls, scanSeenUrls, workType, location)
           })
         )
         for (const r of results) {
