@@ -430,6 +430,22 @@ const BOARD_NAV_TEXT_PATTERNS: Readonly<Record<string, readonly RegExp[]>> = {
     /^sign in$/i,
     /^skip to (content|main)/i,
     /^all jobs?$/i
+  ],
+  ZipRecruiter: [
+    // Top-level chrome (Sign In, Apply Now, etc.) and category nav
+    /^sign in$/i,
+    /^sign up$/i,
+    /^apply now$/i,
+    /^learn more$/i,
+    /^get (matched|notified)$/i,
+    /^post (a )?job/i,
+    /^for employers$/i,
+    /^browse (all )?jobs?$/i,
+    /^all jobs?$/i,
+    /^salary/i,
+    /^companies?$/i,
+    /^career advice$/i,
+    /^skip to (content|main)/i
   ]
 }
 
@@ -500,6 +516,18 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
       // the generic /jobs|...|... regex anchors at `^/` and would reject
       // every real listing. Accept any path under /about/careers instead.
       if (!pathname.startsWith('/about/careers')) continue
+    } else if (boardLower.includes('ziprecruiter')) {
+      // ZipRecruiter per-listing URLs come in two shapes:
+      //   /jobs/view/{numericId}            (legacy direct view)
+      //   /c/k/{company-slug}/{jobId}       (company directory)
+      // The search results page (`/Jobs/{query}`) and the standard
+      // search (`/jobs?q=...`) both render cards linking to one of
+      // these shapes, so accept either. The /c/k shape needs a minimum
+      // of 3 path segments to avoid matching the company index page
+      // itself (`/c/k/{slug}` with no job id).
+      const isView = pathname.startsWith('/jobs/view/')
+      const isCk = pathname.startsWith('/c/k/') && pathname.split('/').filter(Boolean).length >= 3
+      if (!isView && !isCk) continue
     } else {
       // Generic branch: require the URL path itself to look like a job
       // (the previous version also accepted links whose visible text

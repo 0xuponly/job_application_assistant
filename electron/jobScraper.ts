@@ -194,16 +194,27 @@ async function fetchPageHtml(
     signal
   })
 
-  if (!response.ok) {
-    throw new Error(`Could not fetch page (HTTP ${response.status}). The site may be blocking automated access.`)
+  if (response.ok) {
+    const html = await response.text()
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    if (!opts.skipChallengeCheck && isChallengePage(html)) {
+      return fetchHtmlViaBrowser(url)
+    }
+    return html
   }
 
-  const html = await response.text()
-  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-  if (!opts.skipChallengeCheck && isChallengePage(html)) {
-    return fetchHtmlViaBrowser(url)
+  // Cloudflare (and other WAFs) sometimes return 403 with a challenge-page
+  // body instead of letting `isChallengePage` see the HTML. Read the body
+  // and, if it looks like a challenge, retry through the browser. If it's
+  // a genuine 403 (no challenge body), surface the original error.
+  if (!opts.skipChallengeCheck) {
+    const body = await response.text().catch(() => '')
+    if (isChallengePage(body)) {
+      return fetchHtmlViaBrowser(url)
+    }
   }
-  return html
+
+  throw new Error(`Could not fetch page (HTTP ${response.status}). The site may be blocking automated access.`)
 }
 
 function extractFromHtml(html: string, hostname: string, pageUrl: string, source?: string): Promise<ScrapedJob> {
