@@ -400,7 +400,7 @@ function detectPeriod(raw: string): Period {
   if (/\bper\s*day\b|\/day\b|\/d\b|\bdaily\b/.test(lc)) return 'day'
   if (/\bper\s*week\b|\/week\b|\/wk\b|\bweekly\b/.test(lc)) return 'week'
   if (/\bper\s*month\b|\/month\b|\/mo\b|\bmonthly\b/.test(lc)) return 'month'
-  if (/\bper\s*year\b|\/year\b|\/yr\b|\/annum\b|\bannually\b|\byearly\b|\bsalary\b/.test(lc)) return 'year'
+  if (/\bper\s*year\b|\/year\b|\/yr\b|\bannually\b|\byearly\b|\bsalary\b|\bper\s*annum\b|\bannum\b/.test(lc)) return 'year'
   return undefined
 }
 
