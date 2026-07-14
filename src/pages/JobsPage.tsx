@@ -221,6 +221,40 @@ function DateFilterSelect({ filter, onChange }: {
   )
 }
 
+function SortableLabel<K extends string>({
+  columnKey,
+  label,
+  sortColumn,
+  sortDir,
+  onCycle
+}: {
+  columnKey: K
+  label: string
+  sortColumn: string | null
+  sortDir: 'asc' | 'desc' | null
+  onCycle: (key: K) => void
+}) {
+  const isActive = sortColumn === columnKey
+  const icon = isActive ? (sortDir === 'asc' ? '▲' : '▼') : '↕'
+  return (
+    <span
+      onClick={() => onCycle(columnKey)}
+      title="Click to sort"
+      style={{
+        cursor: 'pointer',
+        userSelect: 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        color: isActive ? 'var(--text)' : 'var(--text-muted)'
+      }}
+    >
+      {label}
+      <span style={{ fontSize: 10, opacity: isActive ? 1 : 0.5 }}>{icon}</span>
+    </span>
+  )
+}
+
 const EMPTY_FORM: CreateJobInput = {
   title: '',
   company: '',
@@ -287,6 +321,27 @@ export default function JobsPage() {
   const [filterFit, setFilterFit] = useState<string[]>([])
   const [filterDatePosted, setFilterDatePosted] = useState<DateFilter>(EMPTY_DATE_FILTER)
   const [filterLastUpdated, setFilterLastUpdated] = useState<DateFilter>(EMPTY_DATE_FILTER)
+  // Sort: null = default behavior (score DESC, nulls last). A column click
+  // cycles default → asc → desc → default. Only one column is sorted at a
+  // time; clicking a different column resets the previous one to default.
+  type SortColumn = 'fit' | 'company' | 'title' | 'location' | 'status' | 'source' | 'date_posted' | 'last_updated'
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null)
+
+  function cycleSort(col: SortColumn) {
+    if (sortColumn !== col) {
+      setSortColumn(col)
+      setSortDir('asc')
+      return
+    }
+    if (sortDir === 'asc') {
+      setSortDir('desc')
+    } else {
+      // was 'desc' or null — return to default
+      setSortColumn(null)
+      setSortDir(null)
+    }
+  }
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [generating, setGenerating] = useState<'cv' | 'cover_letter' | null>(null)
   const [genCount, setGenCount] = useState(0)
@@ -325,7 +380,8 @@ export default function JobsPage() {
     }
   }, [jobs])
 
-  const filteredJobs = useMemo(() => jobs.filter((j) => {
+  const filteredJobs = useMemo(() => {
+    const rows = jobs.filter((j) => {
       if (filterCompany.length && !filterCompany.includes(j.company)) return false
       if (filterTitle.length && !filterTitle.includes(j.title)) return false
       if (filterLocation.length && !filterLocation.includes(j.location || '—')) return false
@@ -335,8 +391,40 @@ export default function JobsPage() {
       if (!matchesDateFilter(j.date_posted, filterDatePosted)) return false
       if (!matchesDateFilter(j.last_updated, filterLastUpdated)) return false
       return true
-    }).sort((a, b) => (b.score ?? -1) - (a.score ?? -1)),
-    [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource, filterFit, filterDatePosted, filterLastUpdated])
+    })
+    // Default behavior: score DESC, with null scores at the end. When the
+    // user clicks a column header we use that column instead.
+    const valueFor = (j: Job): number | string | null => {
+      switch (sortColumn) {
+        case 'fit': return j.score ?? null
+        case 'company': return j.company
+        case 'title': return j.title
+        case 'location': return j.location ?? null
+        case 'status': return j.status
+        case 'source': return j.source ?? null
+        case 'date_posted': return j.date_posted ?? null
+        case 'last_updated': return j.last_updated ?? null
+        default: return null
+      }
+    }
+    if (sortColumn && sortDir) {
+      const dir = sortDir === 'asc' ? 1 : -1
+      return [...rows].sort((a, b) => {
+        const av = valueFor(a)
+        const bv = valueFor(b)
+        // Nulls always last regardless of direction.
+        if (av == null && bv == null) return 0
+        if (av == null) return 1
+        if (bv == null) return -1
+        if (typeof av === 'number' && typeof bv === 'number') {
+          return (av - bv) * dir
+        }
+        return String(av).localeCompare(String(bv)) * dir
+      })
+    }
+    return rows.sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+  },
+    [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource, filterFit, filterDatePosted, filterLastUpdated, sortColumn, sortDir])
 
   const allFilteredSelected = useMemo(
     () => filteredJobs.length > 0 && filteredJobs.every((j) => selectedIds.has(j.id)),
@@ -792,49 +880,49 @@ export default function JobsPage() {
               </th>
               <th className="col-fit">
                 <div className="filter-header">
-                  <span>Fit</span>
+                  <SortableLabel columnKey="fit" label="Fit" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <FilterSelect options={filterOptions.fits} selected={filterFit} onChange={setFilterFit} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
-                  <span>Company</span>
+                  <SortableLabel columnKey="company" label="Company" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <FilterSelect options={filterOptions.companies} selected={filterCompany} onChange={setFilterCompany} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
-                  <span>Title</span>
+                  <SortableLabel columnKey="title" label="Title" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <FilterSelect options={filterOptions.titles} selected={filterTitle} onChange={setFilterTitle} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
-                  <span>Location</span>
+                  <SortableLabel columnKey="location" label="Location" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <FilterSelect options={filterOptions.locations} selected={filterLocation} onChange={setFilterLocation} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
-                  <span>Status</span>
+                  <SortableLabel columnKey="status" label="Status" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <FilterSelect options={filterOptions.statuses} selected={filterStatus} onChange={setFilterStatus} displayMap={STATUS_LABELS} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
-                  <span>Source</span>
+                  <SortableLabel columnKey="source" label="Source" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <FilterSelect options={filterOptions.sources} selected={filterSource} onChange={setFilterSource} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
-                  <span>Date Posted</span>
+                  <SortableLabel columnKey="date_posted" label="Date Posted" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <DateFilterSelect filter={filterDatePosted} onChange={setFilterDatePosted} />
                 </div>
               </th>
               <th>
                 <div className="filter-header">
-                  <span>Last Updated</span>
+                  <SortableLabel columnKey="last_updated" label="Last Updated" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <DateFilterSelect filter={filterLastUpdated} onChange={setFilterLastUpdated} />
                 </div>
               </th>
