@@ -248,6 +248,7 @@ textarea {
   font-weight: 500;
   padding: 5px 8px;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 
 .table th.col-check,

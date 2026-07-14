@@ -37,7 +37,7 @@ function FilterSelect({ options, selected, onChange, displayMap }: {
   }, [open])
 
   const selSet = useMemo(() => new Set(selected), [selected])
-  const label = selected.length === 0 ? 'Any' : `${selected.length} selected`
+  const label = selected.length === 0 ? '—' : `${selected.length} selected`
 
   return (
     <div className="filter-dropdown" ref={ref}>
