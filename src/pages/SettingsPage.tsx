@@ -11,7 +11,7 @@ const PRESETS: { name: string; desc: string; model: Omit<ApiModelConfig, 'id'> }
   { name: 'North Mini Code Free', desc: 'Free, no API key needed', model: { name: 'North Mini Code', base_url: 'https://opencode.ai/zen/v1', api_key: '', model: 'north-mini-code-free' } }
 ]
 
-type Tab = 'profile' | 'models' | 'companies' | 'data'
+type Tab = 'profile' | 'models' | 'companies' | 'scan' | 'data'
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>('profile')
@@ -124,6 +124,7 @@ export default function SettingsPage() {
           { id: 'profile', label: 'Profile & CV' },
           { id: 'models', label: 'AI Models' },
           { id: 'companies', label: 'Companies' },
+          { id: 'scan', label: 'Scan' },
           { id: 'data', label: 'Data' }
         ] as { id: Tab; label: string }[]).map((t) => (
           <button
@@ -200,12 +201,23 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
-            <div className="form-group" style={{ marginTop: 4 }}>
+          </div>
+        </>
+      )}
+
+      {tab === 'scan' && (
+        <>
+          <div className="section-title">Job scan</div>
+          <div className="card" style={{ maxWidth: 600 }}>
+            <div className="form-group">
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input
                   type="checkbox"
                   checked={settings.auto_scan_enabled}
-                  onChange={(e) => update('auto_scan_enabled', e.target.checked)}
+                  onChange={(e) => {
+                    update('auto_scan_enabled', e.target.checked)
+                    api.updateSettings({ auto_scan_enabled: e.target.checked })
+                  }}
                 />
                 Run job scan automatically in the background
               </label>
@@ -220,6 +232,9 @@ export default function SettingsPage() {
                   onChange={(e) => {
                     const n = parseInt(e.target.value, 10)
                     if (!isNaN(n) && n > 0) update('auto_scan_interval_minutes', n)
+                  }}
+                  onBlur={() => {
+                    if (settings) api.updateSettings({ auto_scan_interval_minutes: settings.auto_scan_interval_minutes })
                   }}
                 />
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>minutes after the last scan completes</span>
