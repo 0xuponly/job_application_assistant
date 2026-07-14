@@ -303,16 +303,14 @@ function titleCaseWord(word: string, isFirst: boolean): string {
  * Normalize a job title to Title Case. Lowercases the whole string, then
  * capitalizes the first letter of every word except small prepositions /
  * articles / conjunctions ("of", "and", "the", etc.). Preserves
- * mixed-case tokens (iOS, GitHub, McDonalds) and alphanumeric tokens
- * (v2, SQL2008) verbatim. Collapses internal whitespace and trims.
- * Returns null for empty input.
+ * mixed-case tokens (iOS, GitHub, McDonalds) verbatim. Collapses internal
+ * whitespace and trims. Returns null for empty input.
  *
  * Examples:
  *   "software developer"          -> "Software Developer"
  *   "SENIOR SOFTWARE DEVELOPER"   -> "Senior Software Developer"
  *   "manager of engineering"      -> "Manager of Engineering"
  *   "iOS engineer"                -> "iOS Engineer"
- *   "engineer v2"                 -> "Engineer v2"
  */
 export function normalizeTitle(raw: string | null | undefined): string | null {
   if (raw == null) return null
@@ -327,15 +325,14 @@ export function normalizeTitle(raw: string | null | undefined): string | null {
 /**
  * Normalize a company name to Sentence case. The first letter of every
  * word is capitalized; everything else is lowercase. Trailing punctuation
- * is stripped. Mixed-case tokens (GitHub, McDonalds) and alphanumeric
- * tokens (3M) are preserved. Returns null for empty input.
+ * is stripped. Mixed-case tokens (GitHub, McDonalds) are preserved.
+ * Returns null for empty input.
  *
  * Examples:
  *   "SUM'S GROCERY CHECK OUT LTD." -> "Sum's Grocery Check Out Ltd"
  *   "ACME corp"                    -> "Acme Corp"
  *   "github"                       -> "Github"
  *   "GitHub"                       -> "GitHub"  (already mixed-case)
- *   "3M"                           -> "3M"
  */
 export function normalizeCompany(raw: string | null | undefined): string | null {
   if (raw == null) return null
