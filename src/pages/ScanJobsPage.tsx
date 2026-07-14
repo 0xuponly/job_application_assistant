@@ -506,8 +506,14 @@ export default function ScanJobsPage() {
                 className="btn btn-secondary btn-sm"
                 onClick={() => copyLog(visibleLogText(entriesRef.current))}
                 title="Copy log lines to clipboard"
+                aria-label="Copy log lines to clipboard"
+                style={{
+                  minWidth: 32,
+                  padding: '0 8px',
+                  color: logCopied ? '#22c55e' : undefined
+                }}
               >
-                {logCopied ? 'Copied ✓' : 'Copy log'}
+                {logCopied ? '✓' : '⧉'}
               </button>
               <button
                 className="btn btn-secondary btn-sm"
@@ -645,8 +651,14 @@ export default function ScanJobsPage() {
               className="btn btn-secondary btn-sm"
               onClick={() => copyLog(visibleLogText(logSnapshot))}
               title="Copy log lines to clipboard"
+              aria-label="Copy log lines to clipboard"
+              style={{
+                minWidth: 32,
+                padding: '0 8px',
+                color: logCopied ? '#22c55e' : undefined
+              }}
             >
-              {logCopied ? 'Copied ✓' : 'Copy log'}
+              {logCopied ? '✓' : '⧉'}
             </button>
           </div>
           <div style={{ fontSize: 12, lineHeight: 1.7, maxHeight: 320, overflowY: 'auto' }}>
