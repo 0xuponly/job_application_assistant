@@ -244,3 +244,86 @@ export function formatLocation(raw: string | null | undefined, defaultCountry?: 
 
   return formatSingleLocation(trimmed, dc) || null
 }
+
+// ---------------------------------------------------------------------------
+// Title / company normalization
+// ---------------------------------------------------------------------------
+// Both run at the persistence boundary (createJob / updateJob) so the rest
+// of the codebase can treat these fields as display-ready. Scrapers are
+// free to pass whatever they scraped; we clean it up here.
+
+const SMALL_WORDS = new Set([
+  'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of',
+  'on', 'or', 'so', 'the', 'to', 'up', 'yet', 'with'
+])
+
+// Tokens that stay uppercase regardless of surrounding casing. Covers
+// common legal-entity suffixes and a handful of well-known acronyms.
+// Matched case-insensitively as a whole token (period stripped first so
+// "LTD." and "LTD" both match).
+const COMPANY_UPPERCASE_TOKENS = new Set([
+  // Legal suffixes
+  'inc', 'incorporated', 'co', 'corp', 'corporation', 'ltd', 'llc', 'llp',
+  'lp', 'plc', 'gmbh', 'ag', 'sa', 'srl', 'bv', 'nv', 'kg', 'kk',
+  'pllc', 'pc', 'pa', 'pbc',
+  // Well-known acronyms
+  'ibm', 'hp', 'aws', 'gcp', 'att', 'bt', 'nasa', 'ey', 'kpmg'
+])
+
+function titleCaseWord(word: string, isFirst: boolean): string {
+  if (!word) return word
+  // Preserve tokens that contain digits or are mixed alphanumeric
+  // (e.g. "iOS", "v2", "GitHub", "SQL2008") — they often have intentional
+  // casing. Only fully alphabetic tokens get cased.
+  if (!/^[A-Za-z]+$/.test(word)) return word
+  const lower = word.toLowerCase()
+  if (isFirst) return lower.charAt(0).toUpperCase() + lower.slice(1)
+  if (SMALL_WORDS.has(lower)) return lower
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
+/**
+ * Normalize a job title to Title Case. Lowercases the whole string, then
+ * capitalizes the first letter of every word except small prepositions /
+ * articles / conjunctions ("of", "and", "the", etc.). Preserves
+ * alphanumeric tokens (iOS, v2, SQL2008) verbatim. Collapses internal
+ * whitespace and trims. Returns null for empty input.
+ */
+export function normalizeTitle(raw: string | null | undefined): string | null {
+  if (raw == null) return null
+  const trimmed = raw.trim().replace(/\s+/g, ' ')
+  if (!trimmed) return null
+  const tokens = trimmed.split(' ')
+  return tokens
+    .map((t, i) => titleCaseWord(t, i === 0))
+    .join(' ')
+}
+
+/**
+ * Normalize a company name. Sentence-cases the string (only the first
+ * letter of each "word" is capitalized), but preserves a list of common
+ * legal-entity suffixes and acronyms in their canonical form
+ * (Inc, LLC, Ltd, Corp, GmbH, AG, IBM, KPMG, etc.). Strips trailing
+ * punctuation. Returns null for empty input.
+ *
+ * Examples:
+ *   "SUM'S GROCERY CHECK OUT LTD." -> "Sum's Grocery Check Out Ltd"
+ *   "ACME corp"                    -> "Acme Corp"
+ *   "github"                       -> "Github"   (no special-case for "GitHub")
+ *   "iBM"                          -> "IBM"      (acronym list)
+ */
+export function normalizeCompany(raw: string | null | undefined): string | null {
+  if (raw == null) return null
+  const trimmed = raw.trim().replace(/\s+/g, ' ')
+  if (!trimmed) return null
+  const cleaned = trimmed.replace(/[.,;:]+$/g, '').trim()
+  if (!cleaned) return null
+  const tokens = cleaned.split(' ')
+  return tokens
+    .map((t, i) => {
+      const lower = t.toLowerCase().replace(/\.$/, '')
+      if (COMPANY_UPPERCASE_TOKENS.has(lower)) return lower.toUpperCase()
+      return titleCaseWord(t, i === 0)
+    })
+    .join(' ')
+}
