@@ -575,8 +575,16 @@ export function updateJob(
     location: fields.location !== undefined ? (fields.location ? de(fields.location) : null) : existing.location,
     url: fields.url !== undefined ? (fields.url ?? null) : existing.url,
     description: nextDescription,
+    // Blank / null salary should clear the field, not preserve the prior
+    // value. If the user explicitly submitted null/empty, return null
+    // (not the existing value). If they submitted a non-empty string,
+    // run it through the normalizer; if the normalizer can't parse it,
+    // fall back to the entity-decoded raw input so we never silently
+    // overwrite their typed text with the prior $0.
     salary_range: fields.salary_range !== undefined
-      ? (normalizeSalary(de(fields.salary_range), nextDescription) ?? de(fields.salary_range ?? null) ?? existing.salary_range)
+      ? (fields.salary_range == null || fields.salary_range === ''
+          ? null
+          : (normalizeSalary(de(fields.salary_range), nextDescription) ?? de(fields.salary_range)))
       : existing.salary_range,
     requirements: fields.requirements !== undefined ? de(fields.requirements ?? null) : existing.requirements,
     application_requirements: fields.application_requirements !== undefined ? de(fields.application_requirements ?? null) : existing.application_requirements,
