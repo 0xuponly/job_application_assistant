@@ -322,6 +322,73 @@ function isNonListingPage(html: string, title: string | undefined): boolean {
 
 const NAV_PATHS = /^\/(privacy|terms(-of-service)?|cookie(-policy)?|legal\/?$|login|sign(in|up)|register\/?$|forgot(-password)?|logout|auth|help\/?$|contact\/?$|about\/?$|blog\/?$|faq\/?$|pricing\/?$|status\/?$|developers\/?$|security\/?$|trust\/?$|safety\/?$)/i
 
+// Per-board anchor-text denylist. Each entry is a regex matched (case
+// insensitive) against the visible link text (`inner`). The link is
+// rejected if ANY pattern in the board's list matches. Used to drop
+// header / nav / footer / category-index / search-suggestion links
+// that the path-based filter alone can't catch — boards tend to point
+// their non-job links at the same search path the real listings use.
+const BOARD_NAV_TEXT_PATTERNS: Readonly<Record<string, readonly RegExp[]>> = {
+  Monster: [
+    /^skip to (content|main)/i,
+    /load more/i,
+    /^career advice$/i,
+    /^employers?\b/i,
+    /post (a )?job/i,
+    /^products?$/i,
+    /^browse jobs?$/i,
+    /^all jobs?$/i,
+    /^salary$/i,
+    /^companies?$/i
+  ],
+  LinkedIn: [
+    /^skip to (content|main)/i,
+    /^sign in$/i,
+    /^join now$/i,
+    /^for business$/i
+  ],
+  'Remote OK': [
+    // Emoji-prefixed category badges in the left rail
+    /^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u,
+    /^post (a )?(remote )?job/i,
+    /highest paying/i,
+    /buy a job bundle/i,
+    /^web3 jobs?$/i,
+    /^load more/i,
+    /^all jobs?$/i
+  ],
+  SimplyHired: [
+    // "Cashier jobs in Hollywood, FL" — popular-search sidebar links, not jobs
+    /jobs in [A-Z][a-z]+, [A-Z]{2}$/i,
+    /^(all jobs|all salaries|all cities|all companies)$/i,
+    /^load more/i,
+    /^previous$|^next$/i
+  ],
+  'Working Nomads': [
+    /^job alerts?$/i,
+    /^post a job$/i,
+    /^job skills$/i,
+    /^jobs by /i,
+    /^remote jobs (anywhere|north america|latin america|europe|middle east|africa|apac|australia|argentina|belgium|brazil|canada|colombia|france|germany|ireland|india|japan|mexico|netherlands|new zealand|philippines|poland|portugal|singapore|spain|uk|usa)$/i,
+    /^api$/i,
+    /^load more/i,
+    /^all jobs?$/i
+  ],
+  Remotive: [
+    // Filter chips: work-type and region labels
+    /^(full[-\s]?time|part[-\s]?time|freelance|contract|lead)$/i,
+    /^(americas|europe|israel|canada|usa timezones|central america|south africa|latin america \(latam\)|apac|northern america)$/i,
+    // Top-level category labels in the sidebar — they're navigation, not job titles
+    /^(sales|customer service|medical|finance|marketing|human resources|information technology|operations|artificial intelligence|teaching|all others|design|legal|account management|office assistant)$/i,
+    /^post (a )?remote job/i,
+    /^remote jobs index$/i,
+    /^rss feeds$/i,
+    /^remotive jobs public api$/i,
+    /^load more/i,
+    /^all jobs?$/i
+  ]
+}
+
 /** Normalize a URL for dedup comparison: lowercase, strip trailing slash, strip common tracking params */
 function dedupKey(url: string): string {
   try {
@@ -385,10 +452,25 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
       if (pathParts.length < 1) continue
       if (inner.length < 3 || inner.length >= 300) continue
     } else {
+      // Generic branch: require the URL path itself to look like a job
+      // (the previous version also accepted links whose visible text
+      // mentioned "job"/"career" — too loose, let in nav and category
+      // links like Monster's "Browse Jobs" or Remote OK's "💼 Executive
+      // jobs"). Per-board BOARD_NAV_TEXT_PATTERNS (looked up below by
+      // the canonical board name) catches the cases the path can't.
       const pathMatch = /^\/(jobs?|careers?|positions?|opportunities?)/i.test(pathname) || pathname.includes('/job/')
-      const hasJobKeywords = /job|career|position|opportunity|vacancy/i.test(`${pathname  } ${  inner}`)
-      if (!pathMatch && !hasJobKeywords) continue
+      if (!pathMatch) continue
     }
+
+    // Per-board nav-text denylist: drop links whose visible text is
+    // known header / nav / footer / category-index / search-suggestion
+    // text. Applied AFTER the path check so real listings aren't lost
+    // when a board's denylist happens to overlap a legitimate title
+    // (e.g. Remotive's "Finance" category vs a job titled "Finance
+    // Manager" — the latter is a real listing, the former has a
+    // different path and was already dropped by the path check above).
+    const navPatterns = BOARD_NAV_TEXT_PATTERNS[boardName]
+    if (navPatterns && navPatterns.some((re) => re.test(inner))) continue
 
     if (inner.length > 2 && inner.length < 300) {
       results.push({ url: fullUrl, title: inner })

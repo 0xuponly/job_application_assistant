@@ -201,19 +201,6 @@ export default function ScanJobsPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Build the text the user actually sees in the log block: every blue
-  // (Scanning) and green (✓) entry in order, plus the most recent grey
-  // entry if one exists. This is the same set the in-scan card renders.
-  function visibleLogText(source: ProgressEntry[]): string {
-    const greens = source.filter((e) => e.msg.startsWith('✓'))
-    const blues = source.filter((e) => e.msg.startsWith('Scanning'))
-    const greys = source.filter((e) => !e.msg.startsWith('✓') && !e.msg.startsWith('Scanning'))
-    const latestGrey = greys.at(-1)
-    return [...blues, ...greens, ...(latestGrey ? [latestGrey] : [])]
-      .map((e) => e.msg)
-      .join('\n')
-  }
-
   // Join the full, unmutated log (every blue, green, and grey line from
   // fullLogRef) into a single newline-separated string for the clipboard.
   function fullLogText(source: ProgressEntry[]): string {
