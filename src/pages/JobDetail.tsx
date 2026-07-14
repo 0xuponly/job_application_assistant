@@ -931,18 +931,17 @@ function DescriptionCard({ text, notes, expanded, onToggle, onLineHeightMeasured
 
   // When collapsed, clamp the visible body to exactly COLLAPSE_LINES of
   // line-height (with a soft fade-out gradient so the truncation is
-  // visually obvious). When expanded, show everything.
-  const maxHeight = expanded ? undefined : undefined // computed below from line-height
-  // We compute maxHeight at render time using the measured line-height
-  // passed in via a CSS variable on the wrapper. If we haven't measured
-  // yet, fall back to a sensible default (1.6 * 13px = 20.8px/line).
+  // visually obvious). When expanded, show everything. The line-height
+  // value is read from a CSS custom property that the parent sets from
+  // the measured sentinel — var(--desc-line-height) with a sensible
+  // fallback of 20.8px (1.6 × 13px) for the first paint before the
+  // measurement lands.
   return (
     <div>
       {/* Hidden sentinel: shares the card's text styles so we can read
-          the computed line-height reliably. The sentinel is rendered
-          with display:none? No — that returns computed lineHeight of
-          "" in some engines. Keep it visually hidden via zero size and
-          absolute positioning instead. */}
+          the computed line-height reliably. The sentinel uses absolute
+          positioning + 1×1 size + visibility:hidden (not display:none,
+          which some engines return a blank computed line-height for). */}
       <div
         ref={measureRef}
         aria-hidden
