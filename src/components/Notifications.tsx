@@ -5,9 +5,8 @@ interface Toast {
   message: string
   type: 'info' | 'success' | 'error'
   ttl: number
+  dismissing?: boolean
 }
-
-const FADE_OUT_MS = 250
 
 let nextId = 0
 let listeners: ((toast: Toast) => void)[] = []
@@ -24,7 +23,6 @@ export function notify(message: string, type: Toast['type'] = 'info', ttl?: numb
 
 export default function Notifications() {
   const [toasts, setToasts] = useState<Toast[]>([])
-  const [dismissing, setDismissing] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     const listener = (toast: Toast) => {
@@ -37,21 +35,13 @@ export default function Notifications() {
     }
   }, [])
 
+  // Mark the toast as dismissing (CSS transition handles the visual fade),
+  // then remove it from state after the transition completes.
   function startDismiss(id: number) {
-    setDismissing((prev) => {
-      if (prev.has(id)) return prev
-      const next = new Set(prev)
-      next.add(id)
-      return next
-    })
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, dismissing: true } : t)))
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-      setDismissing((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
-    }, FADE_OUT_MS)
+    }, 250)
   }
 
   if (toasts.length === 0) return null
@@ -69,7 +59,6 @@ export default function Notifications() {
     }}>
       {toasts.map((t) => {
         const borderColor = t.type === 'error' ? 'var(--danger)' : t.type === 'success' ? '#22c55e' : 'var(--accent)'
-        const isDismissing = dismissing.has(t.id)
         return (
           <div
             key={t.id}
@@ -86,9 +75,10 @@ export default function Notifications() {
               boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
               maxWidth: t.message.includes('\n') ? 480 : 360,
               border: `1px solid ${borderColor}`,
-              animation: isDismissing
-                ? 'toast-fade-out 0.25s ease-in forwards'
-                : 'toast-slide-in 0.2s ease-out',
+              animation: t.dismissing ? undefined : 'toast-slide-in 0.2s ease-out',
+              transition: 'opacity 0.25s ease-in, transform 0.25s ease-in',
+              opacity: t.dismissing ? 0 : 1,
+              transform: t.dismissing ? 'translateY(10px)' : 'translateY(0)',
               whiteSpace: 'pre-line',
               pointerEvents: 'auto',
               cursor: 'pointer'
