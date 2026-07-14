@@ -276,13 +276,11 @@ const SMALL_WORDS = new Set([
  * they have intentional casing or non-letter content. Catches:
  *   - genuine mixed case: "iOS", "GitHub", "McDonalds" (has both upper
  *     and lower letters)
- *   - all-non-letters: "v2", "SQL2008", "C++", "Node.js" (only digits /
- *     punctuation / symbols, no plain english word)
+ *   - tokens without any letters: "3M", "v2", "SQL2008" (digits, symbols)
  *
  * All-caps tokens ("SENIOR", "ACME") and all-lower tokens ("senior",
  * "acme") are NOT preserved — they go through the case path so they get
- * normalized. Apostrophes are treated as letter content so "Sum's"
- * becomes "Sum's" via the regular case path, not preserved verbatim.
+ * normalized.
  */
 function shouldPreserveToken(word: string): boolean {
   const hasLower = /[a-z]/.test(word)
