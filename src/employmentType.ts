@@ -40,3 +40,14 @@ export function formatEmploymentType(token: string | null | undefined): string {
   // showing the token.
   return token
 }
+
+/**
+ * Canonical work_mode values. Three tokens (ON_SITE, HYBRID, REMOTE)
+ * — the Edit dropdown is constrained to these and the persistence
+ * boundary normalizes every other value to null. Labels are the
+ * tokens themselves (already UPPER_SNAKE_CASE), so no separate
+ * label map is needed.
+ */
+export const WORK_MODES = ['ON_SITE', 'HYBRID', 'REMOTE'] as const
+
+export type WorkMode = (typeof WORK_MODES)[number]

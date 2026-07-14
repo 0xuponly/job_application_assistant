@@ -1,6 +1,6 @@
 import type { CreateJobInput } from './types'
 import { fetchHtmlViaBrowser, isChallengePage } from './browserScraper'
-import { normalizeEmploymentType } from './employmentType'
+import { normalizeEmploymentType, normalizeWorkMode } from './employmentType'
 
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
