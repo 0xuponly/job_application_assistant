@@ -1298,12 +1298,15 @@ export default function JobsPage() {
                 <td>
                   <button
                     className="btn btn-danger btn-sm"
+                    title="Delete job"
+                    aria-label="Delete job"
+                    style={{ minWidth: 32, padding: '0 8px' }}
                     onClick={(e) => {
                       e.stopPropagation()
                       handleDelete(job.id)
                     }}
                   >
-                    Delete
+                    <span aria-hidden="true">✕</span>
                   </button>
                 </td>
               </tr>
