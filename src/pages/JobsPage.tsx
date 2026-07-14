@@ -286,46 +286,89 @@ function formatJobDate(iso: string | null | undefined): string {
  * would parse "0" to 0; we explicitly collapse that to null.
  */
 /**
- * Map the user's country (free-text, from Settings) to a default ISO
- * currency code. We only do this for countries where the local code is
- * also the most common one in scraped postings — UK → GBP, anywhere
- * else falls through to USD because the symbol-only salaries we see
- * ($100,000) are most often US postings misclassified by their
- * scraper, and the user's own country is rarely available as a code.
+ * Map a 2-letter ISO country code (the last segment of a normalized
+ * Job.location, e.g. "CA", "US", "GB") to a currency code. We only
+ * enumerate the countries we actually see in scraped postings — the
+ * rest fall back to USD rather than guess. CAD for Canada, USD for
+ * the US, GBP for the UK, EUR for the Eurozone members we encounter
+ * most often, AUD/NZD for Aus/NZ, JPY for Japan. Anything not on the
+ * list returns null so the cell can render without a code rather than
+ * show a wrong one.
  */
-function defaultCurrencyForCountry(country: string | null | undefined): string {
-  const c = (country ?? '').trim().toLowerCase()
-  if (!c) return 'USD'
-  if (c === 'uk' || c === 'united kingdom' || c === 'gb' || c === 'great britain' || c === 'england') return 'GBP'
-  return 'USD'
+const COUNTRY_TO_CURRENCY: Record<string, string> = {
+  US: 'USD',
+  CA: 'CAD',
+  GB: 'GBP',
+  UK: 'GBP',
+  AU: 'AUD',
+  NZ: 'NZD',
+  JP: 'JPY',
+  DE: 'EUR', FR: 'EUR', NL: 'EUR', ES: 'EUR', IT: 'EUR', IE: 'EUR',
+  PT: 'EUR', BE: 'EUR', AT: 'EUR', FI: 'EUR', GR: 'EUR'
+}
+
+const ISO_CURRENCY_RE = /\b(USD|CAD|EUR|GBP|AUD|NZD|JPY)\b/i
+const SYMBOL_TO_CURRENCY: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY' }
+
+/**
+ * Pull a currency code out of a salary string. Looks for a 3-letter
+ * ISO code first, then falls back to the leading currency symbol.
+ * Returns null if neither is present — the caller will then try the
+ * job's location before giving up.
+ */
+function currencyFromSalary(s: string | null | undefined): string | null {
+  if (!s) return null
+  const iso = s.match(ISO_CURRENCY_RE)
+  if (iso) return iso[1].toUpperCase()
+  for (const [sym, code] of Object.entries(SYMBOL_TO_CURRENCY)) {
+    if (s.includes(sym)) return code
+  }
+  return null
 }
 
 /**
- * Render a stored salary_range for the Job Board Salary cell. The
- * stored value may already include a currency code (e.g. "CAD 90,000 -
- * 129,000" produced by normalizeSalary when the source had a CAD
- * marker) or it may be symbol-only ("$100,000" or "$90,000 - $120,000"
- * from sources whose scraper didn't capture a code). For symbol-only
- * values we prepend the user's country-derived default code so the
- * user can tell at a glance which currency a row is denominated in
- * (CAD $100,000 vs USD $100,000 looks identical otherwise). Values
- * that already carry a 3-letter ISO code, or that we don't recognise
- * as a currency-bearing string, are returned unchanged.
+ * Pull a currency code out of a job's normalized location string
+ * (e.g. "Vancouver, BC, CA" → "CA" → "CAD"). The location format is
+ * "City, REGION, CC" — see electron/utils.ts formatLocation. We only
+ * trust the LAST comma-separated segment as the country code, since
+ * city names can contain commas in some locales and the third segment
+ * is what formatLocation writes for the country.
+ */
+function currencyFromLocation(location: string | null | undefined): string | null {
+  if (!location) return null
+  const parts = location.split(',').map((p) => p.trim().toUpperCase())
+  if (parts.length < 3) return null
+  const cc = parts[parts.length - 1]
+  return COUNTRY_TO_CURRENCY[cc] ?? null
+}
+
+/**
+ * Render a stored salary_range for the Job Board Salary cell. Tries
+ * three sources in order:
+ *   1. The salary string itself — if it already has an ISO code
+ *      ("CAD 90,000 - 129,000") or a leading symbol ("$100,000"),
+ *      use that currency.
+ *   2. The job's location — if normalized to "..., CC", look up CC
+ *      in our country→currency table.
+ *   3. If neither yields a code, render the salary as-is. We do NOT
+ *      fall back to the user's country here: "$" is shared by many
+ *      dollar currencies (USD, CAD, AUD, NZD, HKD, SGD, ...), so a
+ *      bare "$" is genuinely ambiguous, and a wrong prefix is worse
+ *      than no prefix.
  */
 function formatSalaryForDisplay(
   s: string | null | undefined,
-  defaultCurrency: string
+  job: { salary_range?: string | null; location?: string | null }
 ): string {
-  if (!s) return s ?? ''
-  // Already has a 3-letter ISO code — leave alone.
-  if (/\b(USD|CAD|EUR|GBP|AUD|NZD)\b/i.test(s)) return s
-  // Recognise a leading currency symbol (only the ones normalizeSalary
-  // emits) and prepend the default code. Cover both single-amount
-  // ("$100,000") and range ("$90,000 - $120,000") shapes; the second
-  // amount already has the symbol, so we don't double-prefix.
-  if (/^\s*[$€£¥]/.test(s)) return `${defaultCurrency} ${s.trim()}`
-  // No recognisable currency marker — return as-is rather than guess.
-  return s
+  if (!s) return ''
+  const code = currencyFromSalary(s) ?? currencyFromLocation(job.location)
+  if (!code) return s
+  // If the salary already carries a 3-letter code, leave it; the
+  // ISO matcher in currencyFromSalary handled it. Otherwise prepend
+  // the resolved code. Symbol-only values like "$90,000 - $120,000"
+  // get the code once at the front.
+  if (ISO_CURRENCY_RE.test(s)) return s
+  return `${code} ${s.trim()}`
 }
 
 function hasMeaningfulSalary(s: string | null | undefined): boolean {
