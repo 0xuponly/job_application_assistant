@@ -583,9 +583,11 @@ export default function JobsPage() {
           </button>
         </div>
 
-      <div className="alert alert-info">
-        Paste a job posting URL. We'll only add the job if we can source the title, company, and description.
-      </div>
+      {jobs.length === 0 && (
+        <div className="alert alert-info">
+          Paste a job posting URL. We'll only add the job if we can source the title, company, and description.
+        </div>
+      )}
 
       {jobs.length === 0 ? (
         <div className="empty-state">
