@@ -1,5 +1,6 @@
 import type { CreateJobInput } from './types'
 import { fetchHtmlViaBrowser, isChallengePage } from './browserScraper'
+import { normalizeEmploymentType } from './employmentType'
 
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -106,7 +107,7 @@ function finalizeScrapedJob(scraped: ScrapedJob, url: string): CreateJobInput {
     requirements: scraped.requirements,
     application_requirements: scraped.application_requirements,
     hiring_manager: scraped.hiring_manager,
-    employment_type: scraped.employment_type,
+    employment_type: normalizeEmploymentType(scraped.employment_type) ?? undefined,
     work_mode: scraped.work_mode,
     date_posted: scraped.date_posted
   }
