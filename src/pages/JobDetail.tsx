@@ -483,9 +483,15 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                     try {
                       const updated = await api.recomputeFit(job.id)
                       onUpdate(updated)
+                      if (updated.fit_last_error) {
+                        // Backend kept the prior score/rationale/breakdown
+                        // and only set fit_last_error. The toast surfaces
+                        // the reason; the card continues to show the
+                        // previously generated explanation.
+                        notify(`Recompute failed: ${updated.fit_last_error}`, 'error', 12000)
+                      }
                     } catch (err) {
-                      console.error('Recompute fit failed:', err)
-                      alert(`Recompute failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+                      notify(`Recompute failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error', 12000)
                     } finally {
                       setRecomputingFit(false)
                     }
@@ -528,12 +534,12 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                   </>
                 )}
               </div>
-              {job.fit_last_error && (
+              {job.fit_last_error && job.score == null && (
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                   Fit score unavailable.
                 </div>
               )}
-              {!job.fit_last_error && job.fit_rationale && (
+              {job.fit_rationale && (
                 <div className="fit-card-body" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
                   {job.fit_rationale}
                 </div>
