@@ -520,6 +520,14 @@ export function normalizeSalary(
   const trimmed = raw.trim()
   if (!trimmed) return null
 
+  // Detect the period from the ORIGINAL string — "per annum" / "per year"
+  // / "annually" are period markers and must be visible to detectPeriod.
+  // Stripping them BEFORE detection would silently turn an hourly
+  // posting like "$60.26 to $75.32 per annum" into "$60.26 to $75.32",
+  // and detectPeriod would fall through to the default "yearly" branch,
+  // storing the hourly rate as if it were annual.
+  const period = detectPeriod(trimmed)
+
   // Strip the "Up to" / "Starting at" / "From" qualifier prefix and
   // "annually" / "per annum" suffix, and any trailing "(plus bonus)".
   const cleaned = trimmed
@@ -531,7 +539,6 @@ export function normalizeSalary(
   if (!cleaned) return null
 
   const currency = detectCurrency(cleaned)
-  const period = detectPeriod(cleaned)
 
   // Pull all numeric tokens. The regex has two alternatives:
   //   1. Comma-grouped: 1-3 digits, then one or more ",NNN" groups —
