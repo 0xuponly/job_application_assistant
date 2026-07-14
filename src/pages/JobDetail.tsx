@@ -470,7 +470,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
               notes={currentJob.notes}
               expanded={descriptionExpanded}
               onToggle={() => setDescriptionExpanded((v) => !v)}
-              onLineHeightMeasured={setDescLineHeight}
+              onLineHeightMeasured={handleLineHeightMeasured}
             />
           )}
 
