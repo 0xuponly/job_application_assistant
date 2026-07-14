@@ -699,7 +699,7 @@ function applyVancouverJobs(result: ScrapedJob, html: string): void {
     const cityMatch = html.match(/itemprop=["']addressLocality["'][^>]*content=["']([^"']+)["']/i)
     const regionMatch = html.match(/itemprop=["']addressRegion["'][^>]*content=["']([^"']+)["']/i)
     if (cityMatch) result.location = decodeHtmlEntities(cityMatch[1].trim())
-    if (regionMatch && result.location) result.location += ', ' + decodeHtmlEntities(regionMatch[1].trim())
+    if (regionMatch && result.location) result.location += `, ${  decodeHtmlEntities(regionMatch[1].trim())}`
   }
 }
 

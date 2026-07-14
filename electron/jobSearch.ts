@@ -305,7 +305,7 @@ function dedupKey(url: string): string {
     // Remove common tracking params
     const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'spm', 'ta', 'trk']
     trackingParams.forEach(p => u.searchParams.delete(p))
-    let key = u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search
+    const key = u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search
     return key
   } catch {
     return url.toLowerCase().replace(/\/$/, '')
@@ -361,7 +361,7 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
       if (inner.length < 3 || inner.length >= 300) continue
     } else {
       const pathMatch = /^\/(jobs?|careers?|positions?|opportunities?)/i.test(pathname) || pathname.includes('/job/')
-      const hasJobKeywords = /job|career|position|opportunity|vacancy/i.test(pathname + ' ' + inner)
+      const hasJobKeywords = /job|career|position|opportunity|vacancy/i.test(`${pathname  } ${  inner}`)
       if (!pathMatch && !hasJobKeywords) continue
     }
 
@@ -396,7 +396,7 @@ async function fetchPageHtml(url: string, useBrowser: boolean): Promise<string> 
     try {
       return await fetchHtmlViaBrowser(url)
     } catch {
-      throw new Error('HTTP ' + response.status + ' (blocked)')
+      throw new Error(`HTTP ${  response.status  } (blocked)`)
     }
   }
   return html
@@ -444,7 +444,7 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
     return { action: 'skipped', reason: 'Duplicate (already exists by URL or company+title)' }
   }
 
-  if (!matchesWorkType(input.title + ' ' + input.description, workType)) {
+  if (!matchesWorkType(`${input.title  } ${  input.description}`, workType)) {
     return { action: 'incompatible', reason: `Work type filter: ${workType}` }
   }
 
@@ -552,7 +552,7 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
         }
         // Dedup by company+title within the same board
         if (l.title && l.company) {
-          const tcKey = (l.company + '||' + l.title).toLowerCase()
+          const tcKey = (`${l.company  }||${  l.title}`).toLowerCase()
           if (seenTitleCompany.has(tcKey)) return false
           seenTitleCompany.add(tcKey)
         }

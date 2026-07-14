@@ -84,7 +84,7 @@ const STEALTH_SCRIPT = `
 
 export async function fetchHtmlViaBrowser(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const ses = session.fromPartition('scraper-' + Date.now(), { cache: false })
+    const ses = session.fromPartition(`scraper-${  Date.now()}`, { cache: false })
     const ua = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
 
     const win = new BrowserWindow({

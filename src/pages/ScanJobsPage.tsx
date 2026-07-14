@@ -501,7 +501,7 @@ export default function ScanJobsPage() {
         )
         if (rows.length === 0) return null
         const ranAt = result.startedAt
-          ? new Date(result.startedAt).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'medium' }) + ' EST'
+          ? `${new Date(result.startedAt).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'medium' })  } EST`
           : 'unknown time'
         const totalMs = typeof result.durationMs === 'number' && Number.isFinite(result.durationMs) ? result.durationMs : 0
         const seconds = Math.round(totalMs / 1000)

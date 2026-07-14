@@ -23,7 +23,7 @@ import type {
 } from './types'
 
 // Module-level scan state — survives tab switches in the renderer
-let _scanState: { scanning: boolean; progress: string[]; result: ScanResult | null; startedAt: number | null } = {
+const _scanState: { scanning: boolean; progress: string[]; result: ScanResult | null; startedAt: number | null } = {
   scanning: false,
   progress: [],
   result: null,
@@ -351,10 +351,8 @@ function registerIpc(): void {
       if (!headerCollected) {
         if (isBullet) {
           headerCollected = true
-        } else {
-          if (headerLines.length < 3) { headerLines.push(cleaned); continue }
+        } else if (headerLines.length < 3) { headerLines.push(cleaned); continue }
           else { headerCollected = true }
-        }
       }
 
       if (isBullet) { htmlBody += `<div class="bullet">${esc(cleaned.replace(/^[•\-\*\d+.)\]\s]+/, ''))}</div>\n`; continue }
@@ -417,14 +415,14 @@ ${headerHtml}
 ${htmlBody}
 </body>
 </html>`
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml))
+    await win.loadURL(`data:text/html;charset=utf-8,${  encodeURIComponent(fullHtml)}`)
     const pdf = await win.webContents.printToPDF({})
     win.close()
     const settings = db.getSettings()
     const userName = (settings.user_name || '').replace(/[^a-zA-Z0-9]/g, '')
     const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '')
     const nameParts = [userName, company ? safe(company) : '', position ? safe(position) : '', docType || title.replace(/ .*/, '')].filter(Boolean)
-    const fileName = (nameParts.length > 1 ? nameParts.join('_') : `${title.replace(/[^a-z0-9]/gi, '_')}`) + '.pdf'
+    const fileName = `${nameParts.length > 1 ? nameParts.join('_') : `${title.replace(/[^a-z0-9]/gi, '_')}`  }.pdf`
     const docsDir = join(app.getAppPath(), 'docs')
     if (!existsSync(docsDir)) mkdirSync(docsDir, { recursive: true })
     const { canceled, filePath } = await dialog.showSaveDialog({
@@ -529,9 +527,7 @@ ${htmlBody}
   // AI Queue
   ipcMain.handle('aiQueue:list', () => db.getAIQueue())
 
-  ipcMain.handle('boards:list', () => {
-    return BOARDS.map((b) => ({ name: b.name, useBrowser: b.useBrowser }))
-  })
+  ipcMain.handle('boards:list', () => BOARDS.map((b) => ({ name: b.name, useBrowser: b.useBrowser })))
   ipcMain.handle('boards:health', () => db.getBoardHealth())
   ipcMain.handle('aiQueue:retry', (_e, id: number) => {
     db.updateAIQueueItem(id, { status: 'pending', nextRetryAt: Date.now(), lastError: undefined })

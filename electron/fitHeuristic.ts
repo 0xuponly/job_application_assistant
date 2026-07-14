@@ -91,7 +91,7 @@ export function scoreCompatibility(jobTitle: string, jobDesc: string | null, bas
   if (!baseCv) return 0.5
 
   const cvLower = baseCv.toLowerCase()
-  const descText = (jobTitle + ' ' + (jobDesc || '')).toLowerCase()
+  const descText = (`${jobTitle  } ${  jobDesc || ''}`).toLowerCase()
 
   const cvSkills = extractTechnicalTerms(cvLower)
   const jobSkills = extractTechnicalTerms(descText)

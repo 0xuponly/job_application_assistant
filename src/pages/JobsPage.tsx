@@ -134,8 +134,7 @@ export default function JobsPage() {
     }
   }, [jobs])
 
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((j) => {
+  const filteredJobs = useMemo(() => jobs.filter((j) => {
       if (filterCompany.length && !filterCompany.includes(j.company)) return false
       if (filterTitle.length && !filterTitle.includes(j.title)) return false
       if (filterLocation.length && !filterLocation.includes(j.location || '—')) return false
@@ -143,8 +142,7 @@ export default function JobsPage() {
       if (filterSource.length && !filterSource.includes(j.source || '—')) return false
       if (filterFit.length && !filterFit.includes(fitLabel(j.score))) return false
       return true
-    }).sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-  }, [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource, filterFit])
+    }).sort((a, b) => (b.score ?? -1) - (a.score ?? -1)), [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource, filterFit])
 
   const allFilteredSelected = useMemo(
     () => filteredJobs.length > 0 && filteredJobs.every((j) => selectedIds.has(j.id)),

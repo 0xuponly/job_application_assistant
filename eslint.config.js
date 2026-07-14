@@ -1,6 +1,6 @@
 import js from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
+import tsParser from '@typescript-eslint/parser';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 
@@ -10,7 +10,7 @@ export default [
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
-      parser: tsparser,
+      parser: tsParser,
       parserOptions: {
         ecmaVersion: 2022,
         sourceType: 'module',
@@ -74,10 +74,38 @@ export default [
       'react-hooks/purity': 'off',
       'react-hooks/component-hook-factories': 'off',
       'react-hooks/preserve-manual-memoization': 'off',
+      // stylistic rules from @typescript-eslint flat config: promoted to
+      // warnings so they surface in the lint output without breaking the
+      // build, since the codebase has many pre-existing violations.
+      '@typescript-eslint/adjacent-overload-signatures': 'warn',
+      '@typescript-eslint/array-type': 'warn',
+      '@typescript-eslint/ban-tslint-comment': 'warn',
+      '@typescript-eslint/class-literal-property-style': 'warn',
+      '@typescript-eslint/consistent-generic-constructors': 'warn',
+      '@typescript-eslint/consistent-indexed-object-style': 'warn',
+      '@typescript-eslint/consistent-type-assertions': 'warn',
+      '@typescript-eslint/consistent-type-definitions': 'warn',
+      '@typescript-eslint/no-confusing-non-null-assertion': 'warn',
+      '@typescript-eslint/no-empty-function': 'warn',
+      '@typescript-eslint/no-inferrable-types': 'warn',
+      '@typescript-eslint/prefer-for-of': 'warn',
+      '@typescript-eslint/prefer-function-type': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-empty': 'warn',
       'no-useless-escape': 'warn',
+      // eslint stylistic rules
+      'prefer-const': 'warn',
+      'no-var': 'warn',
+      'no-else-return': 'warn',
+      'no-lonely-if': 'warn',
+      'no-useless-rename': 'warn',
+      'object-shorthand': 'warn',
+      'prefer-template': 'warn',
+      'prefer-arrow-callback': 'warn',
+      'arrow-body-style': ['warn', 'as-needed'],
+      'no-param-reassign': 'warn',
+      'no-nested-ternary': 'warn',
     },
   },
 ];

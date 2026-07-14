@@ -845,7 +845,7 @@ export function resetSettings(): Settings {
 // API Models
 
 function nextModelId(): string {
-  return 'model-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)
+  return `model-${  Date.now()  }-${  Math.random().toString(36).slice(2, 6)}`
 }
 
 export function listApiModels(): ApiModelConfig[] {

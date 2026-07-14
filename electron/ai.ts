@@ -509,7 +509,7 @@ ${extraContext && extraContext.trim() ? `\nAdditional context from the user (fol
 Rewrite only this section's body.`
 
   const result = await callAI(systemPrompt, userPrompt, 0.7)
-  let newBody = result.content!
+  const newBody = result.content!
 
   const resultLines = [...doc.content.split('\n')]
   resultLines.splice(section.startIdx + 1, section.endIdx - section.startIdx - 1, ...newBody.trim().split('\n'))
