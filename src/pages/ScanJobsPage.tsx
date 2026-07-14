@@ -596,14 +596,32 @@ export default function ScanJobsPage() {
           : 'unknown duration'
         return (
           <div className="card" style={{ maxWidth: 800, marginTop: 16 }}>
-            <h3 style={{ marginBottom: 4 }}>
-              Found {result.totalFound} postings — added {result.totalAdded}, skipped {result.totalSkipped}
-              {result.cancelled && (
-                <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>
-                  (cancelled)
-                </span>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+              <h3 style={{ margin: 0 }}>
+                Found {result.totalFound} postings — added {result.totalAdded}, skipped {result.totalSkipped}
+                {result.cancelled && (
+                  <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>
+                    (cancelled)
+                  </span>
+                )}
+              </h3>
+              {logSnapshot.length > 0 && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => copyLog(fullLogText(logSnapshot))}
+                  title="Copy log lines to clipboard"
+                  aria-label="Copy log lines to clipboard"
+                  style={{
+                    minWidth: 32,
+                    padding: '0 8px',
+                    color: logCopied ? '#22c55e' : undefined,
+                    flexShrink: 0
+                  }}
+                >
+                  {logCopied ? '✓' : '⧉'}
+                </button>
               )}
-            </h3>
+            </div>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
               Ran at {ranAt} · Took {duration}
             </p>
@@ -644,63 +662,6 @@ export default function ScanJobsPage() {
           </div>
         )
       })()}
-
-      {result && logSnapshot.length > 0 && (
-        <div className="card" style={{ maxWidth: 800, marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>
-              Log
-            </h3>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => copyLog(fullLogText(logSnapshot))}
-              title="Copy log lines to clipboard"
-              aria-label="Copy log lines to clipboard"
-              style={{
-                minWidth: 32,
-                padding: '0 8px',
-                color: logCopied ? '#22c55e' : undefined
-              }}
-            >
-              {logCopied ? '✓' : '⧉'}
-            </button>
-          </div>
-          <div style={{ fontSize: 12, lineHeight: 1.7, maxHeight: 320, overflowY: 'auto' }}>
-            {(() => {
-              // Mirror the in-scan rendering: every blue (Scanning) + green
-              // (✓) line, plus the most recent grey line if any. The user
-              // already saw this set during the scan; the post-scan card
-              // is just so they can copy it once the live card collapses.
-              const greens = logSnapshot.filter((e) => e.msg.startsWith('✓'))
-              const blues = logSnapshot.filter((e) => e.msg.startsWith('Scanning'))
-              const greys = logSnapshot.filter((e) => !e.msg.startsWith('✓') && !e.msg.startsWith('Scanning'))
-              const latestGrey = greys.at(-1)
-              return (
-                <>
-                  {[...blues, ...greens].map((e) => (
-                    <div
-                      key={e.id}
-                      style={{
-                        color: e.msg.startsWith('✓') ? '#22c55e' : '#3b82f6'
-                      }}
-                    >
-                      {e.msg}
-                    </div>
-                  ))}
-                  {latestGrey && (
-                    <div
-                      key={latestGrey.id}
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      {latestGrey.msg}
-                    </div>
-                  )}
-                </>
-              )
-            })()}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
