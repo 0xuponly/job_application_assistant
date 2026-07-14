@@ -50,23 +50,22 @@ export default function Notifications() {
       pointerEvents: 'none'
     }}>
       {toasts.map((t) => {
-        const accent = t.type === 'error' ? 'var(--danger)' : t.type === 'success' ? '#22c55e' : 'var(--accent)'
+        const borderColor = t.type === 'error' ? 'var(--danger)' : t.type === 'success' ? '#22c55e' : 'var(--accent)'
         return (
           <div
             key={t.id}
             style={{
               padding: '12px 20px',
               borderRadius: 10,
-              background: 'rgba(20, 22, 30, 0.6)',
-              backdropFilter: 'blur(12px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(12px) saturate(160%)',
-              color: '#fff',
+              background: 'transparent',
+              backdropFilter: 'blur(20px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+              color: t.type === 'error' || t.type === 'success' ? '#fff' : 'var(--text)',
               fontSize: 13,
               fontWeight: 500,
               boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
               maxWidth: t.message.includes('\n') ? 480 : 360,
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderLeft: `3px solid ${accent}`,
+              border: `1px solid ${borderColor}`,
               animation: 'toast-slide-in 0.2s ease-out',
               whiteSpace: 'pre-line',
               pointerEvents: 'auto'
