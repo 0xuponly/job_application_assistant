@@ -154,7 +154,7 @@ async function fetchPageHtml(url: string, hostname: string, signal?: AbortSignal
   return html
 }
 
-function extractFromHtml(html: string, hostname: string, pageUrl: string, source?: string): ScrapedJob {
+function extractFromHtml(html: string, hostname: string, pageUrl: string, source?: string): Promise<ScrapedJob> {
   const result: ScrapedJob = { source }
 
   const jobPosting = selectJobPosting(collectJobPostings(extractJsonLd(html)), html, pageUrl)
