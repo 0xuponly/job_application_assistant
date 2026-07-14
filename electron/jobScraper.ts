@@ -173,6 +173,8 @@ function detectSource(hostname: string): string | undefined {
   if (hostname.includes('builtin.com')) return 'Built In'
   if (hostname.includes('careerhound.io')) return 'CareerHound'
   if (hostname.includes('ultipro.com') || hostname.includes('ultipro.ca')) return 'UltiPro'
+  if (hostname.includes('brainhunter.com')) return 'Brainhunter'
+  if (hostname.includes('catsone.com')) return 'CATS One'
   return undefined
 }
 
@@ -386,6 +388,12 @@ async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: stri
   } else if (hostname.includes('ultipro.com') || hostname.includes('ultipro.ca')) {
     applyUltiPro(result, html)
     result.source = 'UltiPro'
+  } else if (hostname.includes('brainhunter.com')) {
+    applyBrainhunter(result, html)
+    result.source = 'Brainhunter'
+  } else if (hostname.includes('catsone.com')) {
+    applyCATSOne(result, html)
+    result.source = 'CATS One'
   } else if (source) {
     result.source = source
   }
@@ -1275,6 +1283,258 @@ export async function scrapePostingDateFromUrl(rawUrl: string): Promise<string |
     applyIndeed(result, html)
   }
   return result.date_posted ?? null
+}
+
+/**
+ * Brainhunter (https://www.brainhunter.com) is an ATS used by many BC
+ * employers (PHSA, BC Hydro, etc.) for their careers pages. The
+ * per-job page is a server-rendered Struts-era HTML with no JSON-LD
+ * and no og: meta tags. The data the user wants is structured like
+ * this:
+ *
+ *   <title>job details - Business Analyst – Financial Planning & Analysis in Vancouver</title>
+ *   <meta name="description" content="Business Analyst – Financial Planning Analysis  The Business Analyst is responsible for...">
+ *   <strong>Business Analyst – Financial Planning & Analysis</strong>     <-- the real job title
+ *   <p>Job Type:&nbsp; Temporary Casual Salary Range:&nbsp; $43/hour ...</p>
+ *   <p>Location:&nbsp; Hybrid – Vancouver BC Hours of Work:&nbsp; 37.5 ...</p>
+ *   ...
+ *   The Provincial Health Services Authority ( PHSA ) plans, manages and evaluates ...   <-- the company
+ *
+ * The fallback heuristics in `applyGeneric` would extract "job details"
+ * as the title, "Brainhunter" as the company (from the hostname), and
+ * a truncated meta description — all wrong. This extractor reads the
+ * `<strong>` for the title, mines the body for the company's "The X
+ * plans/manages/..." intro paragraph, parses the body labels
+ * (Location:, Salary Range:, Job Type:) for those fields, and falls
+ * back to the meta description if the body doesn't yield one.
+ */
+function applyBrainhunter(result: ScrapedJob, html: string): void {
+  // 1) Title from the <strong> tag inside the page body. The <title>
+  // is "job details - X in City" which is not the title.
+  if (!result.title) {
+    const strong = html.match(/<strong[^>]*>([^<]{5,200})<\/strong>/i)
+    if (strong) {
+      // The local decodeHtmlEntities below doesn't cover the
+      // &ndash; / &rsquo; / &ldquo; entities the Brainhunter page
+      // uses in the <strong> title, so decode the common ones here
+      // before passing through. (The shared decodeEntities util in
+      // utils.ts would do this, but it's not imported in this file.)
+      const cleaned = decodeHtmlEntities(strong[1])
+        .replace(/&ndash;/g, '–')
+        .replace(/&mdash;/g, '—')
+        .replace(/&rsquo;/g, '\u2019')
+        .replace(/&lsquo;/g, '\u2018')
+        .replace(/&ldquo;/g, '\u201C')
+        .replace(/&rdquo;/g, '\u201D')
+        .replace(/&hellip;/g, '\u2026')
+        .replace(/\s+in\s+[A-Z][A-Za-z\- ]+$/, '')   // drop trailing "in Vancouver"
+        .trim()
+      if (cleaned.length > 5 && cleaned.length < 200) result.title = cleaned
+    }
+  }
+
+  // 2) Description: pull the full job body from the page, not the
+  // truncated meta description. The page template puts the actual
+  // job posting (What you'll do / What you bring / What we bring
+  // sections) between the <strong> title and the "What we do"
+  // corporate-boilerplate section. Everything after "What we do" is
+  // PHSA corporate copy ("Every PHSA employee enables...", footer
+  // privacy text, anti-racism boilerplate) that is not part of the
+  // job posting.
+  if (!result.description) {
+    const strongIdx = html.search(/<strong[^>]*>[^<]{5,200}<\/strong>/i)
+    if (strongIdx !== -1) {
+      const after = html.slice(strongIdx)
+      // Cut at the "What we do" corporate header. Case-insensitive
+      // and tolerant of &nbsp; between the words.
+      const whatWeDo = after.search(/What\s*we\s*do/i)
+      const sliceEnd = whatWeDo !== -1 ? whatWeDo : after.length
+      const bodyHtml = after.slice(0, sliceEnd)
+      const bodyText = bodyHtml
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&ndash;/g, '–')
+        .replace(/&mdash;/g, '—')
+        .replace(/&amp;/g, '&')
+        .replace(/&[a-z]+;/gi, ' ')
+        .replace(/&#\d+;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      // Drop the title (already extracted above) and the trailing
+      // Job Type / Salary / Location / Hours of Work labels (those
+      // are parsed into their own fields). What remains is the
+      // description body.
+      const titleFromBody = decodeHtmlEntities(html.match(/<strong[^>]*>([^<]{5,200})<\/strong>/i)?.[1] || '')
+        .replace(/&ndash;/g, '–').replace(/&mdash;/g, '—')
+        .replace(/&amp;/g, '&').replace(/&[a-z]+;/gi, ' ').replace(/&#\d+;/g, ' ')
+        .replace(/\s+in\s+[A-Z][A-Za-z\- ]+$/, '').trim()
+      let body = bodyText
+      if (titleFromBody) {
+        const ti = body.indexOf(titleFromBody)
+        if (ti !== -1) body = body.slice(ti + titleFromBody.length)
+      }
+      // Trim trailing labels (Job Type / Salary Range / Location /
+      // Hours of Work) so the description doesn't duplicate fields
+      // that are already extracted into structured columns.
+      const labelCut = body.search(/\bJob Type:\s/i)
+      if (labelCut !== -1) body = body.slice(0, labelCut)
+      body = body.trim()
+      if (body.length > 100) result.description = body
+    }
+  }
+  // Fallback to the meta description if the body extraction didn't
+  // yield enough (some postings may not have a "What we do" header).
+  if (!result.description) {
+    const metaDesc = extractMeta(html, 'description')
+    if (metaDesc && metaDesc.length > 100) result.description = stripHtml(metaDesc).trim()
+  }
+
+  // For the rest, we need the body as readable text. The labels
+  // appear after the <strong> title, separated by &nbsp; which we
+  // normalize to a real space.
+  if (!result.location || !result.salary_range || !result.employment_type || !result.company) {
+    const body = html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&ndash;/g, '–')
+      .replace(/&amp;/g, '&')
+      .replace(/&[a-z]+;/gi, ' ')
+      .replace(/&#\d+;/g, ' ')
+      .replace(/\s+/g, ' ')
+
+    // 3) Location: "Location: Hybrid – Vancouver BC" — read up to the
+    // next label (Hours of Work / Job Type / Salary Range / What we do).
+    if (!result.location) {
+      const m = body.match(/Location:\s*([^]*?)\s*(?:Hours of Work|Job Type|Salary Range|What we do|Position Summary|About|Req|$)/i)
+      if (m) {
+        const loc = m[1].trim()
+        if (loc && loc.length < 100) result.location = loc
+      }
+    }
+
+    // 4) Salary: "Salary Range: $43/hour - as a casual employee, ..."
+    // — keep just the first amount + optional unit, drop the long
+    // explanatory text that follows.
+    if (!result.salary_range) {
+      const m = body.match(/Salary Range:\s*(\$[\d,]+(?:\.\d+)?(?:\s*\/\s*(?:hour|year|month|week|day|hr|yr|wk))?)/i)
+      if (m) result.salary_range = m[1].trim()
+    }
+
+    // 5) Job type: "Job Type: Temporary Casual"
+    if (!result.employment_type) {
+      const m = body.match(/Job Type:\s*([^]*?)\s*(?:Salary Range|Hours of Work|Location:|Req|Position Summary|What we do|About|$)/i)
+      if (m) {
+        const t = m[1].trim()
+        if (t && t.length < 60) result.employment_type = t
+      }
+    }
+
+    // 6) Company: "The Provincial Health Services Authority ( PHSA )
+    // plans, manages and evaluates ...". The page template always
+    // has a "The {Full Name} ( {Acronym} ) <verb>" intro paragraph
+    // describing the employer. Capture the full name between "The "
+    // and the " ( " acronym. Falls back to the first "X is a/the"
+    // sentence if the template pattern isn't found.
+    if (!result.company) {
+      const tmpl = body.match(/The\s+([A-Z][A-Za-z0-9&'.,\- ]{3,80}?)\s*\(\s*[A-Z]{2,8}\s*\)\s+(?:plans|manages|provides|offers|is|has|operates|serves|works|strives|seeks|believes|is committed|is seeking|values|is dedicated)/)
+      if (tmpl) {
+        result.company = tmpl[1].trim()
+      } else {
+        const xIs = body.match(/([A-Z][A-Za-z0-9&'.,\- ]{3,80}?)\s+is\s+(?:an?|the)\b/)
+        if (xIs) result.company = xIs[1].trim()
+      }
+    }
+  }
+}
+
+/**
+ * CATS One (https://*.catsone.com) is a CATS-branded ATS used by many
+ * Canadian employers (Harbourfront Wealth, etc.). The per-job page
+ * is server-rendered with a `<div class="job-description-container">`
+ * wrapper that holds the full posting: title, location, body text,
+ * and an equality-statement footer. The CATS One `<meta
+ * name="description">` is hard-truncated to ~200 chars by the ATS,
+ * so the generic-extractor description fallback lands on a
+ * truncated version. This extractor reads the
+ * `job-description-container` div directly, which contains the full
+ * posting.
+ *
+ * Note: CATS One pages do NOT expose the company name anywhere in
+ * the HTML — it's the tenant of the host (`*.catsone.com` where
+ * the subdomain is the company). The applyGeneric fallback
+ * handles company from the hostname first segment; we don't
+ * override that here.
+ */
+function applyCATSOne(result: ScrapedJob, html: string): void {
+  // 1) Description from the job-description-container div. The
+  // outer wrapper, not the inner `job-description` div, because the
+  // inner one is just the body text — the outer includes the title
+  // and location summary at the top, which we strip. We use a
+  // non-greedy match that runs to the FIRST `<section` / `<footer`
+  // / `</main>` boundary rather than the first `</div>`, because
+  // the inner divs close much earlier than the container.
+  if (!result.description) {
+    const m = html.match(/<div[^>]+class="[^"]*job-description-container[^"]*"[^>]*>([\s\S]*?)(?=<(?:section|footer|aside)[^>]*>|<\/?main|\s*<div[^>]+class="[^"]*(?:footer|related|similar|sidebar))/i)
+    let bodyHtml = m?.[1] ?? ''
+    if (!bodyHtml) {
+      // Fallback: the inner job-description div
+      const inner = html.match(/<div[^>]+class="[^"]*job-description(?:-[a-z]+)?[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
+      bodyHtml = inner?.[1] ?? ''
+    }
+    if (bodyHtml) {
+      let body = bodyHtml
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&ndash;/g, '–')
+        .replace(/&mdash;/g, '—')
+        .replace(/&rsquo;/g, '\u2019')
+        .replace(/&lsquo;/g, '\u2018')
+        .replace(/&ldquo;/g, '\u201C')
+        .replace(/&rdquo;/g, '\u201D')
+        .replace(/&amp;/g, '&')
+        .replace(/&[a-z]+;/gi, ' ')
+        .replace(/&#\d+;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      // The container prepends "View all jobs {Title} {Location},"
+      // which is the title + location summary. Drop everything up to
+      // the first paragraph-start marker. We anchor on a curated
+      // list of section labels that CATS One postings use, so we
+      // don't get tripped up by "{City}, {Province} {Header}:" in
+      // the same sentence.
+      const paragraphPatterns = [
+        /\bWho we are:\s/i,
+        /\bAbout (?:the |us |you )?[A-Z][A-Za-z]+:\s/i,
+        /\b(?:Job |Position |Role )?(?:Summary|Overview|Description):\s/i,
+        /\bResponsibilities:\s/i,
+        /\bDuties:\s/i,
+        /\bRequirements:\s/i,
+        /\bQualifications:\s/i,
+        /\bWhat you(?:'ll)? (?:do|bring):\s/i
+      ]
+      let cutAt = -1
+      for (const p of paragraphPatterns) {
+        const m = body.match(p)
+        if (m && m.index !== undefined && (cutAt === -1 || m.index < cutAt)) {
+          cutAt = m.index
+        }
+      }
+      if (cutAt > 0 && cutAt < body.length / 2) {
+        body = body.slice(cutAt)
+      }
+      // Drop trailing "Apply Now" + equality-statement footer.
+      const footerCut = body.search(/\bApply Now\b/i)
+      if (footerCut !== -1 && footerCut > body.length / 2) body = body.slice(0, footerCut)
+      body = body.trim()
+      if (body.length > 200) result.description = body
+    }
+  }
 }
 
 function applyGeneric(result: ScrapedJob, html: string, pageUrl: string): void {
