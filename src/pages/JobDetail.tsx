@@ -197,6 +197,10 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
     setTailoring(type)
     try {
       const result = await api.tailorDocument({ job_id: job.id, document_type: type })
+      if (result && typeof result === 'object' && 'queued' in result) {
+        notify('AI is rate-limited — generation added to queue. Will retry automatically.', 'info')
+        return
+      }
       await api.updateApplication(application!.id, {
         [type === 'cv' ? 'cv_document_id' : 'cover_letter_document_id']: result.document_id
       })
