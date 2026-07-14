@@ -449,7 +449,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
 
       <div className="job-detail-grid">
         <div>
-          <div className="section-title">Description</div>
+          <div className="section-title" style={{ marginTop: 8 }}>Description</div>
           {editing ? (
             <>
               <textarea rows={12} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} style={{ width: '100%' }} />
