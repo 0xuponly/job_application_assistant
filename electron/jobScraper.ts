@@ -40,6 +40,24 @@ export async function scrapeJobFromUrl(rawUrl: string, signal?: AbortSignal): Pr
     }
   }
 
+  // Workday (e.g. `ubc.wd10.myworkdayjobs.com/.../Job_Title_JR12345`) ships
+  // the full job data in the static HTML as a `JobPosting` JSON-LD block.
+  // The page is a React SPA shell that hydrates client-side, but we don't
+  // need the rendered DOM — the server-side JSON-LD has title, company,
+  // location, datePosted, employmentType, and the full description. The
+  // generic `isChallengePage` heuristic false-positives on Workday's
+  // `/cdn-cgi/challenge-platform/...` script-src boilerplate, so for these
+  // hosts we skip the challenge-detection fallback and trust the static
+  // HTML directly. The hostname match is intentionally broad to cover the
+  // whole `*.myworkdayjobs.com` / `*.workday.com` family (UBC, Amazon,
+  // Atlassian, etc. all use the same platform).
+  if (hostname.endsWith('.myworkdayjobs.com') || hostname === 'myworkdayjobs.com' || hostname.endsWith('.workday.com') || hostname === 'workday.com') {
+    const html = await fetchPageHtml(url, hostname, signal, { skipChallengeCheck: true })
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    const scraped = await extractFromHtml(html, hostname, url, source)
+    return finalizeScrapedJob(scraped, url)
+  }
+
   const html = await fetchPageHtml(url, hostname, signal)
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   const scraped = await extractFromHtml(html, hostname, url, source)
@@ -147,7 +165,12 @@ function detectSource(hostname: string): string | undefined {
   return undefined
 }
 
-async function fetchPageHtml(url: string, hostname: string, signal?: AbortSignal): Promise<string> {
+async function fetchPageHtml(
+  url: string,
+  hostname: string,
+  signal?: AbortSignal,
+  opts: { skipChallengeCheck?: boolean } = {}
+): Promise<string> {
   const response = await fetch(url, {
     headers: {
       'User-Agent': USER_AGENT,
@@ -164,7 +187,7 @@ async function fetchPageHtml(url: string, hostname: string, signal?: AbortSignal
 
   const html = await response.text()
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-  if (isChallengePage(html)) {
+  if (!opts.skipChallengeCheck && isChallengePage(html)) {
     return fetchHtmlViaBrowser(url)
   }
   return html
