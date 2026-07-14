@@ -354,6 +354,11 @@ textarea {
 
 .table .col-check {
   text-align: center;
+  /* The default 12px horizontal padding on th/td makes the checkbox
+     column look wider than it needs to be. Tighten to 6px so the
+     16px checkbox sits snugly in the cell. */
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 /* Custom checkboxes: replace the native control with a rounded square
