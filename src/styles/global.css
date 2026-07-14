@@ -471,12 +471,15 @@ textarea {
 
 /* Sticky column headers on the Job Board. The `top` value is set
    dynamically by JobsPage via a ResizeObserver on the sticky wrapper,
-   exposed as --jobs-sticky-offset on :root. */
+   exposed as --jobs-sticky-offset on :root. Use --bg-elevated (an
+   explicitly defined surface color) so the th cells are fully opaque;
+   --bg-secondary is not defined in this theme, which previously left
+   the headers transparent and let scrolled text bleed through. */
 .jobs-page .table thead th {
   position: sticky;
   top: var(--jobs-sticky-offset, 0px);
   z-index: 5;
-  background: var(--bg-secondary);
+  background: var(--bg-elevated);
 }
 
 .toolbar .spacer {
