@@ -190,18 +190,6 @@ export default function SettingsPage() {
               placeholder="Paste your full CV text here..."
             />
           </div>
-
-          <div className="section-title">Job search preferences</div>
-          <div className="card" style={{ maxWidth: 600 }}>
-            <div className="form-group">
-              <label>Keywords</label>
-              <input
-                value={settings.job_search_keywords}
-                onChange={(e) => update('job_search_keywords', e.target.value)}
-                placeholder="e.g. software engineer, react, remote"
-              />
-            </div>
-          </div>
         </>
       )}
 
