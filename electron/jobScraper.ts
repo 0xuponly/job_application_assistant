@@ -143,6 +143,7 @@ function detectSource(hostname: string): string | undefined {
   if (hostname.includes('idealist.org')) return 'Idealist'
   if (hostname.includes('builtin.com')) return 'Built In'
   if (hostname.includes('careerhound.io')) return 'CareerHound'
+  if (hostname.includes('ultipro.com')) return 'UltiPro'
   return undefined
 }
 
@@ -348,6 +349,9 @@ async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: stri
   } else if (hostname.includes('idealist.org')) {
     applyIdealist(result, html)
     result.source = 'Idealist'
+  } else if (hostname.includes('ultipro.com')) {
+    applyUltiPro(result, html)
+    result.source = 'UltiPro'
   } else if (source) {
     result.source = source
   }
@@ -1008,6 +1012,118 @@ function applyIdealist(result: ScrapedJob, html: string): void {
   if (descMatch) {
     const desc = stripHtml(descMatch[1]).trim()
     if (desc) result.description = desc
+  }
+}
+
+/**
+ * UltiPro (UKG) job boards are Knockout.js shells — the page is a
+ * `<h1 data-bind="text: formattedTitle">` skeleton that only fills in
+ * client-side. The actual opportunity data is server-inlined into a
+ * `new US.Opportunity.CandidateOpportunityDetail({...})` viewmodel in
+ * the page's script block. Parsing that JSON gives us the full job
+ * (Title, Description, Locations, PostedDate, RequisitionNumber, …)
+ * without needing a browser.
+ */
+function applyUltiPro(result: ScrapedJob, html: string): void {
+  const idx = html.indexOf('new US.Opportunity.CandidateOpportunityDetail(')
+  if (idx === -1) return
+  const start = html.indexOf('{', idx)
+  if (start === -1) return
+
+  // Walk the braces, respecting string literals and escape sequences.
+  let depth = 0
+  let inString = false
+  let escape = false
+  let end = -1
+  for (let i = start; i < html.length; i++) {
+    const ch = html[i]
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (inString) {
+      if (ch === '\\') { escape = true; continue }
+      if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') { inString = true; continue }
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) { end = i; break }
+    }
+  }
+  if (end === -1) return
+
+  // The blob is a JS object literal (not JSON), so we use `new Function`
+  // to evaluate it. This is safe — we are the only consumer of this
+  // string and it comes from a public job-detail page that runs in
+  // our renderer's main process.
+  const blob = html.slice(start, end + 1)
+  let opp: Record<string, unknown> | null = null
+  try {
+    opp = new Function(`"use strict"; return (${blob});`)() as Record<string, unknown>
+  } catch {
+    return
+  }
+  if (!opp) return
+
+  if (typeof opp.Title === 'string' && opp.Title) {
+    result.title = decodeHtmlEntities(opp.Title).trim()
+  }
+  if (typeof opp.Description === 'string' && opp.Description) {
+    const desc = stripHtml(opp.Description).trim()
+    if (desc) result.description = desc
+  }
+  if (Array.isArray(opp.Locations) && opp.Locations.length > 0) {
+    const locs = opp.Locations
+      .map((l) => {
+        if (!l || typeof l !== 'object') return null
+        const loc = l as Record<string, unknown>
+        const addr = loc.Address as Record<string, unknown> | undefined
+        if (!addr) return null
+        const city = typeof addr.City === 'string' ? addr.City : ''
+        const state = addr.State as { Name?: string; Code?: string } | undefined
+        const region = state?.Code || state?.Name || ''
+        const country = addr.Country as { Name?: string } | undefined
+        const parts = [city, region, country?.Name].filter(Boolean)
+        return parts.length ? parts.join(', ') : null
+      })
+      .filter((s): s is string => Boolean(s))
+    if (locs.length) result.location = locs.join('; ')
+  }
+  if (typeof opp.PostedDate === 'string' && opp.PostedDate) {
+    result.date_posted = parsePostingDate(opp.PostedDate) ?? undefined
+  }
+  if (typeof opp.RequisitionNumber === 'string' && opp.RequisitionNumber) {
+    result.requirements = `Requisition: ${opp.RequisitionNumber}`
+  }
+  if (opp.FullTime === true) result.employment_type = 'Full-time'
+  else if (opp.FullTime === false) result.employment_type = 'Part-time'
+  // JobLocationType: 0 = On-site, 1 = Remote, 2 = Hybrid (per UKG docs)
+  if (typeof opp.JobLocationType === 'number') {
+    if (opp.JobLocationType === 1) result.work_mode = 'Remote'
+    else if (opp.JobLocationType === 2) result.work_mode = 'Hybrid'
+    else if (opp.JobLocationType === 0) result.work_mode = 'On-site'
+  }
+  if (typeof opp.PayRangeCurrencyCode === 'string' && opp.PayRangeCurrencyCode) {
+    const pr = opp.PayRange as { PayRangeMinimum?: number | null; PayRangeMaximum?: number | null } | undefined
+    if (pr) {
+      const min = typeof pr.PayRangeMinimum === 'number' ? pr.PayRangeMinimum : null
+      const max = typeof pr.PayRangeMaximum === 'number' ? pr.PayRangeMaximum : null
+      if (min != null && max != null) {
+        result.salary_range = `${opp.PayRangeCurrencyCode} ${min.toLocaleString()}\u2013${max.toLocaleString()}`
+      }
+    }
+  }
+  // UKG doesn't expose the employer name on the candidate-facing page
+  // — the URL's tenant alias (e.g. `MAR5000MAG`) is opaque. The
+  // description body, however, almost always starts with "{Company}
+  // is a …" boilerplate, so pluck the first sentence's subject.
+  if (!result.company && typeof opp.Description === 'string') {
+    const plain = opp.Description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    const m = plain.match(/^([A-Z][A-Za-z0-9&'.,\- ]{2,80}?)\s+is\s+(?:an?|the)\b/)
+    if (m) result.company = m[1].trim()
   }
 }
 

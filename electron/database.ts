@@ -24,10 +24,15 @@ const ENCRYPTED_PREFIX = '$enc$'
 function dedupKey(url: string): string {
   try {
     const u = new URL(url)
-    u.hash = ''
     const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'spm', 'ta', 'trk']
     trackingParams.forEach(p => u.searchParams.delete(p))
-    return u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search
+    // Hash is normally stripped because most sites use it only for
+    // client-side state. But hash-routed SPAs (e.g. WorkBC stores the
+    // jobId in `#/job-details/{id}`) put the job identity IN the hash,
+    // so two different jobs share the same path+query and only differ
+    // by fragment. Keep the hash, lowercased, so the dedup key is
+    // distinct per job.
+    return u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search + u.hash.toLowerCase()
   } catch {
     return url.toLowerCase().replace(/\/$/, '')
   }
