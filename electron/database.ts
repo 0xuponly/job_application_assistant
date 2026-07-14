@@ -424,8 +424,20 @@ export class JobDuplicateError extends Error {
   }
 }
 
-export function createJob(input: CreateJobInput, opts: { skipDuplicateCheck?: boolean } = {}): Job {
-  if (isBlacklisted(input)) throw new JobBlacklistedError()
+export function createJob(
+  input: CreateJobInput,
+  opts: { skipDuplicateCheck?: boolean; force?: boolean } = {}
+): { job: Job; wasBlacklisted: boolean } {
+  // `force: true` is used by manual-add and import-from-link flows to
+  // bypass the deleted-jobs blacklist so the user can re-add a job
+  // they previously deleted. The scanner never sets this; it respects
+  // the blacklist. The deleted-jobs entry is NOT removed — keeping
+  // it means the scanner won't re-add the job automatically on a
+  // future scan, matching the user's choice ("Allow re-add, keep
+  // blacklist entry"). `wasBlacklisted` is returned alongside the
+  // job so the IPC layer can prompt the user to confirm.
+  const wasBlacklisted = isBlacklisted(input)
+  if (wasBlacklisted && !opts.force) throw new JobBlacklistedError()
   // Defense in depth: even when the caller pre-checked, a concurrent scan
   // can race past the in-memory dedupe and try to insert the same job twice.
   // The DB check here is the last line of defense. Callers that intentionally
@@ -472,7 +484,7 @@ export function createJob(input: CreateJobInput, opts: { skipDuplicateCheck?: bo
   }
   s.jobs.push(job)
   persistStore()
-  return job
+  return { job, wasBlacklisted }
 }
 
 export function updateJob(

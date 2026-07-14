@@ -697,8 +697,23 @@ export default function JobsPage() {
     const onCancel = () => { cancelled.current = true }
     window.addEventListener('app:import-cancelled', onCancel)
     try {
-      const job = cleanJob(await api.importJobFromUrl(linkUrl))
-      if (cancelled.current) return
+      const { job: rawJob, wasBlacklisted } = await api.importJobFromUrl(linkUrl)
+      if (cancelled.current) {
+        // The user cancelled mid-import. Roll back the just-created
+        // job so the table stays in sync.
+        await api.deleteJobs([rawJob.id])
+        return
+      }
+      const job = cleanJob(rawJob)
+      if (wasBlacklisted) {
+        const ok = confirm(
+          'This job was previously deleted. Are you sure you can to add it again?'
+        )
+        if (!ok) {
+          await api.deleteJobs([job.id])
+          return
+        }
+      }
       setJobs((prev) => dedupeJobs([job, ...prev]))
       setShowAddLink(false)
       setLinkUrl('')
@@ -728,7 +743,20 @@ export default function JobsPage() {
     if (!form.title || !form.company) return
     setSaving(true)
     try {
-      const job = cleanJob(await api.createJob(form))
+      const { job: rawJob, wasBlacklisted } = await api.createJob(form)
+      const job = cleanJob(rawJob)
+      if (wasBlacklisted) {
+        const ok = confirm(
+          'This job was previously deleted. Are you sure you can to add it again?'
+        )
+        if (!ok) {
+          // Roll back the just-created row so the table stays in
+          // sync. The deleted-jobs blacklist entry is preserved
+          // (so the scanner still won't auto-re-add the job).
+          await api.deleteJobs([job.id])
+          return
+        }
+      }
       setJobs((prev) => dedupeJobs([job, ...prev]))
       setShowAddManual(false)
       setForm(EMPTY_FORM)

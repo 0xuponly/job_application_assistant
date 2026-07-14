@@ -515,7 +515,7 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
 
   try {
     const isHeuristic = fit.source === 'heuristic'
-    const job = createJob({
+    const { job } = createJob({
       ...input,
       // Heuristic fallbacks must NEVER be persisted as a real fit score.
       // The team policy is: if the LLM is broken, leave score null and set

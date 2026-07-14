@@ -22,12 +22,12 @@ export interface Api {
   getDashboardStats: () => Promise<DashboardStats>
   listJobs: (status?: JobStatus) => Promise<Job[]>
   getJob: (id: number) => Promise<Job | undefined>
-  createJob: (input: CreateJobInput) => Promise<Job>
+  createJob: (input: CreateJobInput) => Promise<{ job: Job; wasBlacklisted: boolean }>
   updateJob: (id: number, fields: Partial<CreateJobInput & { status: JobStatus }>) => Promise<Job>
   deleteJob: (id: number) => Promise<void>
   deleteJobs: (ids: number[]) => Promise<{ requested: number; deleted: number; missingFromStore: number[]; stillPresentAfterFilter: number[] }>
   searchJobs: (query: string) => Promise<Job[]>
-  importJobFromUrl: (url: string) => Promise<Job>
+  importJobFromUrl: (url: string) => Promise<{ job: Job; wasBlacklisted: boolean }>
   scanBoards: (filters?: ScanFilters) => Promise<ScanResult>
   cancelScan: () => Promise<void>
   cancelImport: () => Promise<void>
