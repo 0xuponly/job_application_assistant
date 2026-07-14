@@ -311,19 +311,17 @@ const ISO_CURRENCY_RE = /\b(USD|CAD|EUR|GBP|AUD|NZD|JPY)\b/i
 const SYMBOL_TO_CURRENCY: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY' }
 
 /**
- * Pull a currency code out of a salary string. Looks for a 3-letter
- * ISO code first, then falls back to the leading currency symbol.
- * Returns null if neither is present — the caller will then try the
- * job's location before giving up.
+ * Return the ISO currency code in a salary string, or null if there
+ * isn't one. We deliberately do NOT recognise the bare "$" symbol
+ * here: $ is shared by many dollar currencies (USD, CAD, AUD, NZD,
+ * HKD, SGD, ...), so a bare "$" is genuinely ambiguous. The caller
+ * should treat an ISO-less string as "no code in the salary" and
+ * fall back to the job's location to disambiguate.
  */
-function currencyFromSalary(s: string | null | undefined): string | null {
+function isoCurrencyFromSalary(s: string | null | undefined): string | null {
   if (!s) return null
   const iso = s.match(ISO_CURRENCY_RE)
-  if (iso) return iso[1].toUpperCase()
-  for (const [sym, code] of Object.entries(SYMBOL_TO_CURRENCY)) {
-    if (s.includes(sym)) return code
-  }
-  return null
+  return iso ? iso[1].toUpperCase() : null
 }
 
 /**
