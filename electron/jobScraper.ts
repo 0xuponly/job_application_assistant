@@ -615,9 +615,8 @@ function applyJobPosting(result: ScrapedJob, jp: any): void {
     const jlt = jp.jobLocationType
     const str = Array.isArray(jlt) ? jlt[0] : jlt
     if (typeof str === 'string') {
-      if (/telecommute|remote|virtual/i.test(str)) result.work_mode = 'Remote'
-      else if (/flexible|hybrid/i.test(str)) result.work_mode = 'Hybrid'
-      else if (/onsite|on.?site/i.test(str)) result.work_mode = 'On-site'
+      const wm = normalizeWorkMode(str)
+      if (wm) result.work_mode = wm
       else result.work_mode = str
     }
   }
