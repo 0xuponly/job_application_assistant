@@ -723,7 +723,7 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
       const locTag = location ? ` (${location})` : ''
       progress(`Scanning ${board.name}${locTag}...`)
       const searchUrl = board.searchUrl(keywords, location)
-      const html = await fetchPageHtml(searchUrl, board.useBrowser)
+      const html = await fetchBoardListingsHtml(searchUrl, board)
 
       progress(`Parsing listings from ${board.name}${locTag}...`)
       let listings = extractJobUrls(html, searchUrl, board.name)
