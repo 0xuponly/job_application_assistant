@@ -271,7 +271,7 @@ export default function JobsPage() {
         ? topReason
         : `${topReason} (and ${newlyFailing.length - topCount} similar)`
       notify(
-        `Fit assessment failed for ${newlyFailing.length} job${newlyFailing.length > 1 ? 's' : ''}. ${reason}.`,
+        `Fit assessment failed for ${newlyFailing.length} job${newlyFailing.length > 1 ? 's' : ''}. ${reason}`,
         'error',
         12000
       )
