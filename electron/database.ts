@@ -509,6 +509,8 @@ export function createJob(
   // the Edit dropdown is the single source of truth and downstream
   // consumers (filters, scoring, exports) only see the enum values.
   const employmentTypeNormalized = normalizeEmploymentType(input.employment_type)
+  // Same shape for work_mode: 3 tokens (ON_SITE, HYBRID, REMOTE).
+  const workModeNormalized = normalizeWorkMode(input.work_mode)
   const job: Job = {
     id: nextId(),
     title: normalizeTitle(de(input.title)) ?? de(input.title)!,
@@ -521,7 +523,7 @@ export function createJob(
     application_requirements: de(input.application_requirements ?? null),
     hiring_manager: de(input.hiring_manager ?? null),
     employment_type: employmentTypeNormalized,
-    work_mode: de(input.work_mode ?? null),
+    work_mode: workModeNormalized,
     source: input.source ?? null,
     status: 'sourced',
     score: input.score !== undefined ? (input.score ?? null) : 0.31,
