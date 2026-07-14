@@ -497,14 +497,20 @@ export function createJob(
   // the database, regardless of which scraper produced the input.
   const de = (v: string | null | undefined): string | null =>
     v == null ? null : decodeEntities(v)
+  const description = input.description ? cleanDescription(decodeEntities(input.description)) : null
+  // Normalize salary to its annual equivalent. The description is
+  // passed in so hourly postings can pick up the posting's stated
+  // hours-per-week (e.g. "37.5 hours per week"); if the posting
+  // doesn't state hours, normalizeSalary falls back to 40/week.
+  const salaryNormalized = normalizeSalary(de(input.salary_range), description)
   const job: Job = {
     id: nextId(),
     title: normalizeTitle(de(input.title)) ?? de(input.title)!,
     company: normalizeCompany(de(input.company)) ?? de(input.company)!,
     location: normalizeLocation(input.location ?? null),
     url: input.url ?? null,
-    description: input.description ? cleanDescription(decodeEntities(input.description)) : null,
-    salary_range: de(input.salary_range ?? null),
+    description,
+    salary_range: salaryNormalized ?? de(input.salary_range ?? null),
     requirements: de(input.requirements ?? null),
     application_requirements: de(input.application_requirements ?? null),
     hiring_manager: de(input.hiring_manager ?? null),
