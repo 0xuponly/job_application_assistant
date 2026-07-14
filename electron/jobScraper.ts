@@ -25,6 +25,21 @@ export async function scrapeJobFromUrl(rawUrl: string, signal?: AbortSignal): Pr
   const hostname = new URL(url).hostname.replace(/^www\./, '')
   const source = detectSource(hostname)
 
+  // WorkBC's public site is an Angular 12 SPA whose <app-root> only
+  // hydrates client-side, and the per-job URL is a hash fragment on
+  // the search page (`/find-job/search-jobs#/job-details/{id}`). The
+  // actual job data lives in a JSON API we can hit directly — much
+  // faster and more reliable than driving the SPA router.
+  if (hostname === 'www.workbc.ca' || hostname === 'workbc.ca') {
+    const detailMatch = new URL(url).hash.match(/^#?\/?job-details\/(\d+)/)
+    if (detailMatch) {
+      const job = await tryWorkBcApi(detailMatch[1], signal)
+      if (job) return job
+      // Fall through to the HTML path if the API call fails (e.g. the
+      // job was removed or the endpoint is down).
+    }
+  }
+
   const html = await fetchPageHtml(url, hostname, signal)
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   const scraped = await extractFromHtml(html, hostname, url, source)
@@ -159,32 +174,6 @@ function extractFromHtml(html: string, hostname: string, pageUrl: string, source
 }
 
 async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: string, source?: string): Promise<ScrapedJob> {
-  // WorkBC job-detail URLs are hash-routed onto the search page
-  // (`https://www.workbc.ca/find-job/search-jobs#/job-details/{id}`).
-  // The document path is the same as the search results page, so the
-  // first fetch returns the search page and `extractFromHtml` below
-  // would extract the wrong job. Detect the hash, navigate the SPA
-  // router, and re-extract from the rendered detail panel.
-  if (hostname === 'www.workbc.ca' || hostname === 'workbc.ca') {
-    const hash = new URL(pageUrl).hash
-    const detailMatch = hash.match(/^#\/?job-details\/(\d+)/)
-    if (detailMatch) {
-      const targetHash = `#/job-details/${detailMatch[1]}`
-      const detailHtml = await navigateToHashViaBrowser(
-        'https://www.workbc.ca/find-job/search-jobs',
-        targetHash,
-        // Markers that prove the detail panel rendered, not the search
-        // results. WorkBC's detail panel always shows the job title in
-        // an <h1> AND a "Job details" or "Apply now" label. Use the
-        // job-id fragment itself as a strong signal — the search page
-        // does not embed numeric job ids in the same way.
-        ['Apply now', 'Job details', `job-details/${detailMatch[1]}`],
-        20000
-      )
-      return extractFromHtmlImpl(detailHtml, hostname, pageUrl, source)
-    }
-  }
-
   const result: ScrapedJob = { source }
 
   const jobPosting = selectJobPosting(collectJobPostings(extractJsonLd(html)), html, pageUrl)
