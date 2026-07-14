@@ -327,7 +327,13 @@ function uniqueJobsByDedupeKey(jobs: Job[]): Job[] {
     if (j.url) {
       try {
         const u = new URL(j.url)
-        const k = `${u.protocol}//${u.host}${u.pathname.replace(/\/$/, '')}`.toLowerCase()
+        // Hash-routed SPAs (e.g. WorkBC's `#/job-details/{id}`) put the
+        // job identity in the fragment. Keep the hash when it looks
+        // like a path (`#/foo/bar/...` or starts with `/`); strip
+        // in-page anchors like `#apply`.
+        const hashLooksLikePath = u.hash.startsWith('#/') || u.hash.startsWith('/')
+        const hashPart = hashLooksLikePath ? u.hash.toLowerCase() : ''
+        const k = `${u.protocol}//${u.host}${u.pathname.replace(/\/$/, '')}${u.search}${hashPart}`.toLowerCase()
         if (seenUrl.has(k)) return false
         seenUrl.add(k)
       } catch {
