@@ -12,6 +12,13 @@ export default function FollowUpsPage() {
     load()
   }, [showCompleted])
 
+  // Sidebar refresh button
+  useEffect(() => {
+    const onRefresh = () => { load() }
+    window.addEventListener('app:refresh', onRefresh)
+    return () => window.removeEventListener('app:refresh', onRefresh)
+  }, [])
+
   async function load() {
     const data = await api.listFollowUps(showCompleted)
     setFollowUps(data)

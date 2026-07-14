@@ -25,7 +25,7 @@ export default function SettingsPage() {
 
   const emptyModel = { name: '', base_url: 'https://api.deepseek.com', api_key: '', model: 'deepseek-chat' }
 
-  useEffect(() => {
+  const loadSettings = () => {
     Promise.all([
       api.getSettings(),
       api.listApiModels(),
@@ -47,6 +47,17 @@ export default function SettingsPage() {
       setEncryptionMode(sec.mode)
       setBlacklist(bl)
     })
+  }
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  // Sidebar refresh button
+  useEffect(() => {
+    const onRefresh = () => { loadSettings() }
+    window.addEventListener('app:refresh', onRefresh)
+    return () => window.removeEventListener('app:refresh', onRefresh)
   }, [])
 
   async function handleSave() {

@@ -369,6 +369,13 @@ export default function JobsPage() {
     return () => clearTimeout(timer)
   }, [search])
 
+  // Sidebar refresh button: re-run loadJobs
+  useEffect(() => {
+    const onRefresh = () => { loadJobs() }
+    window.addEventListener('app:refresh', onRefresh)
+    return () => window.removeEventListener('app:refresh', onRefresh)
+  }, [])
+
   async function handleImportFromLink() {
     if (!linkUrl.trim()) {
       setLinkError('Paste a job posting URL.')

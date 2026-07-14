@@ -133,6 +133,24 @@ export default function ScanJobsPage() {
     return () => { cancelled = true }
   }, [])
 
+  // Sidebar refresh button: re-pull boards and health. Don't disturb an
+  // in-flight scan; the user can still see the running indicator.
+  useEffect(() => {
+    const onRefresh = () => {
+      if (scanning) return
+      Promise.all([api.listBoards(), api.getBoardHealth()])
+        .then(([boards, health]) => {
+          setAllBoards(boards)
+          setBoardHealth(health)
+        })
+        .catch((err) => {
+          console.error('Failed to refresh boards/health:', err)
+        })
+    }
+    window.addEventListener('app:refresh', onRefresh)
+    return () => window.removeEventListener('app:refresh', onRefresh)
+  }, [scanning])
+
   // Default the location to the user's preferred location from settings
   useEffect(() => {
     let cancelled = false

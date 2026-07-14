@@ -15,6 +15,13 @@ export default function Dashboard({ onNavigate }: Props) {
     load()
   }, [])
 
+  // Sidebar refresh button: re-fetch dashboard data
+  useEffect(() => {
+    const onRefresh = () => { load() }
+    window.addEventListener('app:refresh', onRefresh)
+    return () => window.removeEventListener('app:refresh', onRefresh)
+  }, [])
+
   async function load() {
     const [s, fu, int] = await Promise.all([
       api.getDashboardStats(),

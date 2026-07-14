@@ -21,6 +21,13 @@ export default function InterviewsPage() {
     load()
   }, [])
 
+  // Sidebar refresh button
+  useEffect(() => {
+    const onRefresh = () => { load() }
+    window.addEventListener('app:refresh', onRefresh)
+    return () => window.removeEventListener('app:refresh', onRefresh)
+  }, [])
+
   async function load() {
     const [ints, apps] = await Promise.all([api.listInterviews(), api.listApplications()])
     setInterviews(ints)

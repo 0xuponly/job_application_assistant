@@ -63,6 +63,16 @@ export default function Sidebar({ current, onNavigate }: Props) {
           Scanning…
         </div>
       )}
+      <div className="sidebar-bottom-actions">
+        <button
+          className="sidebar-action"
+          title="Refresh current page"
+          aria-label="Refresh current page"
+          onClick={() => window.dispatchEvent(new CustomEvent('app:refresh'))}
+        >
+          <span aria-hidden="true">⟳</span>
+        </button>
+      </div>
     </aside>
   )
 }

@@ -13,8 +13,17 @@ const COLUMNS: { status: JobStatus; label: string }[] = [
 export default function PipelinePage() {
   const [jobs, setJobs] = useState<Job[]>([])
 
+  const load = () => { api.listJobs().then(setJobs) }
+
   useEffect(() => {
-    api.listJobs().then(setJobs)
+    load()
+  }, [])
+
+  // Sidebar refresh button
+  useEffect(() => {
+    const onRefresh = () => { load() }
+    window.addEventListener('app:refresh', onRefresh)
+    return () => window.removeEventListener('app:refresh', onRefresh)
   }, [])
 
   async function moveJob(jobId: number, status: JobStatus) {

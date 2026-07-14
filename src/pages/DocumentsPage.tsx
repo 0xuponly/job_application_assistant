@@ -49,6 +49,13 @@ export default function DocumentsPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Sidebar refresh button: re-fetch docs and queue
+  useEffect(() => {
+    const onRefresh = () => { load(); loadQueue() }
+    window.addEventListener('app:refresh', onRefresh)
+    return () => window.removeEventListener('app:refresh', onRefresh)
+  }, [])
+
   async function load() {
     const docs = await api.listDocuments()
     setDocuments(docs)
