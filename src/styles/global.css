@@ -232,7 +232,13 @@ textarea {
 
 .table {
   width: 100%;
-  border-collapse: collapse;
+  /* `border-collapse: separate` is required for `position: sticky` on
+     <th> cells to work. With `collapse` (the default), the table layout
+     engine bypasses sticky positioning on header cells in most browsers
+     and the headers scroll away with the body. `border-spacing: 0`
+     preserves the original "shared border" visual. */
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .table th {
@@ -460,18 +466,18 @@ textarea {
    the sticky background extends edge-to-edge of the scroll container,
    matching the table's extent on both sides. The matching positive
    padding keeps the inner content (title, toolbar buttons) at the same
-   visual position they had before. A negative top margin + matching
-   top padding pulls the wrapper up to cover .page's 28px top padding
-   as well, so the sticky region spans the full vertical extent of the
-   viewport once it sticks (no padding gap showing scrolled content
-   above the title). A subtle bottom border keeps the sticky region
-   visually distinct from the scrolling table underneath. */
+   visual position they had before. A negative `top` offset pins the
+   wrapper above its natural flow position by .page's 28px top padding,
+   so when stuck the wrapper covers the padded area too — no gap
+   showing scrolled content above the title. A subtle bottom border
+   keeps the sticky region visually distinct from the scrolling
+   table underneath. */
 .jobs-page-sticky {
   position: sticky;
-  top: 0;
+  top: -28px;
   z-index: 10;
   background: var(--bg);
-  margin: -28px -32px 0;
+  margin: 0 -32px;
   padding: 28px 32px 4px;
   border-bottom: 1px solid var(--border);
   box-sizing: border-box;
