@@ -258,13 +258,20 @@ export default function JobsPage() {
       return j.fit_last_error && prev !== j.fit_last_error
     })
     if (newlyFailing.length > 0) {
-      const sample = newlyFailing
-        .slice(0, 3)
-        .map((j) => `• ${j.title} @ ${j.company}: ${j.fit_last_error}`)
-        .join('\n')
-      const more = newlyFailing.length > 3 ? `\n…and ${newlyFailing.length - 3} more.` : ''
+      // Build a short one-line summary of the most common error so the user
+      // knows what went wrong without staring at a wall of HTTP error text.
+      const summaries = newlyFailing.map((j) => {
+        const raw = (j.fit_last_error ?? '').split(/[.\n]/)[0].trim()
+        return raw || 'Unknown error'
+      })
+      const counts = new Map<string, number>()
+      for (const s of summaries) counts.set(s, (counts.get(s) ?? 0) + 1)
+      const [topReason, topCount] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
+      const reason = topCount === newlyFailing.length
+        ? topReason
+        : `${topReason} (and ${newlyFailing.length - topCount} similar)`
       notify(
-        `Fit assessment failed for ${newlyFailing.length} job${newlyFailing.length > 1 ? 's' : ''}:\n${sample}${more}`,
+        `Fit assessment failed for ${newlyFailing.length} job${newlyFailing.length > 1 ? 's' : ''}. ${reason}.`,
         'error',
         12000
       )
