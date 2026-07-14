@@ -173,6 +173,100 @@ function extractFromHtml(html: string, hostname: string, pageUrl: string, source
   return extractFromHtmlImpl(html, hostname, pageUrl, source)
 }
 
+/**
+ * WorkBC's job-board data lives behind a public JSON API that the
+ * Angular SPA calls to render each detail panel. Hitting the API
+ * directly avoids the hash-router dance and is both faster and more
+ * reliable than parsing the search-results page.
+ *
+ * Endpoint: GET https://workbc-jb.a55eb5-prod.stratus.cloud.gov.bc.ca/
+ *               api/Search/GetJobDetail?jobId={id}&language=en&isToggle=false
+ *
+ * Returns a fully-populated `CreateJobInput` (description synthesised
+ * from the structured fields the API exposes) or `null` if the API
+ * call fails — caller can then fall through to the HTML path.
+ */
+async function tryWorkBcApi(jobId: string, signal?: AbortSignal): Promise<CreateJobInput | null> {
+  try {
+    const apiUrl =
+      `https://workbc-jb.a55eb5-prod.stratus.cloud.gov.bc.ca/api/Search/GetJobDetail` +
+      `?jobId=${encodeURIComponent(jobId)}&language=en&isToggle=false`
+    const response = await fetch(apiUrl, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+      signal
+    })
+    if (!response.ok) return null
+    const payload = (await response.json()) as {
+      result?: Array<Record<string, unknown>>
+      count?: number
+    }
+    const job = payload.result?.[0]
+    if (!job) return null
+
+    const pickDescription = (v: string[] | undefined) => (Array.isArray(v) ? v.join('; ') : undefined)
+    const hoursOfWork = pickDescription((job.HoursOfWork as { Description?: string[] } | undefined)?.Description)
+    const periodOfEmployment = pickDescription((job.PeriodOfEmployment as { Description?: string[] } | undefined)?.Description)
+    const employmentTerms = pickDescription((job.EmploymentTerms as { Description?: string[] } | undefined)?.Description)
+    const workplaceType = pickDescription((job.WorkplaceType as { Description?: string[] } | undefined)?.Description)
+    const workLangCd = pickDescription((job.WorkLangCd as { Description?: string[] } | undefined)?.Description)
+    const salaryBenefits = pickDescription((job.SalaryConditions as { Description?: string[] } | undefined)?.Description)
+    const region = Array.isArray(job.Region) ? (job.Region as string[]).join(', ') : undefined
+
+    // Build a structured description from the SkillCategories array —
+    // each category has a Name and a Skills list. This is the closest
+    // thing the API gives us to a job description body.
+    const skillCategories = Array.isArray(job.SkillCategories)
+      ? (job.SkillCategories as Array<{ Category: { Name: string }; Skills: string[] }>)
+      : []
+    const descriptionParts: string[] = []
+    if (typeof job.SalaryDescription === 'string' && job.SalaryDescription) {
+      descriptionParts.push(`Salary: ${job.SalaryDescription}`)
+    }
+    if (typeof job.NocGroup === 'string' && job.NocGroup) {
+      descriptionParts.push(`NOC: ${job.NocGroup}`)
+    }
+    for (const cat of skillCategories) {
+      const name = cat.Category?.Name
+      if (!name || !Array.isArray(cat.Skills) || cat.Skills.length === 0) continue
+      descriptionParts.push(`${name}:\n- ${cat.Skills.join('\n- ')}`)
+    }
+    if (salaryBenefits) {
+      descriptionParts.push(`Benefits: ${salaryBenefits}`)
+    }
+    if (typeof job.ApplyEmailAddress === 'string' && job.ApplyEmailAddress) {
+      descriptionParts.push(`Apply by email: ${job.ApplyEmailAddress}`)
+    }
+    const description = descriptionParts.join('\n\n').trim()
+
+    // Location: "City, Province, Region"
+    const city = typeof job.City === 'string' ? job.City : ''
+    const province = typeof job.Province === 'string' ? job.Province : ''
+    const location = [city, province, region].filter(Boolean).join(', ')
+
+    return {
+      title: typeof job.Title === 'string' ? job.Title : '',
+      company: typeof job.EmployerName === 'string' ? job.EmployerName : '',
+      location: location || undefined,
+      url: `https://www.workbc.ca/find-job/search-jobs#/job-details/${jobId}`,
+      description,
+      salary_range: typeof job.SalarySummary === 'string' ? job.SalarySummary : undefined,
+      source: 'WorkBC',
+      requirements: skillCategories
+        .filter((c) => /Education|Credentials|Experience|Skills|Specific/i.test(c.Category?.Name || ''))
+        .map((c) => `${c.Category.Name}:\n- ${c.Skills.join('\n- ')}`)
+        .join('\n\n') || undefined,
+      application_requirements: job.ApplyEmailAddress
+        ? `Apply by email: ${job.ApplyEmailAddress}`
+        : undefined,
+      employment_type: [hoursOfWork, periodOfEmployment, employmentTerms].filter(Boolean).join(', ') || undefined,
+      work_mode: workplaceType || undefined,
+      date_posted: typeof job.DatePosted === 'string' ? job.DatePosted : undefined
+    }
+  } catch {
+    return null
+  }
+}
+
 async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: string, source?: string): Promise<ScrapedJob> {
   const result: ScrapedJob = { source }
 
@@ -180,6 +274,7 @@ async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: stri
   if (jobPosting) {
     applyJobPosting(result, jobPosting)
   }
+
 
   if (hostname.includes('linkedin.com')) {
     applyLinkedIn(result, html)
