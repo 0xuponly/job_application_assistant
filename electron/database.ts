@@ -609,15 +609,7 @@ export function deleteJobs(ids: number[]): { requested: number; deleted: number;
   const idSet = new Set(ids)
   const s = loadStore()
   const beforeCount = s.jobs.length
-  // Detect any ID type mismatches or duplicates in the incoming array.
-  // The renderer passes an array from a Set<number>; if the Set was
-  // populated with non-number values (e.g. strings coerced from a
-  // bug), the Set dedupes them and the count diverges.
-  const uniqueIncoming = new Set(ids).size
-  const idTypes = ids.map((id) => typeof id).join(',')
   const idsMissing = [...idSet].filter((id) => !s.jobs.find((j) => j.id === id))
-  const idsFound = [...idSet].filter((id) => s.jobs.find((j) => j.id === id))
-  console.log(`[db.deleteJobs] requested ${ids.length} ids (unique=${uniqueIncoming}, types=[${idTypes}]), ${idsMissing.length} missing, ${idsFound.length} found in store, before count=${beforeCount}`)
   // Move each deleted job into the deleted-jobs blacklist (used by the
   // scanner to avoid re-adding the same URL). The blacklist is capped
   // to settings.deleted_jobs_cap to keep the store from growing
@@ -654,7 +646,6 @@ export function deleteJobs(ids: number[]): { requested: number; deleted: number;
   // filter? If any are still present, the filter didn't catch them
   // (Set membership bug, ID type mismatch, etc.).
   const stillPresent = [...idSet].filter((id) => s.jobs.find((j) => j.id === id))
-  console.log(`[db.deleteJobs] persisted: ${beforeCount} -> ${s.jobs.length} jobs, deleted=${deleted}, stillPresentInStoreAfterFilter=${JSON.stringify(stillPresent)}`)
   return { requested: ids.length, deleted, missingFromStore: idsMissing, stillPresentAfterFilter: stillPresent }
 }
 
