@@ -576,7 +576,9 @@ export function updateJob(
     requirements: fields.requirements !== undefined ? de(fields.requirements ?? null) : existing.requirements,
     application_requirements: fields.application_requirements !== undefined ? de(fields.application_requirements ?? null) : existing.application_requirements,
     hiring_manager: fields.hiring_manager !== undefined ? de(fields.hiring_manager ?? null) : existing.hiring_manager,
-    employment_type: fields.employment_type !== undefined ? de(fields.employment_type ?? null) : existing.employment_type,
+    employment_type: fields.employment_type !== undefined
+      ? (normalizeEmploymentType(fields.employment_type))
+      : existing.employment_type,
     work_mode: fields.work_mode !== undefined ? de(fields.work_mode ?? null) : existing.work_mode,
     source: fields.source !== undefined ? (fields.source ?? null) : existing.source,
     status: fields.status ?? existing.status,
