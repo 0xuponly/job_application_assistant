@@ -513,7 +513,7 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
       // real card and only keep links that happen to be real paths.
       const hash = new URL(fullUrl).hash
       const pathMatch =
-        /^\/(jobs?|careers?|positions?|opportunities?)/i.test(pathname) ||
+        /^\/(jobs?|careers?|positions?|opportunities?|postings?)/i.test(pathname) ||
         pathname.includes('/job/') ||
         /^#\/?(job[-_]?details?|job[-_]?posting|jobs?|posting|find[-_]?jobs?\/job|postings?)\b/i.test(hash)
       if (!pathMatch) continue
