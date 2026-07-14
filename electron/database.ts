@@ -86,7 +86,8 @@ function defaultStore(): Store {
       deleted_jobs_cap: 50000,
       auto_scan_enabled: true,
       auto_scan_interval_minutes: 120,
-      locations_normalized: ''
+      locations_normalized: '',
+      statuses_recomputed: ''
     },
     api_models: [],
     nextId: 1,
@@ -958,6 +959,29 @@ export function retrofitLocations(): { updated: number; total: number } {
   s.settings.locations_normalized = '1'
   persistStore()
   return { updated, total: s.jobs.length }
+}
+
+/**
+ * One-shot: recompute every job's status from its current documents
+ * using the same doc-derived rule as the live IPC handlers. Idempotent
+ * and gated by a flag so it runs at most once per install. Use this
+ * after changing the status rule to backfill existing data.
+ */
+export function recomputeAllJobStatuses(): { updated: number; total: number } {
+  const s = loadStore()
+  let updated = 0
+  for (const j of s.jobs) {
+    const prev = j.status
+    const next = recomputeJobStatusFromDocs(j.id)
+    if (next && next !== prev) updated++
+  }
+  s.settings.statuses_recomputed = '1'
+  persistStore()
+  return { updated, total: s.jobs.length }
+}
+
+export function hasStatusesRecomputed(): boolean {
+  return loadStore().settings.statuses_recomputed === '1'
 }
 
 export async function backfillJobPostingDates(): Promise<number> {

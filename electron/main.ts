@@ -624,6 +624,21 @@ app.whenReady().then(() => {
     }
   }
 
+  // One-shot: recompute every job's status from its current documents the
+  // first time the app loads after the doc-derived status rule landed. This
+  // backfills statuses that drifted while the recompute was per-handler
+  // only. Idempotent — gated by a flag.
+  if (!db.hasStatusesRecomputed() && db.listJobs().length > 0) {
+    try {
+      const result = db.recomputeAllJobStatuses()
+      if (result.updated > 0) {
+        console.log(`[startup] Refreshed status for ${result.updated}/${result.total} jobs.`)
+      }
+    } catch (err) {
+      console.error('[startup] Status refresh failed:', err)
+    }
+  }
+
   // One-shot: bump the global CV version so the bootstrap score pass re-scores
   // every job that's currently holding a heuristic-only fit score. This
   // self-heals the bug where the LLM scorer silently fell back to a keyword
