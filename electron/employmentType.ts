@@ -86,9 +86,45 @@ export function normalizeEmploymentType(raw: string | null | undefined): Employm
   return null
 }
 
-/** Render the human label for a stored token. Unknown values pass through verbatim. */
+/** Render the human label for a stored token. Unknown / null values pass through verbatim. */
 export function formatEmploymentType(token: string | null | undefined): string {
   if (!token) return '—'
   if (token in EMPLOYMENT_TYPE_LABELS) return EMPLOYMENT_TYPE_LABELS[token as EmploymentType]
   return token
+}
+
+/**
+ * Canonical work_mode values. Three tokens, matching the three
+ * workplace arrangements postings actually declare. Free-form text
+ * ("Onsite", "Work from home", "Telecommute OK", etc.) is mapped at
+ * the scraper and persistence boundaries. UI surfaces (Edit
+ * dropdown, Job Detail Work mode card) render the token verbatim —
+ * the labels are already UPPER_SNAKE_CASE so no separate label map
+ * is needed.
+ */
+export const WORK_MODES = ['ON_SITE', 'HYBRID', 'REMOTE'] as const
+
+export type WorkMode = (typeof WORK_MODES)[number]
+
+const WORK_MODE_SET: ReadonlySet<string> = new Set(WORK_MODES)
+
+/**
+ * Map a free-form string (scraper output, legacy DB value, user edit)
+ * to a canonical work_mode token. Returns null when the input doesn't
+ * match any known value.
+ */
+export function normalizeWorkMode(raw: string | null | undefined): WorkMode | null {
+  if (raw == null) return null
+  const trimmed = String(raw).trim()
+  if (!trimmed) return null
+
+  if (WORK_MODE_SET.has(trimmed)) {
+    return trimmed as WorkMode
+  }
+
+  const lower = trimmed.toLowerCase()
+  if (/remote|telecommut|work\s*from\s*home|wfh/.test(lower)) return 'REMOTE'
+  if (/hybrid|flexible/.test(lower)) return 'HYBRID'
+  if (/on[_\s-]?site|in[_\s-]?office|in[_\s-]?person/.test(lower)) return 'ON_SITE'
+  return null
 }
