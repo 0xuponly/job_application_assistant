@@ -1,6 +1,6 @@
 # Job Application Assistant
 
-Desktop assistant for the full job application lifecycle — track jobs, generate tailored Harvard-format CVs and cover letters via AI, scan job boards, and manage your pipeline.
+Desktop assistant for the full job application lifecycle — track jobs, generate tailored Harvard-format CVs and cover letters, scan job boards, and manage your pipeline.
 
 ## Setup
 
@@ -52,3 +52,5 @@ Stored at `~/Library/Application Support/apply-assistant/apply-assistant-data.js
 ## Tech
 
 Electron + React + TypeScript + Vite. No external database — flat-file JSON store.
+
+
