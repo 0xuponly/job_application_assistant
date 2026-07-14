@@ -48,16 +48,17 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
   }, [job.id])
 
   // Surface the fit-scorer failure as a toast when the page opens with one
-  // already set. The card itself shows only a small 'Fit score unavailable'
-  // label so the user isn't staring at a wall of HTTP error text.
+  // already set AND there's no prior score to fall back on. If a prior
+  // score/rationale/breakdown are present, the card is the source of truth
+  // and we don't add a toast on top.
   const fitErrorToasted = useRef(false)
   useEffect(() => {
     if (fitErrorToasted.current) return
-    if (job.fit_last_error) {
+    if (job.fit_last_error && job.score == null) {
       notify(`Fit score unavailable: ${job.fit_last_error}`, 'error', 12000)
       fitErrorToasted.current = true
     }
-  }, [job.id, job.fit_last_error])
+  }, [job.id, job.fit_last_error, job.score])
 
   // Tracks whether we've already auto-generated for this job in this mount.
   // Without this, deleting a doc and re-navigating would re-generate it.
