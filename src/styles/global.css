@@ -373,9 +373,20 @@ input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   accent-color: var(--accent);
-  width: 14px;
-  height: 14px;
+  /* Use `!important` on width/height to defeat any platform-specific
+     native-control sizing that would otherwise render a wider-than-tall
+     rectangle (the default WebKit indicator on some Chromium builds
+     ignores the `appearance: none` width). `box-sizing: border-box`
+     keeps the 1px border inside the 14×14 box. */
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px;
+  min-height: 14px;
+  max-width: 14px;
+  max-height: 14px;
+  box-sizing: border-box;
   margin: 0;
+  padding: 0;
   cursor: pointer;
   border: 1px solid var(--border);
   border-radius: 3px;
