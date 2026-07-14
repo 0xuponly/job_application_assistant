@@ -46,11 +46,15 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
   const [selectedSection, setSelectedSection] = useState('')
   const [regenContext, setRegenContext] = useState('')
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
-  // Measured line-height for the description card — used to decide whether
-  // to collapse (more than 10 visual lines) and to clip the collapsed body
-  // to exactly 10 lines via max-height. We measure once per text change
-  // by reading a sentinel element that mirrors the card's text styles.
-  const [descLineHeight, setDescLineHeight] = useState(0)
+  // Measured line-height (px) for the description card. The child
+  // DescriptionCard measures the actual rendered line-height from a
+  // hidden sentinel that mirrors the card's text styles, then calls
+  // onLineHeightMeasured. We mirror it into a CSS custom property so
+  // the child can reference it via var(--desc-line-height) in its
+  // max-height / fade-out gradient without prop-drilling.
+  const handleLineHeightMeasured = useCallback((px: number) => {
+    document.documentElement.style.setProperty('--desc-line-height', `${px}px`)
+  }, [])
 
   useEffect(() => {
     load()
@@ -865,6 +869,151 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
           />
         </div>
       </Modal>
+    </div>
+  )
+}
+
+interface DescriptionCardProps {
+  text: string
+  notes?: string | null
+  expanded: boolean
+  onToggle: () => void
+  onLineHeightMeasured: (px: number) => void
+}
+
+// Description card with a "Read more..." toggle. The collapse threshold is
+// 10 *displayed* lines, not source lines — long paragraphs wrap, so the
+// number of source `\n`s can be far smaller than the visual line count
+// (and vice versa for short line-broken text). We measure the rendered
+// height of the full text against the line-height of the surrounding card
+// to decide whether to show the button.
+function DescriptionCard({ text, notes, expanded, onToggle, onLineHeightMeasured }: DescriptionCardProps) {
+  const COLLAPSE_LINES = 10
+  const measureRef = useRef<HTMLDivElement | null>(null)
+  const visibleRef = useRef<HTMLDivElement | null>(null)
+  const [isOverflowing, setIsOverflowing] = useState(false)
+
+  useEffect(() => {
+    // Measure line-height from the always-rendered, never-clipped sentinel.
+    // The sentinel shares the card's text styles (whiteSpace: pre-wrap,
+    // fontSize 13, lineHeight 1.6) so its computed line-height matches
+    // the visible body exactly. We read it after layout and only update
+    // when the value actually changes (rounding to a whole pixel avoids
+    // re-render loops on sub-pixel jitter from antialiasing).
+    const measure = () => {
+      const el = measureRef.current
+      if (!el) return
+      const lh = parseFloat(getComputedStyle(el).lineHeight)
+      if (Number.isFinite(lh) && lh > 0) onLineHeightMeasured(Math.round(lh))
+    }
+    measure()
+  }, [onLineHeightMeasured])
+
+  useEffect(() => {
+    // Compare the un-clipped height (visibleRef, only present when
+    // expanded) against COLLAPSE_LINES * measured line-height. If it
+    // exceeds the budget, the card is overflowing and needs the toggle.
+    const el = visibleRef.current
+    if (!el) return
+    const check = () => {
+      const h = el.scrollHeight
+      const lh = parseFloat(getComputedStyle(el).lineHeight)
+      if (!Number.isFinite(lh) || lh <= 0) return
+      setIsOverflowing(h > lh * COLLAPSE_LINES + 0.5)
+    }
+    check()
+    // Re-check on resize — the card width changes with window resize, so
+    // a paragraph that fits in 10 lines at 1200px might wrap to 12 at 800px.
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [text, expanded])
+
+  // When collapsed, clamp the visible body to exactly COLLAPSE_LINES of
+  // line-height (with a soft fade-out gradient so the truncation is
+  // visually obvious). When expanded, show everything.
+  const maxHeight = expanded ? undefined : undefined // computed below from line-height
+  // We compute maxHeight at render time using the measured line-height
+  // passed in via a CSS variable on the wrapper. If we haven't measured
+  // yet, fall back to a sensible default (1.6 * 13px = 20.8px/line).
+  return (
+    <div>
+      {/* Hidden sentinel: shares the card's text styles so we can read
+          the computed line-height reliably. The sentinel is rendered
+          with display:none? No — that returns computed lineHeight of
+          "" in some engines. Keep it visually hidden via zero size and
+          absolute positioning instead. */}
+      <div
+        ref={measureRef}
+        aria-hidden
+        style={{
+          position: 'absolute',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+          whiteSpace: 'pre-wrap',
+          fontSize: 13,
+          lineHeight: 1.6,
+          width: 1,
+          height: 1,
+          overflow: 'hidden'
+        }}
+      >
+        Ag
+      </div>
+      <div
+        className="card"
+        style={{
+          position: 'relative',
+          whiteSpace: 'pre-wrap',
+          fontSize: 13,
+          lineHeight: 1.6
+        }}
+      >
+        <div
+          ref={visibleRef}
+          style={
+            !expanded && isOverflowing
+              ? {
+                  maxHeight: `calc(var(--desc-line-height, 20.8px) * ${COLLAPSE_LINES})`,
+                  overflow: 'hidden'
+                }
+              : undefined
+          }
+        >
+          {text}
+        </div>
+        {!expanded && isOverflowing && (
+          // Soft fade at the bottom edge of the clipped text so the
+          // truncation reads as "there's more" instead of "weird cut".
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 'var(--desc-line-height, 20.8px)',
+              background: 'linear-gradient(to bottom, transparent, var(--card-bg, var(--bg)))',
+              pointerEvents: 'none'
+            }}
+          />
+        )}
+        {notes && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+            <strong>Notes:</strong> {notes}
+          </div>
+        )}
+      </div>
+      {isOverflowing && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+          <button
+            type="button"
+            onClick={onToggle}
+            style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--accent)' }}
+          >
+            {expanded ? 'Show less' : 'Read more...'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
