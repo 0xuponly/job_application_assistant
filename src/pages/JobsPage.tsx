@@ -343,30 +343,36 @@ function currencyFromLocation(location: string | null | undefined): string | nul
 /**
  * Render a stored salary_range for the Job Board Salary cell. Tries
  * three sources in order:
- *   1. The salary string itself — if it already has an ISO code
- *      ("CAD 90,000 - 129,000") or a leading symbol ("$100,000"),
- *      use that currency.
- *   2. The job's location — if normalized to "..., CC", look up CC
- *      in our country→currency table.
- *   3. If neither yields a code, render the salary as-is. We do NOT
- *      fall back to the user's country here: "$" is shared by many
- *      dollar currencies (USD, CAD, AUD, NZD, HKD, SGD, ...), so a
- *      bare "$" is genuinely ambiguous, and a wrong prefix is worse
- *      than no prefix.
+ *   1. The salary string itself, looking for an unambiguous 3-letter
+ *      ISO code (CAD 90,000 - 129,000). If present, use it directly.
+ *   2. The job's location country code (Vancouver, BC, CA → CA →
+ *      CAD). This handles symbol-only values like "$100,000" posted
+ *      from Canada, which would otherwise be mis-labelled USD.
+ *   3. The salary's own currency symbol ($/€/£/¥) as a last resort.
+ *      This is the case the location table doesn't cover (a $ salary
+ *      from a country not in COUNTRY_TO_CURRENCY, or no location
+ *      available). It still mis-labels symbol-only dollars as USD,
+ *      but that's the inherent ambiguity of a bare $; we err on
+ *      showing *some* code rather than none.
+ *   4. No prefix at all if none of the above matched.
  */
 function formatSalaryForDisplay(
   s: string | null | undefined,
   job: { salary_range?: string | null; location?: string | null }
 ): string {
   if (!s) return ''
-  const code = currencyFromSalary(s) ?? currencyFromLocation(job.location)
-  if (!code) return s
-  // If the salary already carries a 3-letter code, leave it; the
-  // ISO matcher in currencyFromSalary handled it. Otherwise prepend
-  // the resolved code. Symbol-only values like "$90,000 - $120,000"
-  // get the code once at the front.
-  if (ISO_CURRENCY_RE.test(s)) return s
-  return `${code} ${s.trim()}`
+  // 1. Unambiguous ISO code in the salary string.
+  const iso = isoCurrencyFromSalary(s)
+  if (iso) return s
+  // 2. Job location's country code.
+  const fromLocation = currencyFromLocation(job.location)
+  if (fromLocation) return `${fromLocation} ${s.trim()}`
+  // 3. Symbol in the salary string (last resort; ambiguous for $).
+  for (const [sym, code] of Object.entries(SYMBOL_TO_CURRENCY)) {
+    if (s.includes(sym)) return `${code} ${s.trim()}`
+  }
+  // 4. No code found — render as-is.
+  return s
 }
 
 function hasMeaningfulSalary(s: string | null | undefined): boolean {
