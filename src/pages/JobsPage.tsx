@@ -1436,7 +1436,7 @@ export default function JobsPage() {
                     {STATUS_LABELS[job.status]}
                   </span>
                 </td>
-                <td>{hasMeaningfulSalary(job.salary_range) ? formatSalaryForDisplay(job.salary_range, job) : '—'}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{hasMeaningfulSalary(job.salary_range) ? formatSalaryForDisplay(job.salary_range, job) : '—'}</td>
                 <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatJobDate(job.date_posted)}</td>
                 <td>
                   <button
