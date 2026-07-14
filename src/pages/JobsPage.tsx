@@ -393,8 +393,11 @@ export default function JobsPage() {
           loadJobs()
         }}
         onUpdate={(updated) => {
+          // Keep the list view in sync but do NOT reset selectedJob here.
+          // Race: the user clicks Back while a JobDetail action is in flight
+          // (e.g. fit recompute returning); the in-flight onUpdate would
+          // otherwise re-open the detail page they just left.
           const cleaned = cleanJob(updated)
-          setSelectedJob(cleaned)
           setJobs((prev) => prev.map((j) => (j.id === cleaned.id ? cleaned : j)))
         }}
         onDelete={(id) => {
