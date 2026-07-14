@@ -519,26 +519,25 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
               {job.fit_last_error && (
                 <div
                   title={job.fit_last_error}
+                  className="fit-card-body"
                   style={{
                     fontSize: 11,
                     color: 'var(--danger)',
                     marginTop: 4,
                     lineHeight: 1.4,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
+                    overflowWrap: 'anywhere'
                   }}
                 >
                   Fit score unavailable: {job.fit_last_error}
                 </div>
               )}
               {!job.fit_last_error && job.fit_rationale && (
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
+                <div className="fit-card-body" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
                   {job.fit_rationale}
                 </div>
               )}
               {job.fit_breakdown && (job.fit_breakdown.matched_skills.length > 0 || job.fit_breakdown.missing_skills.length > 0 || job.fit_breakdown.experience_years_match != null) && (
-                <div style={{ fontSize: 10, marginTop: 6, lineHeight: 1.4, color: 'var(--text-muted)' }}>
+                <div className="fit-card-body" style={{ fontSize: 10, marginTop: 6, lineHeight: 1.4, color: 'var(--text-muted)' }}>
                   {job.fit_breakdown.matched_skills.length > 0 && (
                     <div>
                       <span style={{ color: 'var(--success)' }}>✓</span> {job.fit_breakdown.matched_skills.slice(0, 5).join(', ')}

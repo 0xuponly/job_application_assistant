@@ -225,6 +225,11 @@ textarea {
   margin-top: 12px;
 }
 
+.fit-card-body {
+  max-height: 110px;
+  overflow-y: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
