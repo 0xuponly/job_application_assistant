@@ -127,10 +127,17 @@ export const BOARDS: BoardConfig[] = [
   },
   {
     name: 'WorkBC',
-    // WorkBC's search is a single-page hash-based route. `q` carries the
-    // keyword; `city` carries the location. The hash keeps pagination /
-    // sort state on the page so the user can refine without re-launching.
-    searchUrl: (k, l) => `https://www.workbc.ca/find-job/search-jobs#/job-search;q=${encodeURIComponent(k)}${l ? `;city=${encodeURIComponent(l)}` : ''}`,
+    // WorkBC's search is a single-page hash-based route. The hash carries
+    // `q` (keyword) and `city` (location) segments separated by `;`. We
+    // omit a segment entirely when its value is empty so the URL matches
+    // what the user sees when searching with only a keyword or only a
+    // city (e.g. `#/job-search;city=Vancouver;`).
+    searchUrl: (k, l) => {
+      const parts = ['job-search']
+      if (k) parts.push(`q=${encodeURIComponent(k)}`)
+      if (l) parts.push(`city=${encodeURIComponent(l)}`)
+      return `https://www.workbc.ca/find-job/search-jobs#/${parts.join(';')}`
+    },
     useBrowser: true
   },
   {
