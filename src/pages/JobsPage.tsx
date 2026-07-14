@@ -316,6 +316,10 @@ export default function JobsPage() {
   const [importing, setImporting] = useState(false)
   const [form, setForm] = useState<CreateJobInput>(EMPTY_FORM)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [rawJobs, setRawJobs] = useState<Job[]>([])
+  const [hiddenDupes, setHiddenDupes] = useState(0)
+  const [showAll, setShowAll] = useState(false)
+  const [deduping, setDeduping] = useState(false)
   const [saving, setSaving] = useState(false)
   const [filterCompany, setFilterCompany] = useState<string[]>([])
   const [filterTitle, setFilterTitle] = useState<string[]>([])
@@ -384,8 +388,15 @@ export default function JobsPage() {
     }
   }, [jobs])
 
+  // When the user opts into "Show all", render the raw (pre-dedupe) list
+  // so they can see what the dashboard count actually reflects. The rest
+  // of the page (counts, batch ops, the existing "Delete Low Fit"
+  // button) keeps reading the deduped `jobs` state — switching those
+  // would change the semantics of "select all low-fit" and similar.
+  const displayedJobs = showAll ? rawJobs : jobs
+
   const filteredJobs = useMemo(() => {
-    const rows = jobs.filter((j) => {
+    const rows = displayedJobs.filter((j) => {
       if (filterCompany.length && !filterCompany.includes(j.company)) return false
       if (filterTitle.length && !filterTitle.includes(j.title)) return false
       if (filterLocation.length && !filterLocation.includes(j.location || '—')) return false
@@ -428,7 +439,7 @@ export default function JobsPage() {
     }
     return rows.sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
   },
-    [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource, filterFit, filterDatePosted, filterLastUpdated, sortColumn, sortDir])
+    [displayedJobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSource, filterFit, filterDatePosted, filterLastUpdated, sortColumn, sortDir])
 
   const allFilteredSelected = useMemo(
     () => filteredJobs.length > 0 && filteredJobs.every((j) => selectedIds.has(j.id)),
@@ -468,7 +479,7 @@ export default function JobsPage() {
     // the next refresh.
     const data = await (search ? api.searchJobs(search) : api.listJobs())
     console.log(`[JobsPage.handleBatchDelete] deleteJobs deleted=${result.deleted}/${result.requested}, listJobs returned ${data.length} jobs, ids in data: [${data.map((j) => j.id).join(',')}]`)
-    setJobs(dedupeJobs(data.map(cleanJob)))
+    setJobs(applyDedupe(data))
     setSelectedIds(new Set())
     if (selectedJob && ids.includes(selectedJob.id)) setSelectedJob(null)
     // Surface what actually got deleted vs. what was requested so the
@@ -571,12 +582,25 @@ export default function JobsPage() {
   // (different error text, or cleared then re-appeared).
   const FIT_TOAST_DEBOUNCE_MS = 5000
 
+  // The full-list dedupe sites (loadJobs, handleBatchDelete) call this
+  // to keep `hiddenDupes` in sync with what's currently shown. The
+  // single-row additions update both `jobs` and `rawJobs` in lockstep
+  // — they prepend into an already deduped list, so the hidden count
+  // can't change.
+  function applyDedupe(raw: Job[]): Job[] {
+    const cleaned = raw.map(cleanJob)
+    const deduped = dedupeJobs(cleaned)
+    setRawJobs(cleaned)
+    setHiddenDupes(cleaned.length - deduped.length)
+    return deduped
+  }
+
   async function loadJobs() {
     const before = lastSeenFitErrors.current
     const data = search ? await api.searchJobs(search) : await api.listJobs()
-     
+
     console.log(`[JobsPage.loadJobs] fetched ${data.length} jobs (search=${JSON.stringify(search)})`)
-    setJobs(dedupeJobs(data.map(cleanJob)))
+    setJobs(applyDedupe(data))
     // Surface fit-level assessment failures that appeared since last load.
     // "New" = currently failing AND (never toasted this session, OR the
     // error text differs from what we last toasted, OR the error was
@@ -715,6 +739,7 @@ export default function JobsPage() {
         }
       }
       setJobs((prev) => dedupeJobs([job, ...prev]))
+      setRawJobs((prev) => [job, ...prev])
       setShowAddLink(false)
       setLinkUrl('')
       setSelectedJob(job)
@@ -758,6 +783,7 @@ export default function JobsPage() {
         }
       }
       setJobs((prev) => dedupeJobs([job, ...prev]))
+      setRawJobs((prev) => [job, ...prev])
       setShowAddManual(false)
       setForm(EMPTY_FORM)
       setSelectedJob(job)
@@ -876,6 +902,14 @@ export default function JobsPage() {
           // otherwise re-open the detail page they just left.
           const cleaned = cleanJob(updated)
           setJobs((prev) => prev.map((j) => (j.id === cleaned.id ? cleaned : j)))
+          // Also keep selectedJob in sync so JobDetail sees the fresh prop
+          // immediately. Without this, JobDetail's `useEffect([job])` resets
+          // its local `currentJob` to the stale reference and the user's
+          // edits appear reverted (only the page refresh on navigate-back
+          // makes them visible).
+          if (selectedJob && selectedJob.id === cleaned.id) {
+            setSelectedJob(cleaned)
+          }
         }}
         onDelete={(id) => {
           setSelectedJob(null)
@@ -946,6 +980,74 @@ export default function JobsPage() {
           </div>
         )}
       </div>
+
+      {hiddenDupes > 0 && !showAll && (
+        <div
+          className="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)',
+            padding: '8px 12px',
+            borderRadius: 6,
+            fontSize: 13,
+            marginTop: 8,
+            marginBottom: 8
+          }}
+        >
+          <span>
+            {hiddenDupes} duplicate{hiddenDupes === 1 ? '' : 's'} hidden from the Job Board (store has {hiddenDupes + jobs.length}).
+          </span>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowAll(true)}>
+            Show all
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            disabled={deduping}
+            onClick={async () => {
+              if (!confirm(`Permanently delete ${hiddenDupes} duplicate job${hiddenDupes === 1 ? '' : 's'} (and their documents, applications, follow-ups, interviews)? The kept row is the one with the lowest id (created first).`)) return
+              setDeduping(true)
+              try {
+                const result = await api.dedupeJobs()
+                notify(`Removed ${result.removedIds.length} duplicate${result.removedIds.length === 1 ? '' : 's'}. ${result.remaining} jobs remain.`, 'success')
+                setShowAll(false)
+                await loadJobs()
+              } catch (err) {
+                notify(`Dedup failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
+              } finally {
+                setDeduping(false)
+              }
+            }}
+          >
+            {deduping ? 'Cleaning…' : 'Delete Duplicates'}
+          </button>
+        </div>
+      )}
+      {showAll && hiddenDupes > 0 && (
+        <div
+          className="alert"
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)',
+            padding: '8px 12px',
+            borderRadius: 6,
+            fontSize: 13,
+            marginTop: 8,
+            marginBottom: 8
+          }}
+        >
+          Showing all {hiddenDupes + jobs.length} rows (includes duplicates).
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ marginLeft: 12 }}
+            onClick={() => setShowAll(false)}
+          >
+            Hide duplicates
+          </button>
+        </div>
+      )}
 
       {jobs.length === 0 ? (
         <div className="empty-state">
