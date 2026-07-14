@@ -309,6 +309,70 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
 
 const ISO_CURRENCY_RE = /\b(USD|CAD|EUR|GBP|AUD|NZD|JPY)\b/i
 const SYMBOL_TO_CURRENCY: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY' }
+const SYMBOL_RE = /[$€£¥]/
+// Range separators seen in stored salary strings: ASCII hyphen-minus,
+// en-dash, em-dash, or the word "to". Wrap in a single capture so we
+// can split and rejoin without losing the original separator.
+const RANGE_SEP_RE = /\s*(-|–|—|to)\s*/i
+
+/**
+ * Condense a single dollar amount to "k" / "M" form. Rounds to the
+ * nearest 1k / 0.1M, drops trailing zeroes after the decimal, and
+ * returns amounts under 1000 unchanged (so we don't show "1k" for
+ * $850). Strips any leading currency symbol or whitespace first.
+ */
+function condenseAmount(token: string): string {
+  const cleaned = token.replace(/[$€£¥\s,]/g, '').replace(/k$/i, '000').replace(/m$/i, '000000')
+  const n = parseFloat(cleaned)
+  if (!Number.isFinite(n) || n < 1000) return token.trim()
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000
+    // Drop ".0" so $1,000,000 → $1M (not $1.0M). Keep one decimal for
+    // values like $1.2M, but only if it doesn't end in .0.
+    const formatted = m % 1 === 0 ? `${m}M` : `${m.toFixed(1).replace(/\.0$/, '')}M`
+    return formatted
+  }
+  // 1,000 ≤ n < 1,000,000: drop the last three digits → "Nk"
+  return `${Math.round(n / 1000)}k`
+}
+
+/**
+ * Display transform for the Job Board Salary cell. Takes the
+ * already-resolved currency code from formatSalaryForDisplay's
+ * upstream logic and the raw salary string, and returns a condensed
+ * version. We do this as a separate pass from the currency
+ * resolution because the two transforms compose cleanly: resolve the
+ * code first, then condense the body. Ranges split on the first
+ * range separator so we can keep the separator and the second
+ * amount's symbol-or-not convention.
+ */
+function condenseSalaryForDisplay(
+  s: string,
+  code: string | null
+): string {
+  const prefix = code ? `${code} ` : ''
+  // Already a single amount (no range separator). The stored shape
+  // for an annual amount after normalizeSalary is e.g. "$100,000" or
+  // "CAD 100,000".
+  if (!RANGE_SEP_RE.test(s)) {
+    return `${prefix}${condenseAmount(s)}`
+  }
+  // Range: split into the two amounts and the original separator.
+  // We split on the first range marker only — ranges in stored data
+  // are always two-sided, not three+.
+  const m = s.match(RANGE_SEP_RE)
+  if (!m) return `${prefix}${condenseAmount(s)}`
+  const sep = m[1]
+  const idx = s.indexOf(m[0])
+  const lo = s.slice(0, idx).trim()
+  const hi = s.slice(idx + m[0].length).trim()
+  // If the high amount already starts with a currency symbol, the
+  // low amount's symbol is repeated on the high amount; strip the
+  // high's leading symbol so the rendered shape is "$80k - 120k"
+  // (not "$80k - $120k") once the prefix is added at the front.
+  const hiNoSymbol = hi.replace(/^[$€£¥]\s*/, '').trim()
+  return `${prefix}${condenseAmount(lo)} ${sep} ${condenseAmount(hiNoSymbol)}`
+}
 
 /**
  * Return the ISO currency code in a salary string, or null if there
@@ -363,16 +427,16 @@ function formatSalaryForDisplay(
   if (!s) return ''
   // 1. Unambiguous ISO code in the salary string.
   const iso = isoCurrencyFromSalary(s)
-  if (iso) return s
+  if (iso) return condenseSalaryForDisplay(s, iso)
   // 2. Job location's country code.
   const fromLocation = currencyFromLocation(job.location)
-  if (fromLocation) return `${fromLocation} ${s.trim()}`
+  if (fromLocation) return condenseSalaryForDisplay(s, fromLocation)
   // 3. Symbol in the salary string (last resort; ambiguous for $).
   for (const [sym, code] of Object.entries(SYMBOL_TO_CURRENCY)) {
-    if (s.includes(sym)) return `${code} ${s.trim()}`
+    if (s.includes(sym)) return condenseSalaryForDisplay(s, code)
   }
-  // 4. No code found — render as-is.
-  return s
+  // 4. No code found — condense without a prefix.
+  return condenseSalaryForDisplay(s, null)
 }
 
 function hasMeaningfulSalary(s: string | null | undefined): boolean {
