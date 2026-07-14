@@ -41,6 +41,12 @@ export default function ScanJobsPage() {
   const [elapsed, setElapsed] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const entriesRef = useRef<ProgressEntry[]>([])
+  // Unmutated log of every entry from the current scan, in arrival order.
+  // entriesRef is pruned by the 5s cleanup interval (greys fade, outdated
+  // blue "Scanning" lines get dropped), so it can't be the copy source.
+  // Reset on every new scan; read by fullLogText() when the user clicks
+  // the Copy log button.
+  const fullLogRef = useRef<ProgressEntry[]>([])
   const unsubRef = useRef<(() => void) | null>(null)
   const mountedRef = useRef(true)
   const scanActiveRef = useRef(false)
@@ -51,7 +57,7 @@ export default function ScanJobsPage() {
     const unsub = api.onScanComplete((result) => {
       if (cancelled || !mountedRef.current) return
       setResult(result)
-      setLogSnapshot(entriesRef.current)
+      setLogSnapshot(fullLogRef.current)
       setScanning(false)
       setElapsed(Math.round((typeof result.durationMs === 'number' && Number.isFinite(result.durationMs) ? result.durationMs : 0) / 1000))
       // Refresh health data after a completed scan
@@ -76,6 +82,7 @@ export default function ScanJobsPage() {
         const initialEntries = status.progress.map((msg) => ({ id: _nextId++, msg, timestamp: Date.now() }))
         setEntries(initialEntries)
         entriesRef.current = initialEntries
+        fullLogRef.current = initialEntries
         if (status.startedAt) {
           setElapsed(Math.floor((Date.now() - status.startedAt) / 1000))
           timerRef.current = setInterval(() => {
@@ -89,6 +96,7 @@ export default function ScanJobsPage() {
           seenAtMount.add(msg)
           const entry = { id: _nextId++, msg, timestamp: Date.now() }
           entriesRef.current = [...entriesRef.current, entry]
+          fullLogRef.current = [...fullLogRef.current, entry]
           setEntries(entriesRef.current)
         })
         unsubRef.current = unsub
@@ -97,6 +105,7 @@ export default function ScanJobsPage() {
         const initialEntries = status.progress.map((msg) => ({ id: _nextId++, msg, timestamp: Date.now() }))
         setEntries(initialEntries)
         entriesRef.current = initialEntries
+        fullLogRef.current = initialEntries
         if (status.startedAt) {
           setElapsed(Math.floor((Date.now() - status.startedAt) / 1000))
         }
@@ -205,10 +214,8 @@ export default function ScanJobsPage() {
       .join('\n')
   }
 
-  // Build the full chronological log: every entry in arrival order, blue
-  // and green and grey. The in-scan card hides all but the latest grey
-  // line in-place, but the user wants to copy the whole trace — not just
-  // what was on screen at the moment they clicked.
+  // Join the full, unmutated log (every blue, green, and grey line from
+  // fullLogRef) into a single newline-separated string for the clipboard.
   function fullLogText(source: ProgressEntry[]): string {
     return source.map((e) => e.msg).join('\n')
   }
@@ -241,6 +248,7 @@ export default function ScanJobsPage() {
     setEntries([])
     setElapsed(0)
     entriesRef.current = []
+    fullLogRef.current = []
     await api.clearScanResult()
     // Remove any stale listener before creating a new one
     unsubRef.current?.()
@@ -259,6 +267,7 @@ export default function ScanJobsPage() {
       seenMsgs.add(msg)
       const entry = { id: _nextId++, msg, timestamp: Date.now() }
       entriesRef.current = [...entriesRef.current, entry]
+      fullLogRef.current = [...fullLogRef.current, entry]
       setEntries(entriesRef.current)
     })
     unsubRef.current = unsub
@@ -272,7 +281,7 @@ export default function ScanJobsPage() {
       })
       if (mountedRef.current) {
         setResult(r)
-        setLogSnapshot(entriesRef.current)
+        setLogSnapshot(fullLogRef.current)
         setElapsed(Math.round(r.durationMs / 1000))
       }
       // Refresh health data after scan completes
@@ -512,7 +521,7 @@ export default function ScanJobsPage() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => copyLog(fullLogText(entriesRef.current))}
+                onClick={() => copyLog(fullLogText(fullLogRef.current))}
                 title="Copy log lines to clipboard"
                 aria-label="Copy log lines to clipboard"
                 style={{
