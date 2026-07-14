@@ -127,6 +127,7 @@ function detectSource(hostname: string): string | undefined {
   if (hostname.includes('selbyjennings.com')) return 'Selby Jennings'
   if (hostname.includes('idealist.org')) return 'Idealist'
   if (hostname.includes('builtin.com')) return 'Built In'
+  if (hostname.includes('careerhound.io')) return 'CareerHound'
   return undefined
 }
 

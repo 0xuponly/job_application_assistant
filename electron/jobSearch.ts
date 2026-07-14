@@ -127,8 +127,11 @@ export const BOARDS: BoardConfig[] = [
   },
   {
     name: 'WorkBC',
-    searchUrl: (k) => `https://www.workbc.ca/jobs?search=${encodeURIComponent(k)}`,
-    useBrowser: false
+    // WorkBC's search is a single-page hash-based route. `q` carries the
+    // keyword; `city` carries the location. The hash keeps pagination /
+    // sort state on the page so the user can refine without re-launching.
+    searchUrl: (k, l) => `https://www.workbc.ca/find-job/search-jobs#/job-search;q=${encodeURIComponent(k)}${l ? `;city=${encodeURIComponent(l)}` : ''}`,
+    useBrowser: true
   },
   {
     name: 'CareerBeacon',
@@ -402,6 +405,22 @@ const BOARD_NAV_TEXT_PATTERNS: Readonly<Record<string, readonly RegExp[]>> = {
     /^remotive jobs public api$/i,
     /^load more/i,
     /^all jobs?$/i
+  ],
+  'Google Careers': [
+    // Top-level nav on the careers site (Teams, Locations, Search jobs, etc.)
+    /^teams?$/i,
+    /^locations?$/i,
+    /^(search|find) (a )?job(s)?$/i,
+    /^life at google$/i,
+    /^about (us|the company)$/i,
+    /^benefits?$/i,
+    /^diversity$/i,
+    /^apply now$/i,
+    /^learn more$/i,
+    /^read more$/i,
+    /^sign in$/i,
+    /^skip to (content|main)/i,
+    /^all jobs?$/i
   ]
 }
 
@@ -467,6 +486,11 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
       const pathParts = pathname.split('/').filter(Boolean)
       if (pathParts.length < 1) continue
       if (inner.length < 3 || inner.length >= 300) continue
+    } else if (boardLower.includes('google')) {
+      // Google Careers lives under /about/careers/applications/jobs/... —
+      // the generic /jobs|...|... regex anchors at `^/` and would reject
+      // every real listing. Accept any path under /about/careers instead.
+      if (!pathname.startsWith('/about/careers')) continue
     } else {
       // Generic branch: require the URL path itself to look like a job
       // (the previous version also accepted links whose visible text

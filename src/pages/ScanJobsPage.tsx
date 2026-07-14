@@ -234,6 +234,7 @@ export default function ScanJobsPage() {
     setLogSnapshot([])
     setEntries([])
     setElapsed(0)
+    setBoardsExpanded(false)
     entriesRef.current = []
     fullLogRef.current = []
     await api.clearScanResult()
