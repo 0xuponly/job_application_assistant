@@ -60,5 +60,12 @@ export const BOARD_TYPES: { label: string; boards: string[] }[] = [
       'CharityVillage',
       'Idealist'
     ]
+  },
+  {
+    label: 'General',
+    boards: [
+      'Google Careers',
+      'CareerHound'
+    ]
   }
 ]
