@@ -27,6 +27,7 @@ export interface Api {
   updateJob: (id: number, fields: Partial<CreateJobInput & { status: JobStatus }>) => Promise<Job>
   deleteJob: (id: number) => Promise<void>
   deleteJobs: (ids: number[]) => Promise<{ requested: number; deleted: number; missingFromStore: number[]; stillPresentAfterFilter: number[] }>
+  dedupeJobs: () => Promise<{ removedIds: number[]; remaining: number }>
   searchJobs: (query: string) => Promise<Job[]>
   importJobFromUrl: (url: string) => Promise<{ job: Job; wasBlacklisted: boolean }>
   scanBoards: (filters?: ScanFilters) => Promise<ScanResult>
@@ -97,6 +98,7 @@ const api: Api = {
   updateJob: (id, fields) => ipcRenderer.invoke('jobs:update', id, fields),
   deleteJob: (id) => ipcRenderer.invoke('jobs:delete', id),
   deleteJobs: (ids) => ipcRenderer.invoke('jobs:deleteMany', ids),
+  dedupeJobs: () => ipcRenderer.invoke('jobs:dedupe'),
   searchJobs: (query) => ipcRenderer.invoke('jobs:search', query),
   importJobFromUrl: (url) => ipcRenderer.invoke('jobs:importFromUrl', url),
   scanBoards: (filters) => ipcRenderer.invoke('jobs:scanBoards', filters),

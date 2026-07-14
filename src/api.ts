@@ -26,6 +26,7 @@ export interface Api {
   updateJob: (id: number, fields: Partial<CreateJobInput & { status: JobStatus }>) => Promise<Job>
   deleteJob: (id: number) => Promise<void>
   deleteJobs: (ids: number[]) => Promise<{ requested: number; deleted: number; missingFromStore: number[]; stillPresentAfterFilter: number[] }>
+  dedupeJobs: () => Promise<{ removedIds: number[]; remaining: number }>
   searchJobs: (query: string) => Promise<Job[]>
   importJobFromUrl: (url: string) => Promise<{ job: Job; wasBlacklisted: boolean }>
   scanBoards: (filters?: ScanFilters) => Promise<ScanResult>
