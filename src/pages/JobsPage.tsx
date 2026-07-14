@@ -516,7 +516,7 @@ function SalaryFilterSelect({ filter, onChange }: {
     return Number.isFinite(n) ? n.toLocaleString() : s
   }
   const displayLabel = !active
-    ? 'Any'
+    ? '—'
     : `${filter.min ? `$${fmt(filter.min)}+` : ''}${filter.min && filter.max ? ' – ' : ''}${filter.max ? `≤ $${fmt(filter.max)}` : ''}`
 
   return (
