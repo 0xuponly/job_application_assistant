@@ -26,13 +26,16 @@ function dedupKey(url: string): string {
     const u = new URL(url)
     const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'spm', 'ta', 'trk']
     trackingParams.forEach(p => u.searchParams.delete(p))
-    // Hash is normally stripped because most sites use it only for
-    // client-side state. But hash-routed SPAs (e.g. WorkBC stores the
-    // jobId in `#/job-details/{id}`) put the job identity IN the hash,
-    // so two different jobs share the same path+query and only differ
-    // by fragment. Keep the hash, lowercased, so the dedup key is
-    // distinct per job.
-    return u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search + u.hash.toLowerCase()
+    // Most sites use the hash only for in-page anchors ("#apply",
+    // "#section-2") — those aren't job identities, so we strip them.
+    // But hash-routed SPAs (e.g. WorkBC stores the jobId in
+    // `#/job-details/{id}`) put the job identity IN the hash, so two
+    // different jobs share the same path+query and only differ by
+    // fragment. Keep the hash when it looks like a path
+    // (`#/foo/bar/...` or starts with `/` after the `#`).
+    const hashLooksLikePath = u.hash.startsWith('#/') || u.hash.startsWith('/')
+    const hashPart = hashLooksLikePath ? u.hash.toLowerCase() : ''
+    return u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search + hashPart
   } catch {
     return url.toLowerCase().replace(/\/$/, '')
   }
