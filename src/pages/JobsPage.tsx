@@ -248,8 +248,14 @@ export default function JobsPage() {
     }
   }
 
+  // Tracks the last fit_last_error we toasted for each job id so we don't
+  // re-fire the same toast on every remount, search change, or background
+  // batch-score refresh. The Map persists across renders for the lifetime
+  // of this page instance.
+  const lastSeenFitErrors = useRef<Map<number, string | null>>(new Map())
+
   async function loadJobs() {
-    const before = new Map(jobs.map((j) => [j.id, j.fit_last_error ?? null]))
+    const before = lastSeenFitErrors.current
     const data = search ? await api.searchJobs(search) : await api.listJobs()
     setJobs(dedupeJobs(data.map(cleanJob)))
     // Surface fit-level assessment failures that appeared since last load.
@@ -279,6 +285,12 @@ export default function JobsPage() {
         12000
       )
     }
+    // Update the snapshot so the next load only toasts on *new* failures.
+    // If a job's error cleared (e.g. it fit successfully on a retry), drop it
+    // from the snapshot so a future error toasts again.
+    const next = new Map<number, string | null>()
+    for (const j of data) next.set(j.id, j.fit_last_error ?? null)
+    lastSeenFitErrors.current = next
   }
 
   useEffect(() => {
