@@ -413,9 +413,6 @@ export default function ScanJobsPage() {
                       }}
                     />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
-                    {allBad && (
-                      <span style={{ fontSize: 10, color: '#ef4444' }}>(5 empty)</span>
-                    )}
                   </label>
                 )
               })}
