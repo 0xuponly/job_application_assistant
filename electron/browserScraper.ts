@@ -139,9 +139,13 @@ export async function fetchHtmlViaBrowser(url: string): Promise<string> {
           true
         )
         if (isChallengePage(html)) {
-          if (attempt === 0) {
-            await new Promise((r) => setTimeout(r, 10000))
-            return extract(1)
+          // Cloudflare challenges usually clear in 3-5s once the JS
+          // challenge runs, but harder Turnstile challenges can take
+          // 15-20s. Cap retries at 3 to keep the overall request under
+          // the 60s timer.
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 8000))
+            return extract(attempt + 1)
           }
           finish(() =>
             reject(
