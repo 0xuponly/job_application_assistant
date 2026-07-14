@@ -19,14 +19,14 @@ export const EMPLOYMENT_TYPES = [
 export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number]
 
 export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
-  FULL_TIME: 'Full-time',
-  PART_TIME: 'Part-time',
-  CONTRACT: 'Contract',
-  TEMPORARY: 'Temporary',
-  INTERNSHIP: 'Internship',
-  PERMANENT: 'Permanent',
-  VOLUNTEER: 'Volunteer',
-  FREELANCE: 'Freelance'
+  FULL_TIME: 'FULL TIME',
+  PART_TIME: 'PART TIME',
+  CONTRACT: 'CONTRACT',
+  TEMPORARY: 'TEMPORARY',
+  INTERNSHIP: 'INTERNSHIP',
+  PERMANENT: 'PERMANENT',
+  VOLUNTEER: 'VOLUNTEER',
+  FREELANCE: 'FREELANCE'
 }
 
 const EMPLOYMENT_TYPE_SET: ReadonlySet<string> = new Set(EMPLOYMENT_TYPES)
