@@ -480,6 +480,14 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
     return { action: 'incompatible', reason: `Score ${fit.score.toFixed(2)} < 0.08` }
   }
 
+  if (fit.source === 'llm' && fit.score < 0.3) {
+    // Low-Fit per the user's threshold — same cut-off the rest of the app
+    // uses (JobsPage fit label, deleted_jobs blacklist). Heuristic
+    // fallbacks stay eligible so a misconfigured LLM doesn't silently
+    // drop real matches.
+    return { action: 'incompatible', reason: `Score ${fit.score.toFixed(2)} < 0.3` }
+  }
+
   try {
     const isHeuristic = fit.source === 'heuristic'
     const job = createJob({
