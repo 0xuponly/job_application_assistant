@@ -615,9 +615,11 @@ function applyJobPosting(result: ScrapedJob, jp: any): void {
     const jlt = jp.jobLocationType
     const str = Array.isArray(jlt) ? jlt[0] : jlt
     if (typeof str === 'string') {
+      // Unmappable values are dropped (not stored verbatim) so the
+      // persistence boundary doesn't see free-form strings the
+      // dropdown doesn't cover.
       const wm = normalizeWorkMode(str)
       if (wm) result.work_mode = wm
-      else result.work_mode = str
     }
   }
 
