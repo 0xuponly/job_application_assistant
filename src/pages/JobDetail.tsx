@@ -418,13 +418,6 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
             <h1>{currentJob.title}</h1>
             <p>
               {currentJob.company}{currentJob.location ? ` · ${currentJob.location}` : ''}
-              {(job.date_posted || job.last_updated) && (
-                <span style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {currentJob.date_posted && <>Posted {new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
-                  {currentJob.date_posted && job.last_updated && ' · '}
-                  {currentJob.last_updated && <>Last updated {new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</>}
-                </span>
-              )}
             </p>
           </>
         )}
@@ -474,34 +467,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
             />
           )}
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
-            <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Date posted</div>
-              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.date_posted ? new Date(job.date_posted).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
-            </div>
-            <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Last updated</div>
-              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.last_updated ? new Date(job.last_updated).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div>
-            </div>
-            <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Salary</div>
-              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.salary_range || '—'}</div>
-            </div>
-            <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Type</div>
-              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.employment_type || '—'}</div>
-            </div>
-            <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Work mode</div>
-              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.work_mode || '—'}</div>
-            </div>
-            <div className="card" style={{ flex: '1 0 140px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Hiring manager</div>
-              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.hiring_manager || '—'}</div>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: 16 }}>
             <div className="card" style={{ padding: '8px 12px', minHeight: 56 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
                 <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Fit</div>
@@ -594,6 +560,25 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Salary</div>
+              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.salary_range || '—'}</div>
+            </div>
+            <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Type</div>
+              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.employment_type || '—'}</div>
+            </div>
+            <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Work mode</div>
+              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.work_mode || '—'}</div>
+            </div>
+            <div className="card" style={{ flex: '1 0 140px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 2 }}>Hiring manager</div>
+              <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentJob.hiring_manager || '—'}</div>
             </div>
           </div>
 
