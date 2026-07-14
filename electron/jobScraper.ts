@@ -892,6 +892,27 @@ function applyVancouverJobs(result: ScrapedJob, html: string): void {
     if (cityMatch) result.location = decodeHtmlEntities(cityMatch[1].trim())
     if (regionMatch && result.location) result.location += `, ${  decodeHtmlEntities(regionMatch[1].trim())}`
   }
+
+  // BC public-sector pay grades (Pay Grade RNG-, EXM-, etc.) quote an
+  // hourly rate but suffix it with "per annum" — government HR phrasing
+  // for "the annualized equivalent of the hourly rate." If we left the
+  // literal "per annum" in the saved string, normalizeSalary would
+  // detectPeriod='year' and store the hourly rate as if it were
+  // annual ($60.26 - $75.32 instead of ~$120k). Rewrite the period
+  // marker to "per hour" so annualization kicks in correctly. The
+  // trigger is on the description (where the "Pay Grade RNG-XXX:" label
+  // actually appears), not on the salary string itself, which only
+  // contains the amount + period suffix. Other sources that say
+  // "per annum" without the Pay Grade prefix are left alone.
+  if (
+    result.salary_range &&
+    result.description &&
+    /pay\s*grade\s+[A-Z]{2,4}-/i.test(result.description)
+  ) {
+    result.salary_range = result.salary_range
+      .replace(/\s*per\s*annum\b/gi, ' per hour')
+      .replace(/\s*annually\b/gi, ' per hour')
+  }
 }
 
 function applyMonster(result: ScrapedJob, html: string): void {
@@ -1236,7 +1257,12 @@ function extractSalaryFromText(text: string): string | undefined {
     // Grade RNG-091: $60.26 to $75.32 per annum" on Vancouver Jobs),
     // up to 80 chars on a single line. "annum" is added for the
     // British/Commonwealth convention used by BC public-sector postings.
-    /((?:salary|pay|compensation|range)\b[^<>\n]{0,80}?[\$€£¥][\d,]+(?:\.\d+)?(?:k|K)?(?:\s*(?:–|-|to)\s*[\$€£¥]?[\d,]+(?:\.\d+)?(?:k|K)?)?(?:\s*(?:per|a|an|\/)\s*(?:annum|year|yr|month|hour|hr|week|wk|day))?)/i,
+    // Group 1 is the AMOUNT only (not the keyword + bridge) so the
+    // caller doesn't store noise like "Pay Grade RNG-091:" as part of
+    // the salary — and the amount regex in normalizeSalary doesn't
+    // accidentally pick up the "091" pay-grade serial as a third
+    // number alongside the actual amounts.
+    /(?:salary|pay|compensation|range)\b[^<>\n]{0,80}?([$€£¥][\d,]+(?:\.\d+)?(?:k|K)?(?:\s*(?:–|-|to)\s*[$€£¥]?[\d,]+(?:\.\d+)?(?:k|K)?)?(?:\s*(?:per|a|an|\/)\s*(?:annum|year|yr|month|hour|hr|week|wk|day))?)/i,
     /([$€£¥][\d,]+(?:\.\d+)?(?:k|K)?\s*(?:–|-|to)\s*[$€£¥]?[\d,]+(?:\.\d+)?(?:k|K)?(?:\s*(?:per|a|an|\/)\s*(?:year|yr|month|hour|hr|week|wk|day))?)/,
     /(USD|CAD|EUR|GBP|AUD|NZD)\s*([\d,]+(?:k|K)?(?:\s*(?:–|-|to)\s*[\d,]+(?:k|K)?)(?:\s*(?:per|a|an|\/)\s*(?:year|yr|month|hour|hr|week|wk|day))?)/i
   ]
