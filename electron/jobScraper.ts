@@ -27,7 +27,7 @@ export async function scrapeJobFromUrl(rawUrl: string, signal?: AbortSignal): Pr
 
   const html = await fetchPageHtml(url, hostname, signal)
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-  const scraped = extractFromHtml(html, hostname, url, source)
+  const scraped = await extractFromHtml(html, hostname, url, source)
 
   const missing: string[] = []
   if (!scraped.title) missing.push('job title')
