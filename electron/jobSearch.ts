@@ -505,7 +505,17 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
       // links like Monster's "Browse Jobs" or Remote OK's "💼 Executive
       // jobs"). Per-board BOARD_NAV_TEXT_PATTERNS (looked up below by
       // the canonical board name) catches the cases the path can't.
-      const pathMatch = /^\/(jobs?|careers?|positions?|opportunities?)/i.test(pathname) || pathname.includes('/job/')
+      //
+      // We also accept hash-routed job fragments (e.g. WorkBC's
+      // `#/job-details/49898249` or similar `#/job/...`, `#/posting/...`).
+      // Hash-routed SPAs keep the listing-page pathname but carry the
+      // job id in the fragment, so the path-only regex would drop every
+      // real card and only keep links that happen to be real paths.
+      const hash = new URL(fullUrl).hash
+      const pathMatch =
+        /^\/(jobs?|careers?|positions?|opportunities?)/i.test(pathname) ||
+        pathname.includes('/job/') ||
+        /^#\/?(job[-_]?details?|job[-_]?posting|jobs?|posting|find[-_]?jobs?\/job|postings?)\b/i.test(hash)
       if (!pathMatch) continue
     }
 
