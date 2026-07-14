@@ -474,7 +474,6 @@ export default function JobsPage() {
   const [filterSalary, setFilterSalary] = useState<SalaryFilter>(EMPTY_SALARY_FILTER)
   const [filterFit, setFilterFit] = useState<string[]>([])
   const [filterDatePosted, setFilterDatePosted] = useState<DateFilter>(EMPTY_DATE_FILTER)
-  const [filterLastUpdated, setFilterLastUpdated] = useState<DateFilter>(EMPTY_DATE_FILTER)
   // Sort: null = default behavior (score DESC, nulls last). A column click
   // cycles default → asc → desc → default. Only one column is sorted at a
   // time; clicking a different column resets the previous one to default.
@@ -547,7 +546,6 @@ export default function JobsPage() {
       if (!matchesSalaryFilter(j.salary_range, filterSalary)) return false
       if (filterFit.length && !filterFit.includes(fitLabel(j.score))) return false
       if (!matchesDateFilter(j.date_posted, filterDatePosted)) return false
-      if (!matchesDateFilter(j.last_updated, filterLastUpdated)) return false
       return true
     })
     // Default behavior: score DESC, with null scores at the end. When the
@@ -561,7 +559,6 @@ export default function JobsPage() {
         case 'status': return j.status
         case 'salary_range': return parseSalaryForSort(j.salary_range)
         case 'date_posted': return j.date_posted ?? null
-        case 'last_updated': return j.last_updated ?? null
         default: return null
       }
     }
@@ -582,7 +579,7 @@ export default function JobsPage() {
     }
     return rows.sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
   },
-    [displayedJobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSalary, filterFit, filterDatePosted, filterLastUpdated, sortColumn, sortDir])
+    [displayedJobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSalary, filterFit, filterDatePosted, sortColumn, sortDir])
 
   const allFilteredSelected = useMemo(
     () => filteredJobs.length > 0 && filteredJobs.every((j) => selectedIds.has(j.id)),
