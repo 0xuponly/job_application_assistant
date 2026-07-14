@@ -1396,7 +1396,7 @@ export default function JobsPage() {
               </th>
               <th>
                 <div className="filter-header">
-                  <SortableLabel columnKey="date_posted" label="Date Posted" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
+                  <SortableLabel columnKey="date_posted" label="Posted" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
                   <DateFilterSelect filter={filterDatePosted} onChange={setFilterDatePosted} />
                 </div>
               </th>
