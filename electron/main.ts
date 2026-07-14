@@ -91,6 +91,7 @@ function registerIpc(): void {
   )
   ipcMain.handle('jobs:delete', (_e, id: number) => db.deleteJob(id))
   ipcMain.handle('jobs:deleteMany', (_e, ids: number[]) => db.deleteJobs(ids))
+  ipcMain.handle('jobs:dedupe', () => db.dedupeJobs())
   ipcMain.handle('jobs:search', (_e, query: string) => db.searchJobs(query))
   ipcMain.handle('jobs:importFromUrl', async (_e, url: string) => {
     _importAbortController = new AbortController()
