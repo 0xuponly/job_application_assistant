@@ -73,7 +73,10 @@ const EMPTY_FORM: CreateJobInput = {
 
 function formatJobDate(iso: string | null | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${String(d.getFullYear()).slice(-2)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 export default function JobsPage() {
