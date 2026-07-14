@@ -309,7 +309,6 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
 
 const ISO_CURRENCY_RE = /\b(USD|CAD|EUR|GBP|AUD|NZD|JPY)\b/i
 const SYMBOL_TO_CURRENCY: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY' }
-const SYMBOL_RE = /[$€£¥]/
 // Range separators seen in stored salary strings: ASCII hyphen-minus,
 // en-dash, em-dash, or the word "to". Wrap in a single capture so we
 // can split and rejoin without losing the original separator.

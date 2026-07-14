@@ -246,13 +246,13 @@ textarea {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 500;
-  padding: 5px 12px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--border);
 }
 
 .table th.col-check,
 .table th.col-fit {
-  padding: 5px 12px;
+  padding: 5px 8px;
 }
 
 .table th.col-check {
