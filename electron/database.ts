@@ -325,6 +325,13 @@ export function isBlacklisted(input: { url?: string | null; title: string; compa
   // jobs to silently come back on the next scan, which surprised
   // users. If you want a job back, re-add it via the Add-from-link
   // flow or manual import.
+  //
+  // Matching is intentionally fuzzy on location: the scanner can
+  // produce a re-scan of the same job with a different (or null)
+  // location field, and an exact location match would let the scan
+  // slip a "deleted" job back in. The match requires title + company
+  // to agree (those are stable across scans); location is a tiebreaker
+  // when both sides have one.
   const s = loadStore()
   if (s.deleted_jobs && s.deleted_jobs.length > 0) {
     const urlDk = input.url ? dedupKey(input.url) : null
@@ -332,12 +339,17 @@ export function isBlacklisted(input: { url?: string | null; title: string; compa
     const company = input.company?.trim().toLowerCase()
     const location = input.location?.trim().toLowerCase() || null
     for (const d of s.deleted_jobs) {
+      // URL match (after tracking-param stripping via dedupKey). This
+      // catches the common case where the scanner finds the same job
+      // via a slightly different URL.
       if (urlDk && d.url && dedupKey(d.url) === urlDk) return true
-      if (title && company && d.title.toLowerCase() === title && d.company.toLowerCase() === company) {
-        const dLoc = d.location?.toLowerCase().trim() || null
-        if ((location === null && dLoc === null) || (location !== null && dLoc !== null && (dLoc.includes(location) || location.includes(dLoc)))) {
-          return true
-        }
+      // Title + company match is the canonical "same job" check.
+      // If both agree, this is the same job regardless of location
+      // differences (scanner may have parsed the location differently
+      // this time, or the job posting no longer exposes a location).
+      if (title && company && d.title && d.company &&
+          d.title.toLowerCase() === title && d.company.toLowerCase() === company) {
+        return true
       }
     }
   }
