@@ -5,6 +5,7 @@ import * as db from './database'
 import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocumentContent, scoreJobFit, RateLimitError } from './ai'
 import { scrapeJobFromUrl } from './jobScraper'
 import { scanAllBoards, BOARDS } from './jobSearch'
+import { formatLocation } from './utils'
 import { startQueueProcessor, stopQueueProcessor, enqueue } from './aiQueue'
 import { scheduleNextAutoScan, cancelAutoScan, markScanStarted, markScanCompleted, restartAutoScanTimer } from './autoScan'
 import type {
@@ -427,6 +428,11 @@ ${htmlBody}
   ipcMain.handle('db:clearSeenUrls', () => db.clearSeenUrls())
   ipcMain.handle('db:clearAllData', () => db.clearAllData())
 
+  ipcMain.handle('db:retrofitLocations', () => {
+    const result = db.retrofitLocations()
+    return result
+  })
+
   ipcMain.handle('db:exportAll', async () => {
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Export all data',
@@ -516,6 +522,19 @@ app.whenReady().then(() => {
   createWindow()
   startQueueProcessor()
   scheduleNextAutoScan()
+
+  // One-shot: normalize legacy locations to "City, REGION, CC" the first time
+  // the app loads with a populated store. Idempotent — gated by a flag.
+  if (!db.hasLocationsNormalized() && db.listJobs().length > 0) {
+    try {
+      const result = db.retrofitLocations()
+      if (result.updated > 0) {
+        console.log(`[startup] Normalized ${result.updated}/${result.total} job locations.`)
+      }
+    } catch (err) {
+      console.error('[startup] Location retrofit failed:', err)
+    }
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

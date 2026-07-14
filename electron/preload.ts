@@ -73,6 +73,7 @@ export interface Api {
   clearSeenUrls: () => Promise<void>
   clearAllData: () => Promise<void>
   exportAllData: () => Promise<string | null>
+  retrofitLocations: () => Promise<{ updated: number; total: number }>
   listAIQueue: () => Promise<AIQueueItem[]>
   listBoards: () => Promise<{ name: string; useBrowser: boolean }[]>
   getBoardHealth: () => Promise<Record<string, number[]>>
@@ -142,6 +143,7 @@ const api: Api = {
   clearSeenUrls: () => ipcRenderer.invoke('db:clearSeenUrls'),
   clearAllData: () => ipcRenderer.invoke('db:clearAllData'),
   exportAllData: () => ipcRenderer.invoke('db:exportAll'),
+  retrofitLocations: () => ipcRenderer.invoke('db:retrofitLocations'),
   listAIQueue: () => ipcRenderer.invoke('aiQueue:list'),
   listBoards: () => ipcRenderer.invoke('boards:list'),
   getBoardHealth: () => ipcRenderer.invoke('boards:health'),

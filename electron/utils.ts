@@ -6,13 +6,159 @@ const ENTITY_MAP: Record<string, string> = {
   '&#39;': "'",
   '&#x27;': "'",
   '&#x2F;': '/',
-  '&#8211;': '–',
-  '&#8212;': '—',
-  '&#8230;': '…',
-  '&#160;': ' ',
+  '&8211;': '–',
+  '&8212;': '—',
+  '&8230;': '…',
+  '&160;': ' ',
   '&nbsp;': ' ',
 }
 
 export function decodeEntities(s: string): string {
   return s.replace(/&[#\w]+;/g, (m) => ENTITY_MAP[m] ?? m)
+}
+
+// ---------------------------------------------------------------------------
+// Location formatting
+// ---------------------------------------------------------------------------
+// Target shape: "City, REGION, CC" (region and country as 2-letter codes).
+// US states + DC, Canadian provinces/territories, and ~30 common countries are
+// mapped from full names to codes. Anything we don't recognize is preserved
+// as-is so we never lose data.
+
+const US_STATES: Record<string, string> = {
+  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR',
+  'california': 'CA', 'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE',
+  'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI', 'idaho': 'ID',
+  'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA', 'kansas': 'KS',
+  'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
+  'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV',
+  'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
+  'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK',
+  'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT',
+  'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV',
+  'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC'
+}
+
+const CA_PROVINCES: Record<string, string> = {
+  'alberta': 'AB', 'british columbia': 'BC', 'manitoba': 'MB',
+  'new brunswick': 'NB', 'newfoundland and labrador': 'NL', 'nova scotia': 'NS',
+  'ontario': 'ON', 'prince edward island': 'PE', 'quebec': 'QC',
+  'saskatchewan': 'SK', 'northwest territories': 'NT', 'nunavut': 'NU',
+  'yukon': 'YT'
+}
+
+const COUNTRIES: Record<string, string> = {
+  'united states': 'US', 'united states of america': 'US', 'usa': 'US', 'us': 'US', 'america': 'US',
+  'canada': 'CA',
+  'united kingdom': 'GB', 'uk': 'GB', 'great britain': 'GB', 'england': 'GB', 'scotland': 'GB', 'wales': 'GB', 'northern ireland': 'GB',
+  'germany': 'DE', 'france': 'FR', 'spain': 'ES', 'italy': 'IT', 'netherlands': 'NL',
+  'ireland': 'IE', 'sweden': 'SE', 'norway': 'NO', 'denmark': 'DK', 'finland': 'FI',
+  'switzerland': 'CH', 'austria': 'AT', 'belgium': 'BE', 'portugal': 'PT', 'poland': 'PL',
+  'czech republic': 'CZ', 'czechia': 'CZ', 'romania': 'RO', 'hungary': 'HU', 'greece': 'GR',
+  'australia': 'AU', 'new zealand': 'NZ',
+  'india': 'IN', 'china': 'CN', 'japan': 'JP', 'south korea': 'KR', 'korea': 'KR',
+  'singapore': 'SG', 'hong kong': 'HK', 'taiwan': 'TW',
+  'brazil': 'BR', 'mexico': 'MX', 'argentina': 'AR', 'chile': 'CL', 'colombia': 'CO',
+  'israel': 'IL', 'united arab emirates': 'AE', 'uae': 'AE',
+  'south africa': 'ZA', 'nigeria': 'NG', 'egypt': 'EG', 'kenya': 'KE',
+  'turkey': 'TR', 'russia': 'RU', 'ukraine': 'UA'
+}
+
+const REGION_MAP: Record<string, string> = { ...US_STATES, ...CA_PROVINCES }
+
+const REMOTE_TOKENS = new Set([
+  'remote', 'anywhere', 'worldwide', 'global', 'wfh', 'work from home',
+  'distributed', 'fully remote', '100% remote'
+])
+
+function normalizeToken(t: string): string {
+  return t.trim().replace(/\s+/g, ' ').replace(/\.$/, '')
+}
+
+function canonicalizeRegion(token: string): string | null {
+  const cleaned = normalizeToken(token)
+  if (!cleaned) return null
+  const upper = cleaned.toUpperCase()
+  if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) return upper
+  const key = cleaned.toLowerCase()
+  if (REGION_MAP[key]) return REGION_MAP[key]
+  return null
+}
+
+function canonicalizeCountry(token: string): string | null {
+  const cleaned = normalizeToken(token)
+  if (!cleaned) return null
+  const upper = cleaned.toUpperCase()
+  if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) return upper
+  const key = cleaned.toLowerCase()
+  if (COUNTRIES[key]) return COUNTRIES[key]
+  return null
+}
+
+function formatSingleLocation(raw: string, defaultCountry: string): string {
+  const cleaned = normalizeToken(raw)
+  if (!cleaned) return ''
+
+  // Preserve known remote/anywhere tokens verbatim.
+  if (REMOTE_TOKENS.has(cleaned.toLowerCase())) return cleaned
+
+  // Split on common separators.
+  const parts = cleaned
+    .split(/[,;|]/)
+    .map(normalizeToken)
+    .filter(Boolean)
+
+  if (parts.length === 0) return cleaned
+  if (parts.length === 1) {
+    const city = parts[0]
+    const cc = canonicalizeCountry(defaultCountry)
+    return cc ? `${city}, ${cc}` : city
+  }
+
+  if (parts.length === 2) {
+    const [city, regionOrCountry] = parts
+    const region = canonicalizeRegion(regionOrCountry)
+    if (region) {
+      const cc = canonicalizeCountry(defaultCountry)
+      return cc ? `${city}, ${region}, ${cc}` : `${city}, ${region}`
+    }
+    const country = canonicalizeCountry(regionOrCountry)
+    if (country) return `${city}, ${country}`
+    const cc = canonicalizeCountry(defaultCountry)
+    return cc ? `${city}, ${regionOrCountry}, ${cc}` : `${city}, ${regionOrCountry}`
+  }
+
+  // 3+ parts: City, Region, Country[, extras...]
+  const [city, regionTok, countryTok] = parts
+  const region = canonicalizeRegion(regionTok)
+  const country = canonicalizeCountry(countryTok) || canonicalizeCountry(defaultCountry)
+  if (region && country) return `${city}, ${region}, ${country}`
+  if (country) return `${city}, ${country}`
+  if (region) return `${city}, ${region}`
+  return cleaned
+}
+
+/**
+ * Normalize a freeform location string to "City, REGION, CC" when possible.
+ * Multi-location strings (joined by `;`) are normalized per piece.
+ * Returns null if the input is empty or unparseable.
+ */
+export function formatLocation(raw: string | null | undefined, defaultCountry?: string | null): string | null {
+  if (raw == null) return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const dc = (defaultCountry || '').trim()
+
+  if (trimmed.includes(';')) {
+    const pieces = trimmed
+      .split(';')
+      .map((p) => formatSingleLocation(p, dc))
+      .filter(Boolean)
+    if (pieces.length === 0) return null
+    return pieces.join('; ')
+  }
+
+  return formatSingleLocation(trimmed, dc) || null
 }

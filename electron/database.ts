@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { cleanDescription, scrapePostingDateFromUrl } from './jobScraper'
 import { getOrCreateDek, encryptJson, decryptJson, deleteDek, encryptionMode } from './secureStore'
+import { formatLocation } from './utils'
 import type {
   ApiModelConfig,
   AIQueueItem,
@@ -84,7 +85,8 @@ function defaultStore(): Store {
       job_search_location: '',
       deleted_jobs_cap: 50000,
       auto_scan_enabled: true,
-      auto_scan_interval_minutes: 120
+      auto_scan_interval_minutes: 120,
+      locations_normalized: ''
     },
     api_models: [],
     nextId: 1,
@@ -267,6 +269,11 @@ function applyCleanDescription(jobs: Job[]): Job[] {
   )
 }
 
+function normalizeLocation(raw: string | null | undefined): string | null {
+  const defaultCountry = (loadStore().settings.user_country as string | undefined) || ''
+  return formatLocation(raw, defaultCountry)
+}
+
 export function listJobs(status?: JobStatus): Job[] {
   const s = loadStore()
   const jobs = applyCleanDescription([...s.jobs]).sort((a, b) =>
@@ -337,7 +344,7 @@ export function createJob(input: CreateJobInput): Job {
     id: nextId(),
     title: input.title,
     company: input.company,
-    location: input.location ?? null,
+    location: normalizeLocation(input.location ?? null),
     url: input.url ?? null,
     description: input.description ? cleanDescription(input.description) : null,
     salary_range: input.salary_range ?? null,
@@ -381,7 +388,7 @@ export function updateJob(
     ...existing,
     title: fields.title ?? existing.title,
     company: fields.company ?? existing.company,
-    location: fields.location !== undefined ? (fields.location ?? null) : existing.location,
+    location: fields.location !== undefined ? normalizeLocation(fields.location ?? null) : existing.location,
     url: fields.url !== undefined ? (fields.url ?? null) : existing.url,
     description: fields.description !== undefined ? (fields.description ? cleanDescription(fields.description) : null) : existing.description,
     salary_range: fields.salary_range !== undefined ? (fields.salary_range ?? null) : existing.salary_range,
@@ -849,6 +856,34 @@ export function clearSeenUrls(): void {
   const s = loadStore()
   s.seen_urls = []
   persistStore()
+}
+
+export function hasLocationsNormalized(): boolean {
+  return loadStore().settings.locations_normalized === '1'
+}
+
+export function markLocationsNormalized(): void {
+  const s = loadStore()
+  s.settings.locations_normalized = '1'
+  persistStore()
+}
+
+export function retrofitLocations(): { updated: number; total: number } {
+  const s = loadStore()
+  const defaultCountry = (s.settings.user_country as string | undefined) || ''
+  let updated = 0
+  for (const j of s.jobs) {
+    const normalized = formatLocation(j.location, defaultCountry)
+    if (normalized !== j.location) {
+      j.location = normalized
+      j.updated_at = now()
+      updated++
+    }
+  }
+  // Set the flag whether or not anything changed, so we don't re-scan every launch.
+  s.settings.locations_normalized = '1'
+  persistStore()
+  return { updated, total: s.jobs.length }
 }
 
 export async function backfillJobPostingDates(): Promise<number> {

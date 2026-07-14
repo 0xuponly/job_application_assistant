@@ -125,6 +125,7 @@ export interface Settings {
   deleted_jobs_cap: number
   auto_scan_enabled: boolean
   auto_scan_interval_minutes: number
+  locations_normalized: string
 }
 
 export interface DashboardStats {
