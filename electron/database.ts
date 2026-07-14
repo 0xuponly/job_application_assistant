@@ -499,8 +499,8 @@ export function createJob(
     v == null ? null : decodeEntities(v)
   const job: Job = {
     id: nextId(),
-    title: de(input.title)!,
-    company: de(input.company)!,
+    title: normalizeTitle(de(input.title)) ?? de(input.title)!,
+    company: normalizeCompany(de(input.company)) ?? de(input.company)!,
     location: normalizeLocation(input.location ?? null),
     url: input.url ?? null,
     description: input.description ? cleanDescription(decodeEntities(input.description)) : null,
