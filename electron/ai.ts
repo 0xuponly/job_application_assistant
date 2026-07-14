@@ -19,7 +19,7 @@ let cachedTemplate: string | null = null
 async function loadHarvardTemplate(): Promise<string> {
   if (cachedTemplate !== null) return cachedTemplate
   try {
-    const path = join(app.getAppPath(), '2025-template_bullet.docx')
+    const path = join(app.getAppPath(), 'docs', 'templates', '2025-template_bullet.docx')
     const buf = readFileSync(path)
     const result = await mammoth.extractRawText({ buffer: new Uint8Array(buf) })
     cachedTemplate = result.value.trim()
