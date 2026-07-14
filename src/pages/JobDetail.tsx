@@ -557,7 +557,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                   {currentJob.fit_rationale}
                 </div>
               )}
-              {currentJob.fit_breakdown && (job.fit_breakdown.matched_skills.length > 0 || job.fit_breakdown.missing_skills.length > 0 || job.fit_breakdown.experience_years_match != null) && (
+              {currentJob.fit_breakdown && (currentJob.fit_breakdown.matched_skills.length > 0 || currentJob.fit_breakdown.missing_skills.length > 0 || currentJob.fit_breakdown.experience_years_match != null) && (
                 <div className="fit-card-body" style={{ fontSize: 10, marginTop: 6, lineHeight: 1.4, color: 'var(--text-muted)' }}>
                   {currentJob.fit_breakdown.matched_skills.length > 0 && (
                     <div>
