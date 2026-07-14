@@ -546,8 +546,12 @@ export function updateJob(
     v == null ? null : decodeEntities(v)
   s.jobs[idx] = {
     ...existing,
-    title: fields.title !== undefined ? de(fields.title) ?? existing.title : existing.title,
-    company: fields.company !== undefined ? de(fields.company) ?? existing.company : existing.company,
+    title: fields.title !== undefined
+      ? (normalizeTitle(de(fields.title)) ?? de(fields.title) ?? existing.title)
+      : existing.title,
+    company: fields.company !== undefined
+      ? (normalizeCompany(de(fields.company)) ?? de(fields.company) ?? existing.company)
+      : existing.company,
     location: fields.location !== undefined ? (fields.location ? de(fields.location) : null) : existing.location,
     url: fields.url !== undefined ? (fields.url ?? null) : existing.url,
     description: fields.description !== undefined ? (fields.description ? cleanDescription(decodeEntities(fields.description)) : null) : existing.description,
