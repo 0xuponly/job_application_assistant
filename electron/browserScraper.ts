@@ -165,6 +165,15 @@ export async function fetchHtmlViaBrowser(url: string): Promise<string> {
     })
 
     win.webContents.on('did-fail-load', (_event, code, description) => {
+      // `ERR_ABORTED` (-3) fires whenever the renderer is redirected or
+      // detaches the current frame mid-load — including the very common
+      // case where the server returns a JS challenge page that the
+      // renderer navigates away from, or where a `meta refresh` /
+      // JS redirect cancels the current navigation. Don't treat it as
+      // a hard failure; the next `did-finish-load` (if it comes) will
+      // resolve the promise through the normal `extract()` path. Only
+      // real errors (network failure, DNS, cert) are hard rejections.
+      if (code === -3) return
       finish(() => reject(new Error(`Failed to load page (${code}: ${description}).`)))
     })
 

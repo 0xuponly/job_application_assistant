@@ -110,7 +110,13 @@ function formatList(items: string[]): string {
 function normalizeUrl(raw: string): string {
   const trimmed = raw.trim()
   if (!trimmed) throw new Error('Please enter a URL.')
-  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  // Common paste artifacts: smart quotes, angle brackets, trailing
+  // punctuation. URL parse these would reject them outright.
+  const cleaned = trimmed
+    .replace(/[\u2018\u2019\u201c\u201d]/g, '') // smart quotes
+    .replace(/[<>]/g, '')                       // <...> wrappers
+    .replace(/[)\]\s]+$/, '')                    // trailing )/]/whitespace
+  const withProtocol = /^https?:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`
   let parsed: URL
   try {
     parsed = new URL(withProtocol)
