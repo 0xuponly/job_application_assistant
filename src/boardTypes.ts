@@ -11,7 +11,8 @@ export const BOARD_TYPES: { label: string; boards: string[] }[] = [
       'CryptoJobsList',
       'cryptojobs.com',
       'Crypto.jobs',
-      'Web3.career'
+      'Web3.career',
+      'Braintrust'
     ]
   },
   {
@@ -32,6 +33,7 @@ export const BOARD_TYPES: { label: string; boards: string[] }[] = [
       'Startup.jobs',
       'Built In',
       'Built In Toronto',
+      'Built In Vancouver',
       'Wellfound',
       'Y Combinator',
       'Top Startups',

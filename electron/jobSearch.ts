@@ -224,6 +224,16 @@ export const BOARDS: BoardConfig[] = [
     name: 'Rocketships',
     searchUrl: (k) => `https://rocketships.io/jobs?search=${encodeURIComponent(k)}`,
     useBrowser: true
+  },
+  {
+    name: 'Built In Vancouver',
+    searchUrl: (k) => `https://www.builtinvancouver.org/jobs?q=${encodeURIComponent(k)}`,
+    useBrowser: true
+  },
+  {
+    name: 'Braintrust',
+    searchUrl: (k) => `https://app.usebraintrust.com/jobs/?q=${encodeURIComponent(k)}`,
+    useBrowser: true
   }
 ]
 
