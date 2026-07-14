@@ -161,9 +161,19 @@ export default function SettingsPage() {
                 <input value={settings.user_email} onChange={(e) => update('user_email', e.target.value)} />
               </div>
             </div>
-            <div className="form-group">
-              <label>Phone</label>
-              <input value={settings.user_phone} onChange={(e) => update('user_phone', e.target.value)} />
+            <div className="form-row">
+              <div className="form-group">
+                <label>Phone</label>
+                <input value={settings.user_phone} onChange={(e) => update('user_phone', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Preferred location</label>
+                <input
+                  value={settings.job_search_location}
+                  onChange={(e) => update('job_search_location', e.target.value)}
+                  placeholder="e.g. London, Remote"
+                />
+              </div>
             </div>
           </div>
 
@@ -183,23 +193,13 @@ export default function SettingsPage() {
 
           <div className="section-title">Job search preferences</div>
           <div className="card" style={{ maxWidth: 600 }}>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Keywords</label>
-                <input
-                  value={settings.job_search_keywords}
-                  onChange={(e) => update('job_search_keywords', e.target.value)}
-                  placeholder="e.g. software engineer, react, remote"
-                />
-              </div>
-              <div className="form-group">
-                <label>Preferred location</label>
-                <input
-                  value={settings.job_search_location}
-                  onChange={(e) => update('job_search_location', e.target.value)}
-                  placeholder="e.g. London, Remote"
-                />
-              </div>
+            <div className="form-group">
+              <label>Keywords</label>
+              <input
+                value={settings.job_search_keywords}
+                onChange={(e) => update('job_search_keywords', e.target.value)}
+                placeholder="e.g. software engineer, react, remote"
+              />
             </div>
           </div>
         </>
