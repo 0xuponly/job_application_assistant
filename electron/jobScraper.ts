@@ -62,6 +62,17 @@ export async function scrapeJobFromUrl(rawUrl: string, signal?: AbortSignal): Pr
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   const scraped = await extractFromHtml(html, hostname, url, source)
 
+  return finalizeScrapedJob(scraped, url)
+}
+
+/**
+ * Validate the extraction result and shape it into a CreateJobInput. Throws
+ * the user-facing "Could not source X from this page" error if any required
+ * field is missing. Shared between the standard path and the per-board
+ * early-return paths (WorkBC, Workday) so they all surface the same error
+ * shape and produce the same output record.
+ */
+function finalizeScrapedJob(scraped: ScrapedJob, url: string): CreateJobInput {
   const missing: string[] = []
   if (!scraped.title) missing.push('job title')
   if (!scraped.company) missing.push('company')
@@ -161,7 +172,7 @@ function detectSource(hostname: string): string | undefined {
   if (hostname.includes('idealist.org')) return 'Idealist'
   if (hostname.includes('builtin.com')) return 'Built In'
   if (hostname.includes('careerhound.io')) return 'CareerHound'
-  if (hostname.includes('ultipro.com')) return 'UltiPro'
+  if (hostname.includes('ultipro.com') || hostname.includes('ultipro.ca')) return 'UltiPro'
   return undefined
 }
 
