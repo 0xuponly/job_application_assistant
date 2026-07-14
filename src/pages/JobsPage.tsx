@@ -1435,7 +1435,7 @@ export default function JobsPage() {
         </div>
         <div className="form-group">
           <label>URL</label>
-          <input value={form.url} onChange={(e) => updateField('url', e.target.value)} placeholder="https://..." />
+          <input value={form.url ?? ''} onChange={(e) => updateField('url', e.target.value)} placeholder="https://..." />
         </div>
         <div className="form-group">
           <label>Source</label>
