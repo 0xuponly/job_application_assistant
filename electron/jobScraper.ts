@@ -687,10 +687,8 @@ function applyLinkedIn(result: ScrapedJob, html: string): void {
 
   const workModeMatch = html.match(/"workplaceTypes"\s*:\s*\["([^"]+)"/i)
   if (workModeMatch && !result.work_mode) {
-    const wt = workModeMatch[1]
-    if (/on[_-]site/i.test(wt)) result.work_mode = 'On-site'
-    else if (/hybrid/i.test(wt)) result.work_mode = 'Hybrid'
-    else if (/remote/i.test(wt)) result.work_mode = 'Remote'
+    const wm = normalizeWorkMode(workModeMatch[1])
+    if (wm) result.work_mode = wm
   }
 
   const datePostedMatch = html.match(/"datePosted"\s*:\s*"([^"]+)"/i)
