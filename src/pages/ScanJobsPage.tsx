@@ -634,6 +634,7 @@ export default function ScanJobsPage() {
                   <th>Found</th>
                   <th>Added</th>
                   <th>Skipped</th>
+                  <th>Errors</th>
                   <th></th>
                 </tr>
               </thead>
@@ -644,6 +645,7 @@ export default function ScanJobsPage() {
                     <td>{b.found}</td>
                     <td style={{ color: '#22c55e', fontWeight: 600 }}>{b.added}</td>
                     <td>{b.skipped}</td>
+                    <td style={{ color: b.errors > 0 ? '#ef4444' : undefined }}>{b.errors}</td>
                     <td>
                       {b.error && <span style={{ color: '#ef4444', fontSize: 12 }}>{b.error}</span>}
                     </td>

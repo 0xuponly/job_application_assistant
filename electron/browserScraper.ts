@@ -172,6 +172,128 @@ export async function fetchHtmlViaBrowser(url: string): Promise<string> {
   })
 }
 
+/**
+ * For a hash-routed SPA where the *document path* is always the same
+ * (e.g. WorkBC keeps `/find-job/search-jobs` for both search results
+ * and a per-job detail panel that lives at `#/job-details/{id}`), this
+ * helper:
+ *   1. Loads the base URL.
+ *   2. Sets `window.location.hash` to the target hash fragment.
+ *   3. Polls `document.documentElement.outerHTML` until the rendered
+ *      HTML contains a marker that proves the SPA swapped in the new
+ *      panel (default: any of `markerSubstrings`).
+ *   4. Returns that HTML.
+ *
+ * `markerSubstrings` should be stable strings that appear ONLY in the
+ * target panel — for example, `"Job details"`, the page title text,
+ * or a field label that the search-results page does not show.
+ *
+ * `timeoutMs` is the upper bound for the whole wait; defaults to 15s.
+ */
+export async function navigateToHashViaBrowser(
+  baseUrl: string,
+  targetHash: string,
+  markerSubstrings: string[],
+  timeoutMs = 15000
+): Promise<string> {
+  const ses = session.fromPartition(`scraper-hashnav-${  Date.now()}`, { cache: false })
+  const ua = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
+
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
+      session: ses
+    }
+  })
+
+  const injectStealth = (_e: Electron.Event, _details: Electron.Event) => {
+    if (!win.isDestroyed()) {
+      win.webContents.executeJavaScript(STEALTH_SCRIPT, true).catch(() => {})
+    }
+  }
+  win.webContents.on('will-frame-navigate', injectStealth)
+  win.webContents.on('did-start-loading', injectStealth)
+
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    details.requestHeaders['User-Agent'] = ua
+    details.requestHeaders['Accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+    details.requestHeaders['Accept-Language'] = 'en-US,en;q=0.9'
+    details.requestHeaders['Accept-Encoding'] = 'gzip, deflate, br'
+    details.requestHeaders['DNT'] = '1'
+    details.requestHeaders['Upgrade-Insecure-Requests'] = '1'
+    callback({ requestHeaders: details.requestHeaders })
+  })
+
+  const finish = () => {
+    if (!win.isDestroyed()) win.destroy()
+  }
+
+  try {
+    // 1. Initial document load.
+    await new Promise<void>((resolve, reject) => {
+      const onFinish = () => {
+        win.webContents.off('did-fail-load', onFail)
+        resolve()
+      }
+      const onFail = (_e: unknown, code: number, desc: string) => {
+        win.webContents.off('did-finish-load', onFinish)
+        reject(new Error(`Failed to load page (${code}: ${desc}).`))
+      }
+      win.webContents.once('did-finish-load', onFinish)
+      win.webContents.once('did-fail-load', onFail)
+      win.loadURL(baseUrl).catch(reject)
+    })
+
+    // 2. Give the SPA time to bootstrap (its router has to attach hash
+    // listeners after the document is ready).
+    await new Promise((r) => setTimeout(r, CHALLENGE_WAIT_MS))
+
+    // 3. Set the hash and wait for the panel to render.
+    const start = Date.now()
+    let html = ''
+    while (Date.now() - start < timeoutMs) {
+      // Trigger router by setting hash. Most SPAs re-render on the
+      // `hashchange` event; setting `location.hash` if it's already
+      // the same value is a no-op, so we always re-set.
+      await win.webContents.executeJavaScript(
+        `(() => {
+          const want = ${JSON.stringify(targetHash)};
+          if (window.location.hash !== want) {
+            window.location.hash = want;
+          } else {
+            // Force a re-render by dispatching the event manually.
+            window.dispatchEvent(new HashChangeEvent('hashchange'));
+          }
+        })()`,
+        true
+      ).catch(() => {})
+
+      // Give the SPA a moment to fetch + render.
+      await new Promise((r) => setTimeout(r, 800))
+
+      html = await win.webContents.executeJavaScript(
+        'document.documentElement.outerHTML',
+        true
+      )
+
+      // Marker check: the panel is up when ANY of the markers appears
+      // in the rendered HTML.
+      if (markerSubstrings.some((m) => html.includes(m))) {
+        return html
+      }
+    }
+
+    // Timed out — return whatever we have. Caller can decide whether
+    // the extracted fields look complete enough to use.
+    return html
+  } finally {
+    finish()
+  }
+}
+
 export function isChallengePage(html: string): boolean {
   return (
     html.includes('Just a moment...') ||
