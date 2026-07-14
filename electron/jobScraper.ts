@@ -1203,13 +1203,25 @@ function extractWorkModeFromText(text: string): string | undefined {
 
 function extractSalaryAndMetadata(result: ScrapedJob, html: string): void {
   if (!result.salary_range) {
-    result.salary_range = extractSalaryFromText(html)
+    // Search the raw HTML first (catches postings where the salary is in
+    // meta tags or attribute values), then the cleaned description
+    // (catches postings where the salary is inside a rich-text body
+    // that needed HTML stripping + entity decoding to become readable —
+    // e.g. UKG/UltiPro inlines the body with \u0026nbsp; JSON-escapes
+    // between the range tokens, so the regex needs the cleaned text).
+    result.salary_range =
+      extractSalaryFromText(html) ??
+      (result.description ? extractSalaryFromText(result.description) : undefined)
   }
   if (!result.employment_type) {
-    result.employment_type = extractEmploymentTypeFromText(html)
+    result.employment_type =
+      extractEmploymentTypeFromText(html) ??
+      (result.description ? extractEmploymentTypeFromText(result.description) : undefined)
   }
   if (!result.work_mode) {
-    result.work_mode = extractWorkModeFromText(html)
+    result.work_mode =
+      extractWorkModeFromText(html) ??
+      (result.description ? extractWorkModeFromText(result.description) : undefined)
   }
 }
 
