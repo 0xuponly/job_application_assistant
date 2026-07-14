@@ -356,11 +356,74 @@ textarea {
   text-align: center;
 }
 
-.table .col-check input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
+/* Custom checkboxes: replace the native control with a rounded square
+   that matches the dark theme. Native checkboxes in dark mode render
+   as stark white squares that clash with the rest of the UI; the
+   accent-colored checkmark ties the state to the existing brand color.
+   `appearance: none` is required to drop the native styling on all
+   browsers. The checkmark is an inline SVG background — keeps it
+   crisp at any DPR and avoids an extra <svg> in the DOM. */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
   margin: 0;
   cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+input[type="checkbox"]:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+input[type="checkbox"]:indeterminate {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:indeterminate::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  width: 8px;
+  height: 2px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .table th.col-fit,
