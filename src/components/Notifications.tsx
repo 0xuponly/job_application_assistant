@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 interface Toast {
   id: number
   message: string
-  type: 'info' | 'success' | 'error'
+  type: 'info' | 'success' | 'error' | 'warning'
   ttl: number
   dismissing?: boolean
   copied?: boolean
