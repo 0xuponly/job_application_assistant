@@ -3,6 +3,15 @@ import { api } from '../api'
 import Modal from '../components/Modal'
 import { notify } from '../components/Notifications'
 import type { CreateJobInput, Document, Job } from '../types'
+
+// Module-scope "have we already toasted this job's fit failure?" record.
+// Lives for the lifetime of the renderer process, not the page instance —
+// so navigating away from the Job Board and back doesn't re-fire the
+// toast for the same failure. A job is re-armed only when its error text
+// changes or its error is cleared and then re-appears (handled in loadJobs).
+// Same for the last toast timestamp, which is checked in the debounce path.
+const toastedFitErrors = new Map<number, string | null>()
+let lastFitToastAt = 0
 import { STATUS_COLORS, STATUS_LABELS } from '../types'
 import JobDetail from './JobDetail'
 
@@ -253,21 +262,16 @@ export default function JobsPage() {
   // batch-score refresh. The Map persists across renders for the lifetime
   // of this page instance.
   const lastSeenFitErrors = useRef<Map<number, string | null>>(new Map())
-  // Session-scoped "have we already toasted this job's fit failure?"
-  // record. Independent of the snapshot above so it survives snapshot
-  // rebuilds. A job is re-armed only when its error text changes or its
-  // error is cleared and then re-appears — not when the same failure
-  // simply persists across loads, polls, or remounts.
-  const toastedFitErrors = useRef<Map<number, string | null>>(new Map())
-  // Debounce: collapse multiple loadJobs() invocations that complete within
-  // a short window into a single toast. Concurrent mounts + the search
-  // debounce + the batchScore refetch can all resolve in the same tick.
-  const lastFitToastAt = useRef<number>(0)
+  // No local `toastedFitErrors` ref or `lastFitToastAt` ref here — both
+  // are module-scope above so they survive the page unmounting when the
+  // user navigates to another tab and back. The dedupe state should
+  // outlive the component instance: a fit failure that was already
+  // toasted should not re-fire on remount, only on a real change
+  // (different error text, or cleared then re-appeared).
   const FIT_TOAST_DEBOUNCE_MS = 5000
 
   async function loadJobs() {
     const before = lastSeenFitErrors.current
-    const toasted = toastedFitErrors.current
     const data = search ? await api.searchJobs(search) : await api.listJobs()
     setJobs(dedupeJobs(data.map(cleanJob)))
     // Surface fit-level assessment failures that appeared since last load.
@@ -279,7 +283,7 @@ export default function JobsPage() {
       if (!j.fit_last_error) return false
       const prev = before.get(j.id)
       if (prev === j.fit_last_error) return false
-      const lastToasted = toasted.get(j.id)
+      const lastToasted = toastedFitErrors.get(j.id)
       // lastToasted === undefined → never toasted this session
       // lastToasted === j.fit_last_error → already toasted, same text
       // lastToasted === null → toasted, error was cleared since, now back
@@ -311,11 +315,11 @@ export default function JobsPage() {
       const myFailingIds = new Set(newlyFailing.map((j) => j.id))
       const myReason = cleanedReason
       const now = Date.now()
-      const wait = Math.max(0, FIT_TOAST_DEBOUNCE_MS - (now - lastFitToastAt.current))
+      const wait = Math.max(0, FIT_TOAST_DEBOUNCE_MS - (now - lastFitToastAt))
       setTimeout(() => {
         // If a newer loadJobs has already fired the toast in the meantime,
         // skip — its failing set subsumes ours or matches.
-        if (lastFitToastAt.current > now) return
+        if (lastFitToastAt > now) return
         // Re-check the live snapshot: if my failing jobs no longer match
         // what's currently failing, a later call will handle it (or has
         // already done so).
@@ -324,19 +328,18 @@ export default function JobsPage() {
         if (!stillFailingSame) return
         // Re-check session toast record: a toast that fired in the debounce
         // window for an overlapping failing set should not double-fire.
-        const toastedNow = toastedFitErrors.current
         const anyAlreadyToasted = [...myFailingIds].some((id) => {
-          const t = toastedNow.get(id)
+          const t = toastedFitErrors.get(id)
           return t != null && t === current.get(id)
         })
         if (anyAlreadyToasted) return
-        lastFitToastAt.current = Date.now()
+        lastFitToastAt = Date.now()
         // Mark each job we toasted with the error text that was shown, so
         // future loads of the same failure do not re-fire. If the error
         // later clears, we update the entry to null (a re-occurrence of a
         // non-null error will then re-arm via the text-change path).
         for (const j of data) {
-          if (myFailingIds.has(j.id)) toastedNow.set(j.id, j.fit_last_error ?? null)
+          if (myFailingIds.has(j.id)) toastedFitErrors.set(j.id, j.fit_last_error ?? null)
         }
         notify(message, 'error', 12000)
       }, wait)
@@ -344,7 +347,7 @@ export default function JobsPage() {
       // No new failures this load — clear the debounce so the next time
       // failures appear we fire immediately rather than waiting out a stale
       // window.
-      lastFitToastAt.current = 0
+      lastFitToastAt = 0
     }
     // Update the snapshot so the next load only toasts on *new* failures.
     // If a job's error cleared (e.g. it fit successfully on a retry), drop it
@@ -358,8 +361,8 @@ export default function JobsPage() {
     // are still failing keep their existing toast record untouched, so the
     // session-scoped no-re-fire rule holds.
     for (const j of data) {
-      if (!j.fit_last_error && toasted.has(j.id)) {
-        toasted.set(j.id, null)
+      if (!j.fit_last_error && toastedFitErrors.has(j.id)) {
+        toastedFitErrors.set(j.id, null)
       }
     }
   }
