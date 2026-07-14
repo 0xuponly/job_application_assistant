@@ -569,20 +569,21 @@ export default function ScanJobsPage() {
 
       {result && (() => {
         // Merge duplicates from multi-location scans: sum counts per board
-        const merged = new Map<string, { board: string; found: number; added: number; skipped: number; error?: string }>()
+        const merged = new Map<string, { board: string; found: number; added: number; skipped: number; errors: number; error?: string }>()
         for (const b of result.boards) {
           const existing = merged.get(b.board)
           if (existing) {
             existing.found += b.found
             existing.added += b.added
             existing.skipped += b.skipped
+            existing.errors += b.errors
             if (b.error && !existing.error) existing.error = b.error
           } else {
             merged.set(b.board, { ...b })
           }
         }
         const rows = Array.from(merged.values()).filter(
-          (b) => b.found > 0 || b.added > 0 || b.skipped > 0 || !!b.error
+          (b) => b.found > 0 || b.added > 0 || b.skipped > 0 || b.errors > 0 || !!b.error
         )
         if (rows.length === 0) return null
         const ranAt = result.startedAt
