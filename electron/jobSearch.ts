@@ -249,6 +249,22 @@ export const BOARDS: BoardConfig[] = [
     name: 'Braintrust',
     searchUrl: (k) => `https://app.usebraintrust.com/jobs/?q=${encodeURIComponent(k)}`,
     useBrowser: true
+  },
+  {
+    name: 'Google Careers',
+    // Google Careers search is driven by the `q` (free-text), `location`, and
+    // `hl` (locale) params. We keep `hl=en-GB` so results lean towards UK/CA
+    // listings; users can override by editing the URL after the scan starts.
+    searchUrl: (k, l) => `https://www.google.com/about/careers/applications/jobs/results/?q=${encodeURIComponent(k)}${l ? `&location=${encodeURIComponent(l)}` : ''}&hl=en-GB`,
+    useBrowser: true
+  },
+  {
+    name: 'CareerHound',
+    // CareerHound's search uses `categories` (slug) and `countries` (ISO code).
+    // The user pastes keywords into `q`; the `categories` and `countries`
+    // params stay pinned to the defaults so the result set stays broad.
+    searchUrl: (k) => `https://www.careerhound.io/job-search/all?categories=Data+and+Analytics&countries=CA&q=${encodeURIComponent(k)}`,
+    useBrowser: false
   }
 ]
 
@@ -434,7 +450,7 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
     if (seen.has(lowerUrl)) continue
     seen.add(lowerUrl)
 
-    const knownBoardDomains = /linkedin\.com|indeed\.com|ca\.indeed\.com|monster\.com|ziprecruiter\.com|simplyhired\.com|adzuna\.com|talent\.com|jora\.com|remoteok\.com|weworkremotely\.com|remotive\.com|remote\.co|workingnomads\.com|justremote\.co|jobbank\.gc\.ca|eluta\.ca|workopolis\.com|jobboom\.com|workbc\.ca|careerbeacon\.com|charityvillage\.com|crypto-careers\.com|cryptorecruit\.com|remote3\.co|cryptocurrencyjobs\.co|cryptojobslist\.com|cryptojobs\.com|crypto\.jobs|web3\.career|startup\.jobs|selbyjennings\.com|idealist\.org|builtin\.com|jobs\.vancouver\.ca/
+    const knownBoardDomains = /linkedin\.com|indeed\.com|ca\.indeed\.com|monster\.com|ziprecruiter\.com|simplyhired\.com|adzuna\.com|talent\.com|jora\.com|remoteok\.com|weworkremotely\.com|remotive\.com|remote\.co|workingnomads\.com|justremote\.co|jobbank\.gc\.ca|eluta\.ca|workopolis\.com|jobboom\.com|workbc\.ca|careerbeacon\.com|charityvillage\.com|crypto-careers\.com|cryptorecruit\.com|remote3\.co|cryptocurrencyjobs\.co|cryptojobslist\.com|cryptojobs\.com|crypto\.jobs|web3\.career|startup\.jobs|selbyjennings\.com|idealist\.org|builtin\.com|jobs\.vancouver\.ca|google\.com\/about\/careers|careerhound\.io|usebraintrust\.com/
     if (!knownBoardDomains.test(lowerUrl)) continue
 
     const pathname = new URL(fullUrl).pathname
