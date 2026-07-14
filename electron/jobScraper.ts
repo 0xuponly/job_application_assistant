@@ -108,7 +108,7 @@ function finalizeScrapedJob(scraped: ScrapedJob, url: string): CreateJobInput {
     application_requirements: scraped.application_requirements,
     hiring_manager: scraped.hiring_manager,
     employment_type: normalizeEmploymentType(scraped.employment_type) ?? undefined,
-    work_mode: scraped.work_mode,
+    work_mode: normalizeWorkMode(scraped.work_mode) ?? undefined,
     date_posted: scraped.date_posted
   }
 }
