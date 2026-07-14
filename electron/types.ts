@@ -139,6 +139,7 @@ export interface Settings {
   auto_scan_enabled: boolean
   auto_scan_interval_minutes: number
   locations_normalized: string
+  locations_normalized_v2: string
 }
 
 export interface DashboardStats {

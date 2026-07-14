@@ -88,6 +88,7 @@ function defaultStore(): Store {
       auto_scan_enabled: true,
       auto_scan_interval_minutes: 120,
       locations_normalized: '',
+      locations_normalized_v2: '',
       statuses_recomputed: '',
       heuristic_scores_cleared: ''
     },
@@ -303,6 +304,38 @@ export function listJobs(status?: JobStatus): Job[] {
   return status ? jobs.filter((j) => j.status === status) : jobs
 }
 
+// Returns the subset of `jobs` that would survive the renderer's
+// `dedupeJobs`: first occurrence of each URL (protocol+host+pathname)
+// or company+title+location triple wins; later duplicates are dropped.
+// The order in the input is preserved, so callers that pass `s.jobs`
+// keep insertion order, and callers that pass a sorted list keep their
+// sort. Shared by `getDashboardStats` (so the dashboard's "Jobs
+// tracked" matches what the Job Board actually shows) and by
+// `dedupeJobs` (so DB-side and renderer-side agree on what counts).
+function uniqueJobsByDedupeKey(jobs: Job[]): Job[] {
+  const seenUrl = new Set<string>()
+  const seenKey = new Set<string>()
+  return jobs.filter((j) => {
+    if (j.url) {
+      try {
+        const u = new URL(j.url)
+        const k = `${u.protocol}//${u.host}${u.pathname.replace(/\/$/, '')}`.toLowerCase()
+        if (seenUrl.has(k)) return false
+        seenUrl.add(k)
+      } catch {
+        // fall through to company+title+location
+      }
+    }
+    const c = j.company?.trim().toLowerCase() ?? ''
+    const t = j.title?.trim().toLowerCase() ?? ''
+    const l = j.location?.trim().toLowerCase() ?? ''
+    const ck = `${c}::${t}::${l}`
+    if (seenKey.has(ck)) return false
+    seenKey.add(ck)
+    return true
+  })
+}
+
 export function getJob(id: number): Job | undefined {
   const s = loadStore()
   const job = s.jobs.find((j) => j.id === id)
@@ -501,7 +534,7 @@ export function updateJob(
     ...existing,
     title: fields.title !== undefined ? de(fields.title) ?? existing.title : existing.title,
     company: fields.company !== undefined ? de(fields.company) ?? existing.company : existing.company,
-    location: fields.location !== undefined ? normalizeLocation(fields.location ?? null) : existing.location,
+    location: fields.location !== undefined ? (fields.location ? de(fields.location) : null) : existing.location,
     url: fields.url !== undefined ? (fields.url ?? null) : existing.url,
     description: fields.description !== undefined ? (fields.description ? cleanDescription(decodeEntities(fields.description)) : null) : existing.description,
     salary_range: fields.salary_range !== undefined ? de(fields.salary_range ?? null) : existing.salary_range,
@@ -623,6 +656,38 @@ export function deleteJobs(ids: number[]): { requested: number; deleted: number;
   const stillPresent = [...idSet].filter((id) => s.jobs.find((j) => j.id === id))
   console.log(`[db.deleteJobs] persisted: ${beforeCount} -> ${s.jobs.length} jobs, deleted=${deleted}, stillPresentInStoreAfterFilter=${JSON.stringify(stillPresent)}`)
   return { requested: ids.length, deleted, missingFromStore: idsMissing, stillPresentAfterFilter: stillPresent }
+}
+
+// Removes duplicate jobs from the store using the same key the
+// renderer's `dedupeJobs` uses: URL first (protocol + host + pathname),
+// then company+title+location. The lowest id wins (it was created
+// first); all later duplicates are deleted, with documents/applications/
+// follow-ups/interviews cascaded. Returns the deleted ids so the
+// renderer can update its local list state.
+export function dedupeJobs(): { removedIds: number[]; remaining: number } {
+  const s = loadStore()
+  const beforeCount = s.jobs.length
+  const kept = uniqueJobsByDedupeKey(s.jobs)
+  const keptIds = new Set(kept.map((j) => j.id))
+  const idsToDelete = s.jobs.filter((j) => !keptIds.has(j.id)).map((j) => j.id)
+  if (idsToDelete.length === 0) {
+    console.log(`[db.dedupeJobs] no duplicates found, ${beforeCount} jobs unchanged`)
+    return { removedIds: [], remaining: beforeCount }
+  }
+  const idSet = new Set(idsToDelete)
+  // Cascade: drop documents, applications, follow-ups, interviews for
+  // the deleted jobs in one pass each. Skip the deleted-jobs blacklist —
+  // these are noise, not user-initiated removals, so they shouldn't
+  // suppress re-imports the user might want.
+  const appIds = s.applications.filter((a) => idSet.has(a.job_id)).map((a) => a.id)
+  s.jobs = s.jobs.filter((j) => !idSet.has(j.id))
+  s.documents = s.documents.filter((d) => d.job_id == null || !idSet.has(d.job_id))
+  s.applications = s.applications.filter((a) => !idSet.has(a.job_id))
+  s.follow_ups = s.follow_ups.filter((f) => !appIds.includes(f.application_id))
+  s.interviews = s.interviews.filter((i) => !appIds.includes(i.application_id))
+  persistStore()
+  console.log(`[db.dedupeJobs] removed ${idsToDelete.length} duplicates, ${beforeCount} -> ${s.jobs.length} jobs`)
+  return { removedIds: idsToDelete, remaining: s.jobs.length }
 }
 
 // Documents
@@ -1050,8 +1115,13 @@ export function deleteApiModel(id: string): ApiModelConfig[] {
 
 export function getDashboardStats(): DashboardStats {
   const s = loadStore()
+  // Count jobs the same way the Job Board does: dedupe by URL or by
+  // company+title+location. Otherwise the dashboard's "Jobs tracked"
+  // will diverge from the row count the user sees on the Job Board
+  // (which strips pre-DB-dedup duplicates at the render boundary).
+  const uniqueJobs = uniqueJobsByDedupeKey(s.jobs)
   return {
-    total_jobs: s.jobs.length,
+    total_jobs: uniqueJobs.length,
     applied: s.applications.filter((a) => ['applied', 'follow_up'].includes(a.status)).length,
     interviewing: s.applications.filter((a) => a.status === 'interviewing').length,
     offers: s.applications.filter((a) => a.status === 'offer').length,
@@ -1080,12 +1150,12 @@ export function clearSeenUrls(): void {
 }
 
 export function hasLocationsNormalized(): boolean {
-  return loadStore().settings.locations_normalized === '1'
+  return loadStore().settings.locations_normalized_v2 === '1'
 }
 
 export function markLocationsNormalized(): void {
   const s = loadStore()
-  s.settings.locations_normalized = '1'
+  s.settings.locations_normalized_v2 = '1'
   persistStore()
 }
 
@@ -1126,7 +1196,7 @@ export function retrofitLocations(): { updated: number; total: number } {
     }
   }
   // Set the flag whether or not anything changed, so we don't re-scan every launch.
-  s.settings.locations_normalized = '1'
+  s.settings.locations_normalized_v2 = '1'
   persistStore()
   return { updated, total: s.jobs.length }
 }
