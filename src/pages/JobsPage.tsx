@@ -1445,7 +1445,7 @@ export default function JobsPage() {
           <label>Description</label>
           <textarea
             rows={6}
-            value={form.description}
+            value={form.description ?? ''}
             onChange={(e) => updateField('description', e.target.value)}
             placeholder="Paste the full job description here..."
           />
