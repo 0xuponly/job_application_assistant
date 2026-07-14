@@ -279,6 +279,19 @@ function formatJobDate(iso: string | null | undefined): string {
 }
 
 /**
+ * A stored salary_range of "$0" (or any pure-zero value) is a real
+ * signal — the source said it pays nothing — but it's not useful in
+ * the Job Board. Treat it as missing so the row shows "—", sorts to
+ * the end, and is hidden by an active salary filter. parseAmount
+ * would parse "0" to 0; we explicitly collapse that to null.
+ */
+function hasMeaningfulSalary(s: string | null | undefined): boolean {
+  if (!s) return false
+  const n = parseSalaryForSort(s)
+  return n != null && n > 0
+}
+
+/**
  * Pull a comparable number out of a salary string for column sorting.
  * The normalizeSalary boundary emits values like "$85,000", "CAD 85,000
  * - 125,000", or "$86,000" (already annual). We strip non-digit chars
@@ -292,7 +305,8 @@ function parseSalaryForSort(s: string | null | undefined): number | null {
   const m = s.match(/\$?[\d,]+/)
   if (!m) return null
   const n = parseInt(m[0].replace(/[$,]/g, ''), 10)
-  return Number.isFinite(n) ? n : null
+  if (!Number.isFinite(n) || n === 0) return null
+  return n
 }
 
 export interface SalaryFilter {
@@ -1382,7 +1396,6 @@ export default function JobsPage() {
             Add manually instead
           </button>
         </div>
-        </p>
       </Modal>
 
       <Modal
