@@ -267,11 +267,14 @@ export default function JobsPage() {
       const counts = new Map<string, number>()
       for (const s of summaries) counts.set(s, (counts.get(s) ?? 0) + 1)
       const [topReason, topCount] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
+      // Strip trailing punctuation (the source error often ends in ':' or ',')
+      // so we can attach a single, consistent period at the end of the toast.
+      const cleanedReason = topReason.replace(/[,:;.\s]+$/, '')
       const reason = topCount === newlyFailing.length
-        ? topReason
-        : `${topReason} (and ${newlyFailing.length - topCount} similar)`
+        ? cleanedReason
+        : `${cleanedReason} (and ${newlyFailing.length - topCount} similar)`
       notify(
-        `Fit assessment failed for ${newlyFailing.length} job${newlyFailing.length > 1 ? 's' : ''}. ${reason}`,
+        `Fit assessment failed for ${newlyFailing.length} job${newlyFailing.length > 1 ? 's' : ''}. ${reason}.`,
         'error',
         12000
       )
