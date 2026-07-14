@@ -1452,7 +1452,7 @@ export default function JobsPage() {
         </div>
         <div className="form-group">
           <label>Notes</label>
-          <textarea rows={2} value={form.notes} onChange={(e) => updateField('notes', e.target.value)} />
+          <textarea rows={2} value={form.notes ?? ''} onChange={(e) => updateField('notes', e.target.value)} />
         </div>
       </Modal>
     </div>
