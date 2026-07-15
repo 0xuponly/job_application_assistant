@@ -612,7 +612,7 @@ function SalaryFilterSelect({ filter, onChange }: {
         )}
       </button>
       {open && (
-        <div className="filter-menu" ref={menuRef} style={{ ...placement, minWidth: 220 }}>
+        <div className="filter-menu" ref={menuRef} style={{ ...placement, minWidth: 220, padding: '8px 12px' }}>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
             Filter by annual salary (low end of range, in thousands)
           </div>
