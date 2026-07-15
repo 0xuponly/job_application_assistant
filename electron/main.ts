@@ -247,9 +247,13 @@ function registerIpc(): void {
   ipcMain.handle('jobs:recomputeFit', async (_e, id: number) => {
     // The shared background scorer handles the no-CV fallback, the
     // heuristic-fallback (don't overwrite), the error path, and emits
-    // job:scoreUpdated. The handler just returns the final row state.
-    await scoreOneJobInBackground(id)
-    return db.getJob(id)
+    // job:scoreUpdated. The handler returns the post-update row so
+    // the renderer doesn't have to re-read the store.
+    const updated = await scoreOneJobInBackground(id)
+    if (!updated) {
+      throw new Error(`Job ${id} not found`)
+    }
+    return updated
   })
 
   ipcMain.handle('jobs:backfillDates', () => db.backfillJobPostingDates())
