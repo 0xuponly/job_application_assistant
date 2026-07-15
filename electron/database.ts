@@ -68,7 +68,7 @@ interface Store {
 let store: Store | null = null
 let storePath = ''
 
-function getStorePath(): string {
+export function getStorePath(): string {
   if (!storePath) {
     storePath = join(app.getPath('userData'), 'apply-assistant-data.json')
   }
