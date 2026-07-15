@@ -131,9 +131,17 @@ export default function SettingsPage() {
       }
       if (result.warning) {
         notify(result.warning, 'warning', 8000)
+      } else {
+        notify('Backup restored. Reloading…', 'success', 3000)
       }
-      // App will be relaunched by the main process. Don't reset
-      // restoreBusy — the page is about to be torn down.
+      // The main process has re-read the data file from disk and
+      // discarded its in-memory cache. Force the renderer to
+      // re-mount from scratch so every component picks up the
+      // restored data. This is more reliable than a process
+      // relaunch (which can fail silently in dev mode).
+      setTimeout(() => {
+        window.location.reload()
+      }, 600)
     } catch (err) {
       setRestoreError(err instanceof Error ? err.message : String(err))
       setRestoreBusy(false)
