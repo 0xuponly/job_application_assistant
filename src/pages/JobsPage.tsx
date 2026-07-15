@@ -893,6 +893,19 @@ export default function JobsPage() {
     const before = lastSeenFitErrors.current
     const data = search ? await api.searchJobs(search) : await api.listJobs()
 
+    // Hydrate the in-memory toast record from the DB on first load. Each
+    // job carries `fit_error_toasted` = the error string that was last
+    // surfaced (or null if the error has cleared since). This is what
+    // makes the toast a one-shot per error per app session instead of
+    // re-firing on every app open for a still-failing job.
+    if (before.size === 0) {
+      for (const j of data) {
+        if (j.fit_error_toasted != null) {
+          toastedFitErrors.set(j.id, j.fit_error_toasted)
+        }
+      }
+    }
+
     setJobs(applyDedupe(data))
     // Surface fit-level assessment failures that appeared since last load.
     // "New" = currently failing AND (never toasted this session, OR the
@@ -958,7 +971,14 @@ export default function JobsPage() {
         // later clears, we update the entry to null (a re-occurrence of a
         // non-null error will then re-arm via the text-change path).
         for (const j of data) {
-          if (myFailingIds.has(j.id)) toastedFitErrors.set(j.id, j.fit_last_error ?? null)
+          if (myFailingIds.has(j.id)) {
+            const text = j.fit_last_error ?? null
+            toastedFitErrors.set(j.id, text)
+            // Persist to DB so the toast does not re-fire on the next app
+            // open. Fire-and-forget; the in-memory record is what gates
+            // the current session's toasts.
+            void api.updateJob(j.id, { fit_error_toasted: text })
+          }
         }
         notify(message, 'error', 12000)
       }, wait)
