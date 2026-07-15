@@ -123,6 +123,9 @@ textarea {
   flex: 1;
   overflow-y: auto;
   padding: 28px 32px;
+  /* Reserve space for the vertical scrollbar in the right gutter so
+     it never paints over the sticky page header or table headers. */
+  scrollbar-gutter: stable;
 }
 
 .page-header {
@@ -254,6 +257,13 @@ textarea {
 .table th.col-check,
 .table th.col-fit {
   padding: 5px 8px;
+}
+
+.table th:last-child,
+.table td:last-child {
+  /* Keep the rightmost column's content from sliding under a vertical
+     scrollbar that may appear when the table overflows horizontally. */
+  padding-right: 12px;
 }
 
 .table th.col-check {
@@ -601,8 +611,8 @@ input[type="checkbox"]:disabled {
    globally, which is what makes the sticky thead at .jobs-page .table
    thead th actually stick. */
 .jobs-page .table {
-  margin: 0 -32px;
-  width: calc(100% + 64px);
+  margin: 0 0 0 -32px;
+  width: calc(100% + 32px);
 }
 
 /* Sticky column headers on the Job Board. The `top` value is set
