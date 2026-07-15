@@ -732,6 +732,27 @@ ${htmlBody}
     }
   })
 
+  // Fire-and-forget backup on quit. Best-effort, never blocks quit —
+  // a slow or failing backup should never prevent the user from
+  // closing the app. We only attempt it if a backup_path is set, and
+  // we re-check it inside runBackup so a stale or removed path
+  // surfaces as a stored backup_last_error rather than a crash.
+  let lastAutoBackupAttempt = 0
+  app.on('before-quit', () => {
+    const now = Date.now()
+    // Debounce: if multiple before-quit events fire in quick
+    // succession (e.g. user hits Cmd+Q then confirms a dialog),
+    // only run the backup once.
+    if (now - lastAutoBackupAttempt < 5000) return
+    lastAutoBackupAttempt = now
+    const s = db.getSettings()
+    if (!s.backup_path) return
+    runBackup(s.backup_path).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[backup] close-time backup failed:', msg)
+    })
+  })
+
   ipcMain.handle('security:status', () => db.encryptionStatus())
 
   // AI Queue

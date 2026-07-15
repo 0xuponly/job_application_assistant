@@ -89,6 +89,9 @@ export interface Api {
   listBlacklistedCompanies: () => Promise<string[]>
   addBlacklistedCompany: (name: string) => Promise<string[]>
   removeBlacklistedCompany: (name: string) => Promise<string[]>
+  pickBackupFolder: () => Promise<string | null>
+  runBackup: (dir: string) => Promise<{ ok: boolean; path?: string; error?: string }>
+  getBackupStatus: () => Promise<{ path: string; lastSuccessAt: string; lastError: string }>
 }
 
 const api: Api = {
@@ -170,7 +173,10 @@ const api: Api = {
   getSecurityStatus: () => ipcRenderer.invoke('security:status'),
   listBlacklistedCompanies: () => ipcRenderer.invoke('blacklist:list'),
   addBlacklistedCompany: (name) => ipcRenderer.invoke('blacklist:add', name),
-  removeBlacklistedCompany: (name) => ipcRenderer.invoke('blacklist:remove', name)
+  removeBlacklistedCompany: (name) => ipcRenderer.invoke('blacklist:remove', name),
+  pickBackupFolder: () => ipcRenderer.invoke('backup:pickFolder'),
+  runBackup: (dir) => ipcRenderer.invoke('backup:run', dir),
+  getBackupStatus: () => ipcRenderer.invoke('backup:status')
 }
 
 contextBridge.exposeInMainWorld('api', api)
