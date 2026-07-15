@@ -70,7 +70,7 @@ async function pump(): Promise<void> {
     next.onResult({ ok: false, error: err instanceof Error ? err.message : 'Unknown error' })
   } finally {
     inFlight = null
-    bumpPending(-1)
+    bumpPending(-1, next.jobId)
     // Drain the next queued item on a microtask so the increment /
     // decrement pair for the just-finished item doesn't briefly
     // show a 0 count.
