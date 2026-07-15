@@ -20,6 +20,11 @@ const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
 
 export default function Sidebar({ current, onNavigate }: Props) {
   const [scanning, setScanning] = useState(false)
+  // Module-scope count of in-flight recomputeFit calls. The JobDetail
+  // page dispatches `app:fit-progress` events with delta ±1 on click /
+  // resolution. Multiple concurrent clicks stack — the indicator stays
+  // visible until the count returns to zero.
+  const [fitPending, setFitPending] = useState(0)
 
   useEffect(() => {
     let mounted = true
@@ -34,6 +39,16 @@ export default function Sidebar({ current, onNavigate }: Props) {
       mounted = false
       clearInterval(interval)
     }
+  }, [])
+
+  useEffect(() => {
+    const onFitProgress = (e: Event) => {
+      const detail = (e as CustomEvent<{ delta: number }>).detail
+      if (!detail || typeof detail.delta !== 'number') return
+      setFitPending((n) => Math.max(0, n + detail.delta))
+    }
+    window.addEventListener('app:fit-progress', onFitProgress)
+    return () => window.removeEventListener('app:fit-progress', onFitProgress)
   }, [])
 
   return (
@@ -61,6 +76,16 @@ export default function Sidebar({ current, onNavigate }: Props) {
         >
           <span className="scan-pulse" />
           Scanning…
+        </div>
+      )}
+      {fitPending > 0 && (
+        <div
+          className="sidebar-scan-indicator"
+          title={`${fitPending} fit recompute${fitPending === 1 ? '' : 's'} in progress`}
+          onClick={() => onNavigate('jobs')}
+        >
+          <span className="scan-pulse" />
+          Calculating Fit…
         </div>
       )}
       <div className="sidebar-bottom-actions">
