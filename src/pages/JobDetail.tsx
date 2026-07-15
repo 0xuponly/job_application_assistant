@@ -603,7 +603,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                             'var(--danger)',
                         }}
                       />
-                      <span>{score.toFixed(2)}</span>
+                      <span>{Math.round(score * 100)}%</span>
                       <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
                         ({score >= 0.9 ? 'Excellent' : score >= 0.6 ? 'High' : score >= 0.3 ? 'Medium' : 'Low'})
                       </span>
