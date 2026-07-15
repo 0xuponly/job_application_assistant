@@ -611,14 +611,14 @@ export default function ScanJobsPage() {
                 )}
               </h3>
               {logSnapshot.length > 0 && (
-                <>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={() => { _showAllScanColumns = !_showAllScanColumns; setResult({ ...result }) }}
                     title={_showAllScanColumns ? 'Hide added/skipped/errors columns' : 'Show added/skipped/errors columns'}
                     aria-label={_showAllScanColumns ? 'Hide added/skipped/errors columns' : 'Show added/skipped/errors columns'}
-                    style={{ minWidth: 32, padding: '0 8px' }}
+                    style={{ width: 28, height: 28, minWidth: 28, padding: 0, justifyContent: 'center' }}
                   >
                     {_showAllScanColumns ? '−' : '+'}
                   </button>
@@ -628,15 +628,17 @@ export default function ScanJobsPage() {
                     title="Copy log lines to clipboard"
                     aria-label="Copy log lines to clipboard"
                     style={{
-                      minWidth: 32,
-                      padding: '0 8px',
-                      color: logCopied ? '#22c55e' : undefined,
-                      flexShrink: 0
+                      width: 28,
+                      height: 28,
+                      minWidth: 28,
+                      padding: 0,
+                      justifyContent: 'center',
+                      color: logCopied ? '#22c55e' : undefined
                     }}
                   >
                     {logCopied ? '✓' : '⧉'}
                   </button>
-                </>
+                </div>
               )}
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
