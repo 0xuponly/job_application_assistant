@@ -104,8 +104,7 @@ function defaultStore(): Store {
       heuristic_scores_cleared: '',
       backup_path: '',
       backup_last_success_at: '',
-      backup_last_error: '',
-      restore_pending: ''
+      backup_last_error: ''
     },
     api_models: [],
     nextId: 1,

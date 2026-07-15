@@ -841,15 +841,6 @@ app.whenReady().then(() => {
   startQueueProcessor()
   scheduleNextAutoScan()
 
-  // If the previous run set `restore_pending` (the user just clicked
-  // "Restore and restart"), clear it now that we're safely up. The
-  // flag exists ONLY to suppress the close-time backup hook during
-  // the brief relaunch window — leaving it set would silently
-  // disable every future auto-backup.
-  if (db.getSettings().restore_pending) {
-    db.updateSettings({ restore_pending: '' })
-  }
-
   // One-shot: normalize legacy locations to "City, REGION, CC" the first time
   // the app loads with a populated store. Idempotent — gated by a flag.
   if (!db.hasLocationsNormalized() && db.listJobs().length > 0) {
