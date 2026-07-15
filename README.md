@@ -206,8 +206,8 @@ store holds:
 - `board_health[]` — last 5 results per board (for the "skip sick boards"
   filter on the Scan page).
 - `deleted_jobs[]` — soft-deleted job records (capped by
-  `deleted_jobs_cap`, default 50; used to block re-add of jobs the user
-  has already seen).
+  `deleted_jobs_cap`, default 50000; used to block re-add of jobs the
+  user has already seen).
 - `blacklisted_companies[]`.
 
 ### Encryption
