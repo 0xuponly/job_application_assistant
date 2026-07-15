@@ -427,7 +427,7 @@ export default function SettingsPage() {
 
       {tab === 'scan' && (
         <>
-          <div className="section-title">Job scan</div>
+          <div className="section-title">Job Scan</div>
           <div className="card" style={{ maxWidth: 600 }}>
             <div className="form-group">
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
