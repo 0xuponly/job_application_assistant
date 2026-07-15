@@ -1154,8 +1154,18 @@ export default function JobsPage() {
     }
   }
 
+  function isValidUrl(s: string): boolean {
+    try {
+      const u = new URL(s)
+      return u.protocol === 'http:' || u.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
   async function handleCreateManual() {
     if (!form.title || !form.company || !form.url || !form.description) return
+    if (!isValidUrl(form.url)) return
     setSaving(true)
     try {
       const { job: rawJob, wasBlacklisted } = await api.createJob(form)
@@ -1650,7 +1660,7 @@ export default function JobsPage() {
         actions={
           <>
             <button className="btn btn-secondary" onClick={() => setShowAddManual(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleCreateManual} disabled={saving || !form.title || !form.company || !form.url || !form.description}>
+            <button className="btn btn-primary" onClick={handleCreateManual} disabled={saving || !form.title || !form.company || !form.url || !form.description || (form.url.length > 0 && !isValidUrl(form.url))}>
               {saving ? 'Saving...' : 'Add job'}
             </button>
           </>
