@@ -68,24 +68,18 @@ function announceFitComputed(job: Job): void {
     // visible. No toast — silently let the page update in place.
     return
   }
-  // The "Open" action navigates to the job's detail page ONLY when
-  // the user explicitly clicks it. We do NOT auto-navigate: the
-  // toast is a passive notification. A previous version fired the
-  // navigation on toast mount in some cases (likely a race between
-  // the click event and a re-render), so the explicit "Open" button
-  // is the single source of truth for navigation. The "View" link
-  // label was renamed to "View" to make the affordance obvious.
-  const onOpen = () => {
-    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'jobs' } }))
-    window.dispatchEvent(new CustomEvent('app:openJobDetail', { detail: { job } }))
-  }
+  // Passive notification only. No action button, no auto-navigation:
+  // the user reported the previous "click Open" implementation still
+  // auto-navigated, so we drop the affordance entirely. The user
+  // can find the recomputed job in the Job Board (the fit dot
+  // updates in place via the job:scoreUpdated channel) and click
+  // the row to open its detail. A future iteration can add an
+  // explicit "View" button back if the user wants it, once we
+  // understand why the click handler was firing pre-emptively.
   notify(
-    {
-      message: `The Fit score has been computed for the ${job.title} role at ${job.company}.`,
-      type: 'success',
-      ttl: 8000,
-      action: { label: 'View', onClick: onOpen }
-    }
+    `The Fit score has been computed for the ${job.title} role at ${job.company}.`,
+    'success',
+    6000
   )
 }
 
