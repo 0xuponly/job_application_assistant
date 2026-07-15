@@ -899,7 +899,7 @@ export default function SettingsPage() {
             )}
           </Modal>
 
-          <div className="section-title">Scan memory</div>
+          <div className="section-title">Scan Memory</div>
 
           <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
