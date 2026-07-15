@@ -658,7 +658,7 @@ ${htmlBody}
         const keyFile = join(app.getPath('userData'), 'apply-assistant-key')
         const filename = `flowjob-backup-${backupTimestamp()}.zip`
         const destPath = join(dir, filename)
-        const tmpPath = join(os.tmpdir(), filename + '.partial')
+        const tmpPath = join(tmpdir(), filename + '.partial')
 
         const zipfile = new yazl.ZipFile()
         // manifest.json first so it's at the top of the zip listing.
