@@ -77,6 +77,13 @@ export default function Notifications() {
     setTimeout(() => startDismiss(id), 1500)
   }
 
+  function handleClick(id: number, onClick: (() => void) | undefined) {
+    if (onClick) {
+      onClick()
+    }
+    startDismiss(id)
+  }
+
   if (toasts.length === 0) return null
 
   return (
@@ -95,7 +102,8 @@ export default function Notifications() {
         return (
           <div
             key={t.id}
-            onClick={() => startDismiss(t.id)}
+            onClick={() => handleClick(t.id, t.onClick)}
+            title={t.onClick ? 'Click to open' : undefined}
             style={{
               padding: '12px 44px 12px 20px',
               borderRadius: 10,
@@ -114,7 +122,7 @@ export default function Notifications() {
               transform: t.dismissing ? 'translateY(10px)' : 'translateY(0)',
               whiteSpace: 'pre-line',
               pointerEvents: 'auto',
-              cursor: 'pointer',
+              cursor: t.onClick ? 'pointer' : 'default',
               position: 'relative'
             }}
           >
