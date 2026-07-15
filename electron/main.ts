@@ -783,7 +783,81 @@ ${htmlBody}
       properties: ['openDirectory', 'createDirectory']
     })
     if (canceled || !filePaths || !filePaths[0]) return null
-    return filePaths[0]
+    // Detect synced/cloud folders. The renderer must surface a
+    // confirmation step before committing the path to settings, so
+    // the user has an explicit choice to proceed or pick again.
+    const info = detectSyncedFolder(filePaths[0])
+    return {
+      path: filePaths[0],
+      warning: info.synced
+        ? `This folder is inside a synced cloud drive (${info.providers.join(', ')}). Backups may be locked or partially synced mid-write, and copies of the data may be stored on the cloud provider's servers. Continue anyway?`
+        : null
+    }
+  })
+
+  ipcMain.handle('backup:preview', async (_e, folderPath: string) => {
+    // Manifest-only metadata for the restore preview. We do NOT
+    // decrypt the data file here — counts are deliberately omitted
+    // to keep the preview privacy-preserving. The user gets the
+    // format details (date, schema, encryption mode, signature
+    // status) and can decide whether to proceed with the actual
+    // restore.
+    if (!folderPath) return null
+    if (!existsSync(folderPath)) return { error: 'Backup folder does not exist' }
+
+    const manifestPath = join(folderPath, 'manifest.json')
+    let manifest: Record<string, unknown> | null = null
+    let manifestError = ''
+    if (existsSync(manifestPath)) {
+      try { manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) } catch (err) {
+        manifestError = err instanceof Error ? err.message : String(err)
+      }
+    }
+
+    const hasWrappedKey = existsSync(join(folderPath, 'apply-assistant-key.wrapped'))
+    const hasKdf = existsSync(join(folderPath, 'kdf.json'))
+    const hasLegacyKey = existsSync(join(folderPath, 'apply-assistant-key'))
+
+    const result: {
+      error?: string
+      manifestError?: string
+      createdAt?: string
+      schema?: number
+      encryptionMode?: string
+      wrapped?: boolean
+      signed?: boolean
+      hasKdf?: boolean
+      hasWrappedKey?: boolean
+      hasLegacyKey?: boolean
+      requiresPassphrase?: boolean
+      fileCount?: number
+    } = {
+      hasKdf,
+      hasWrappedKey,
+      hasLegacyKey,
+      requiresPassphrase: hasWrappedKey
+    }
+
+    if (manifest) {
+      result.createdAt = typeof manifest.createdAt === 'string' ? manifest.createdAt : undefined
+      result.schema = typeof manifest.schema === 'number' ? manifest.schema : undefined
+      result.encryptionMode =
+        typeof manifest.encryptionMode === 'string' ? manifest.encryptionMode : undefined
+      result.wrapped = !!manifest.wrapped
+      result.signed = !!manifest.hmac
+    }
+    if (manifestError) result.manifestError = manifestError
+
+    // Count files in the backup folder for a quick "is this even a
+    // complete backup" sanity check.
+    let fileCount = 0
+    try {
+      const { readdirSync: rds } = require('fs') as typeof import('fs')
+      fileCount = rds(folderPath).length
+    } catch { /* ignore */ }
+    result.fileCount = fileCount
+
+    return result
   })
 
   ipcMain.handle('backup:run', async (_e, dir: string, passphrase?: string) => {
