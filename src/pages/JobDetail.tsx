@@ -518,35 +518,29 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                   title="Recompute Fit"
                   aria-label="Recompute Fit"
                   onClick={async () => {
-                    if (recomputingFit) return
-                    setRecomputingFit(true)
-                    // Bump the global "fit in progress" counter so the
-                    // sidebar can show a "Calculating Fit…" indicator.
-                    // Each click increments; the matching decrement runs
-                    // in finally so concurrent clicks stack and the
-                    // counter never goes negative. Stale-tab close is
-                    // fine: if the user navigates away mid-call the
-                    // counter still resolves when the IPC returns.
-                    window.dispatchEvent(new CustomEvent('app:fit-progress', { detail: { delta: 1 } }))
-                    try {
-                      const updated = await api.recomputeFit(job.id)
-                      setCurrentJob(updated)
-                      onUpdate(updated)
-                      if (updated.fit_last_error) {
-                        // Backend kept the prior score/rationale/breakdown
-                        // and only set fit_last_error. The toast surfaces
-                        // the reason; the card continues to show the
-                        // previously generated explanation.
-                        notify(`Recompute failed: ${updated.fit_last_error}`, 'error', 12000)
+                    // Enqueue rather than run inline. Multiple clicks
+                    // (same job or different jobs) are serialized FIFO
+                    // with a hard cap of 10 queued — the 11th is
+                    // dropped with a notify. The "Calculating Fit…"
+                    // sidebar indicator ticks up on enqueue and down
+                    // on each call's resolution.
+                    const accepted = enqueueFitRecompute(job.id, (result) => {
+                      if (result.ok) {
+                        setCurrentJob(result.job)
+                        onUpdate(result.job)
+                        if (result.job.fit_last_error) {
+                          // Backend kept the prior score/rationale/breakdown
+                          // and only set fit_last_error. The toast surfaces
+                          // the reason; the card continues to show the
+                          // previously generated explanation.
+                          notify(`Recompute failed: ${result.job.fit_last_error}`, 'error', 12000)
+                        }
+                      } else {
+                        notify(`Recompute failed: ${result.error}`, 'error', 12000)
                       }
-                    } catch (err) {
-                      notify(`Recompute failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error', 12000)
-                    } finally {
-                      setRecomputingFit(false)
-                      // Decrement matches the increment at the start of
-                      // the click handler. Stacked clicks each get their
-                      // own decrement when their IPC call resolves.
-                      window.dispatchEvent(new CustomEvent('app:fit-progress', { detail: { delta: -1 } }))
+                    })
+                    if (!accepted) {
+                      notify('Fit recompute queue is full (10 pending). Try again in a moment.', 'warning')
                     }
                   }}
                   disabled={recomputingFit}

@@ -833,6 +833,14 @@ input[type="checkbox"]:disabled {
   flex-shrink: 0;
 }
 
+.sidebar-scan-indicator {
+  /* The label "Calculating Fit…" is the widest text that ever appears
+     in this slot. Force a single line so the pulse dot stays on the
+     same row — wrapping it would break the visual alignment with the
+     "Scanning…" indicator when both are stacked. */
+  white-space: nowrap;
+}
+
 .sidebar-bottom-actions {
   margin-top: auto;
   padding: 8px;
