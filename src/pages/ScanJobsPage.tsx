@@ -649,8 +649,8 @@ export default function ScanJobsPage() {
                 <tr>
                   <th>Board</th>
                   <th>Scraped</th>
-                  <th>Found</th>
-                  {_showAllScanColumns && <th>Added</th>}
+                  <th>Added</th>
+                  {_showAllScanColumns && <th>Found</th>}
                   {_showAllScanColumns && <th>Skipped</th>}
                   {_showAllScanColumns && <th>Errors</th>}
                   <th></th>
@@ -661,8 +661,8 @@ export default function ScanJobsPage() {
                   <tr key={b.board}>
                     <td><strong>{b.board}</strong></td>
                     <td>{b.found - b.skipped - b.errors}</td>
-                    <td>{b.found}</td>
-                    {_showAllScanColumns && <td style={{ color: '#22c55e', fontWeight: 600 }}>{b.added}</td>}
+                    <td style={{ color: '#22c55e', fontWeight: 600 }}>{b.added}</td>
+                    {_showAllScanColumns && <td>{b.found}</td>}
                     {_showAllScanColumns && <td>{b.skipped}</td>}
                     {_showAllScanColumns && <td style={{ color: b.errors > 0 ? '#ef4444' : undefined }}>{b.errors}</td>}
                     <td>
