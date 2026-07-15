@@ -469,7 +469,7 @@ export default function SettingsPage() {
 
       {tab === 'models' && (
         <>
-          <div className="section-title">AI Models</div>
+          <div className="section-title">Models</div>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
             Add one or more AI providers. The app tries each <strong>enabled</strong> model in order until one succeeds. Toggle a model off to temporarily disable it without losing its config.
           </p>
