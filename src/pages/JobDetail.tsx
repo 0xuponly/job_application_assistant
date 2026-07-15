@@ -563,6 +563,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                         className="fit-dot"
                         style={{
                           background:
+                            score >= 0.9 ? '#3b82f6' :
                             score >= 0.6 ? 'var(--success)' :
                             score >= 0.3 ? 'var(--warning)' :
                             'var(--danger)',
@@ -570,7 +571,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                       />
                       <span>{score.toFixed(2)}</span>
                       <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                        ({score >= 0.6 ? 'High' : score >= 0.3 ? 'Medium' : 'Low'})
+                        ({score >= 0.9 ? 'Excellent' : score >= 0.6 ? 'High' : score >= 0.3 ? 'Medium' : 'Low'})
                       </span>
                     </>
                   )
