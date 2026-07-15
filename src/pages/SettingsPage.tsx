@@ -493,25 +493,6 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <div className="section-title">Data export</div>
-
-          <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-              Export all your data (jobs, documents, applications, follow-ups, interviews) to a JSON file. API keys and password fields are not included.
-            </p>
-            <button
-              className="btn btn-secondary"
-              onClick={async () => {
-                const path = await api.exportAllData()
-                if (path) {
-                  window.alert(`Exported to:\n${path}`)
-                }
-              }}
-            >
-              Export all data
-            </button>
-          </div>
-
           <div className="section-title">Scan memory</div>
 
           <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>

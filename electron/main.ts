@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import * as db from './database'
 import * as secureStore from './secureStore'
 import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocumentContent, scoreJobFit, RateLimitError } from './ai'
@@ -711,6 +711,74 @@ ${htmlBody}
       lastSuccessAt: s.backup_last_success_at || '',
       lastError: s.backup_last_error || ''
     }
+  })
+
+  ipcMain.handle('backup:list', () => {
+    // Scan the configured backup parent folder for `flow_job_backup_*`
+    // subfolders. Returns newest-first. The path comes from settings so
+    // a stale or removed path simply yields an empty list — the UI
+    // surfaces "no backups" rather than a crash.
+    const s = db.getSettings()
+    const parentDir = s.backup_path ? join(s.backup_path, 'flow_job_backups') : ''
+    if (!parentDir || !existsSync(parentDir)) return []
+    let entries: string[]
+    try {
+      entries = readdirSync(parentDir)
+    } catch {
+      return []
+    }
+    const backups: { name: string; path: string; createdAt: string }[] = []
+    for (const name of entries) {
+      if (!name.startsWith('flow_job_backup_')) continue
+      const full = join(parentDir, name)
+      let stat
+      try { stat = statSync(full) } catch { continue }
+      if (!stat.isDirectory()) continue
+      // Folder name encodes the timestamp: flow_job_backup_YYYYMMDD-HHmmss
+      const ts = name.replace('flow_job_backup_', '')
+      const iso = parseBackupTimestamp(ts)
+      backups.push({ name, path: full, createdAt: iso || stat.mtime.toISOString() })
+    }
+    backups.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return backups
+  })
+
+  ipcMain.handle('backup:restore', async (_e, folderPath: string) => {
+    // Destructive. Overwrites the live data file and encryption key
+    // with the contents of the chosen backup folder, then relaunches
+    // the app so the next start reads the restored files cleanly.
+    // Caller is expected to have confirmed with the user.
+    if (!folderPath) return { ok: false, error: 'No backup folder specified' }
+    if (!existsSync(folderPath)) return { ok: false, error: `Backup folder does not exist: ${folderPath}` }
+    const srcData = join(folderPath, 'apply-assistant-data.json')
+    const srcKey = join(folderPath, 'apply-assistant-key')
+    if (!existsSync(srcData)) return { ok: false, error: 'Backup is missing apply-assistant-data.json' }
+    if (!existsSync(srcKey)) return { ok: false, error: 'Backup is missing apply-assistant-key' }
+    const dataDest = db.getStorePath()
+    const keyDest = join(app.getPath('userData'), 'apply-assistant-key')
+    try {
+      writeFileSync(dataDest, readFileSync(srcData))
+      writeFileSync(keyDest, readFileSync(srcKey))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return { ok: false, error: msg }
+    }
+    // Relaunch the app so the next start reads the restored data.
+    // app.relaunch + app.quit is the documented pattern for a clean
+    // restart; the renderer's in-memory state is intentionally
+    // discarded to avoid showing stale jobs after a restore.
+    try {
+      app.relaunch()
+      app.quit()
+    } catch (err) {
+      // Relaunch failed (e.g. running outside of a packaged app in
+      // dev). Surface the error so the user can restart manually
+      // — the data is already restored, so re-opening the app is
+      // safe either way.
+      const msg = err instanceof Error ? err.message : String(err)
+      return { ok: true, warning: `Restored, but failed to relaunch automatically: ${msg}` }
+    }
+    return { ok: true }
   })
 
   // Fire-and-forget backup on quit. Best-effort, never blocks quit —

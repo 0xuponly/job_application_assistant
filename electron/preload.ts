@@ -77,7 +77,6 @@ export interface Api {
   onJobScoreUpdated: (cb: (job: Job) => void) => () => void
   clearSeenUrls: () => Promise<void>
   clearAllData: () => Promise<void>
-  exportAllData: () => Promise<string | null>
   retrofitLocations: () => Promise<{ updated: number; total: number }>
   listAIQueue: () => Promise<AIQueueItem[]>
   listBoards: () => Promise<{ name: string; useBrowser: boolean }[]>
@@ -162,7 +161,6 @@ const api: Api = {
     ipcRenderer.invoke('documents:regenerateSection', documentId, sectionName, jobId, extraContext),
   clearSeenUrls: () => ipcRenderer.invoke('db:clearSeenUrls'),
   clearAllData: () => ipcRenderer.invoke('db:clearAllData'),
-  exportAllData: () => ipcRenderer.invoke('db:exportAll'),
   retrofitLocations: () => ipcRenderer.invoke('db:retrofitLocations'),
   listAIQueue: () => ipcRenderer.invoke('aiQueue:list'),
   listBoards: () => ipcRenderer.invoke('boards:list'),

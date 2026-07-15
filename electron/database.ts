@@ -1472,28 +1472,6 @@ export function clearAllData(): void {
   persistStore()
 }
 
-export function exportAllData(): unknown {
-  const s = loadStore()
-  return {
-    exportedAt: new Date().toISOString(),
-    app: 'Flow Job',
-    version: 2,
-    data: {
-      jobs: s.jobs,
-      documents: s.documents,
-      applications: s.applications,
-      followUps: s.follow_ups,
-      interviews: s.interviews,
-      seenUrls: s.seen_urls,
-      aiQueue: s.ai_queue,
-      boardHealth: s.board_health,
-      deletedJobs: s.deleted_jobs,
-      settings: { ...s.settings, openai_api_key: '' }, // never export API keys
-      apiModels: s.api_models.map((m) => ({ ...m, api_key: '' }))
-    }
-  }
-}
-
 // Board health tracking
 
 export function getBoardHealth(): Record<string, number[]> {

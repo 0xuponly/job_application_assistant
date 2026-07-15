@@ -77,7 +77,6 @@ export interface Api {
   onJobScoreUpdated: (cb: (job: Job) => void) => () => void
   clearSeenUrls: () => Promise<void>
   clearAllData: () => Promise<void>
-  exportAllData: () => Promise<string | null>
   openExternal: (url: string) => Promise<void>
   getSecurityStatus: () => Promise<{ mode: 'sealed' | 'plaintext-fallback' | 'uninitialized' }>
   listAIQueue: () => Promise<AIQueueItem[]>
