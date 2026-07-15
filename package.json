@@ -1,5 +1,5 @@
 {
-  "name": "apply-assistant",
+  "name": "flow_job",
   "version": "0.1.0",
   "description": "Desktop assistant for the full job application lifecycle",
   "main": "out/main/index.js",
