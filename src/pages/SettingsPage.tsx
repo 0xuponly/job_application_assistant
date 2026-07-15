@@ -22,6 +22,10 @@ export default function SettingsPage() {
   const [encryptionMode, setEncryptionMode] = useState<'sealed' | 'plaintext-fallback' | 'uninitialized' | null>(null)
   const [blacklist, setBlacklist] = useState<string[]>([])
   const [newBlacklistCompany, setNewBlacklistCompany] = useState('')
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [backupError, setBackupError] = useState('')
+  const [backupLastSuccessAt, setBackupLastSuccessAt] = useState('')
+  const [backupLastError, setBackupLastError] = useState('')
 
   const emptyModel = { name: '', base_url: 'https://api.deepseek.com', api_key: '', model: 'deepseek-chat' }
 
@@ -30,8 +34,9 @@ export default function SettingsPage() {
       api.getSettings(),
       api.listApiModels(),
       api.getSecurityStatus(),
-      api.listBlacklistedCompanies()
-    ]).then(([s, m, sec, bl]) => {
+      api.listBlacklistedCompanies(),
+      api.getBackupStatus()
+    ]).then(([s, m, sec, bl, bkp]) => {
       // Ensure new settings fields default sensibly for users on older stores
       if (typeof s.deleted_jobs_cap !== 'number' || s.deleted_jobs_cap <= 0) {
         s.deleted_jobs_cap = 50000
@@ -46,7 +51,41 @@ export default function SettingsPage() {
       setModels(m.length > 0 ? m : PRESETS.map((p, i) => ({ id: `model-${i + 1}`, ...p.model })))
       setEncryptionMode(sec.mode)
       setBlacklist(bl)
+      setBackupLastSuccessAt(bkp.lastSuccessAt)
+      setBackupLastError(bkp.lastError)
     })
+  }
+
+  async function handleChooseBackupFolder() {
+    const picked = await api.pickBackupFolder()
+    if (!picked) return
+    const updated = await api.updateSettings({ backup_path: picked })
+    setSettings(updated)
+    setBackupError('')
+  }
+
+  async function handleClearBackupFolder() {
+    const updated = await api.updateSettings({ backup_path: '' })
+    setSettings(updated)
+  }
+
+  async function handleBackupNow() {
+    if (!settings?.backup_path) return
+    setBackupBusy(true)
+    setBackupError('')
+    try {
+      const result = await api.runBackup(settings.backup_path)
+      if (result.ok) {
+        setBackupLastSuccessAt(new Date().toISOString())
+        setBackupLastError('')
+      } else {
+        setBackupError(result.error || 'Backup failed')
+      }
+    } catch (err) {
+      setBackupError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBackupBusy(false)
+    }
   }
 
   useEffect(() => {

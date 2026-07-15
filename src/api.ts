@@ -88,6 +88,9 @@ export interface Api {
   listBlacklistedCompanies: () => Promise<string[]>
   addBlacklistedCompany: (name: string) => Promise<string[]>
   removeBlacklistedCompany: (name: string) => Promise<string[]>
+  pickBackupFolder: () => Promise<string | null>
+  runBackup: (dir: string) => Promise<{ ok: boolean; path?: string; error?: string }>
+  getBackupStatus: () => Promise<{ path: string; lastSuccessAt: string; lastError: string }>
 }
 
 declare global {
