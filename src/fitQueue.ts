@@ -65,7 +65,15 @@ async function pump(): Promise<void> {
   inFlight = next
   try {
     const updated = await api.recomputeFit(next.jobId)
-    next.onResult({ ok: true, job: updated })
+    if (!updated) {
+      // The job was deleted between enqueue and pump, or the main
+      // process returned undefined for some other reason. Surface as
+      // an error rather than letting the callback try to read .company
+      // off undefined.
+      next.onResult({ ok: false, error: `Job ${next.jobId} not found` })
+    } else {
+      next.onResult({ ok: true, job: updated })
+    }
   } catch (err) {
     next.onResult({ ok: false, error: err instanceof Error ? err.message : 'Unknown error' })
   } finally {
