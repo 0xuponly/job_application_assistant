@@ -1724,23 +1724,25 @@ export default function JobsPage() {
             <input value={form.salary_range ?? ''} onChange={(e) => updateField('salary_range', e.target.value)} />
           </div>
         </div>
-        <div className="form-group">
-          <label>URL *</label>
-          <input
-            value={form.url ?? ''}
-            onChange={(e) => updateField('url', e.target.value)}
-            placeholder="https://..."
-            style={form.url && form.url.length > 0 && !isValidUrl(form.url) ? { borderColor: 'var(--danger)' } : undefined}
-          />
-          {form.url && form.url.length > 0 && !isValidUrl(form.url) && (
-            <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>
-              Enter a valid http(s) URL.
-            </div>
-          )}
-        </div>
-        <div className="form-group">
-          <label>Source</label>
-          <input value={form.source ?? ''} onChange={(e) => updateField('source', e.target.value)} placeholder="LinkedIn, Indeed, etc." />
+        <div className="form-row">
+          <div className="form-group">
+            <label>URL *</label>
+            <input
+              value={form.url ?? ''}
+              onChange={(e) => updateField('url', e.target.value)}
+              placeholder="https://..."
+              style={form.url && form.url.length > 0 && !isValidUrl(form.url) ? { borderColor: 'var(--danger)' } : undefined}
+            />
+            {form.url && form.url.length > 0 && !isValidUrl(form.url) && (
+              <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>
+                Enter a valid http(s) URL.
+              </div>
+            )}
+          </div>
+          <div className="form-group">
+            <label>Source</label>
+            <input value={form.source ?? ''} onChange={(e) => updateField('source', e.target.value)} placeholder="LinkedIn, Indeed, etc." />
+          </div>
         </div>
         <div className="form-group">
           <label>Description *</label>
@@ -1749,11 +1751,17 @@ export default function JobsPage() {
             value={form.description ?? ''}
             onChange={(e) => updateField('description', e.target.value)}
             placeholder="Paste the full job description here..."
+            style={{ width: '100%', boxSizing: 'border-box' }}
           />
         </div>
         <div className="form-group">
           <label>Notes</label>
-          <textarea rows={2} value={form.notes ?? ''} onChange={(e) => updateField('notes', e.target.value)} />
+          <textarea
+            rows={2}
+            value={form.notes ?? ''}
+            onChange={(e) => updateField('notes', e.target.value)}
+            style={{ width: '100%', boxSizing: 'border-box' }}
+          />
         </div>
       </Modal>
     </div>
