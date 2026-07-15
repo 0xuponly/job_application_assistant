@@ -3,6 +3,12 @@ import { join } from 'path'
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import * as db from './database'
 import * as secureStore from './secureStore'
+import {
+  appendAudit,
+  detectSyncedFolder,
+  signManifest,
+  wrapDekWithPassphrase
+} from './backupCrypto'
 import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocumentContent, scoreJobFit, RateLimitError } from './ai'
 import { scrapeJobFromUrl } from './jobScraper'
 import { scanAllBoards, BOARDS } from './jobSearch'
@@ -641,8 +647,13 @@ ${htmlBody}
     return dt.toISOString()
   }
 
-  function runBackup(dir: string): Promise<{ ok: boolean; path?: string; error?: string }> {
+  function runBackup(
+    dir: string,
+    passphrase?: string
+  ): Promise<{ ok: boolean; path?: string; error?: string }> {
     return new Promise((resolve) => {
+      const parentDir = join(dir, 'flow_job_backups')
+      let backupDir = ''
       try {
         if (!dir) {
           resolve({ ok: false, error: 'No backup path set' })
@@ -652,15 +663,10 @@ ${htmlBody}
           resolve({ ok: false, error: `Backup path does not exist: ${dir}` })
           return
         }
-        // Always write into a `flow_job_backups` parent folder under
-        // the chosen location. Each backup is its own subfolder named
-        // with the timestamp so individual backups are easy to find,
-        // copy, or delete.
-        const parentDir = join(dir, 'flow_job_backups')
         if (!existsSync(parentDir)) {
           mkdirSync(parentDir, { recursive: true })
         }
-        const backupDir = join(parentDir, `flow_job_backup_${backupTimestamp()}`)
+        backupDir = join(parentDir, `flow_job_backup_${backupTimestamp()}`)
         if (existsSync(backupDir)) {
           // Same-second collision (shouldn't happen in practice —
           // the timestamp has 1s resolution and quit can only fire
@@ -669,34 +675,78 @@ ${htmlBody}
           return
         }
         mkdirSync(backupDir, { recursive: true })
+        appendAudit(parentDir, { event: 'backup.start', folder: basename(backupDir), outcome: '' })
 
-        const manifest = {
+        const wrapped = passphrase
+          ? wrapDekWithPassphrase(secureStore.getOrCreateDek(), passphrase)
+          : null
+
+        const manifest: Record<string, unknown> = {
           appVersion: app.getVersion(),
           createdAt: new Date().toISOString(),
-          schema: 1,
-          files: ['apply-assistant-data.json', 'apply-assistant-key'],
-          encryptionMode: secureStore.encryptionMode()
+          schema: 2,
+          encryptionMode: secureStore.encryptionMode(),
+          wrapped: !!wrapped,
+          files: wrapped
+            ? ['apply-assistant-data.json', 'apply-assistant-key.wrapped', 'kdf.json']
+            : ['apply-assistant-data.json', 'apply-assistant-key']
         }
+
+        if (wrapped) {
+          manifest.kdf = wrapped.kdf
+          // HMAC over the manifest EXCLUDING the hmac field itself.
+          // canonicalJson() inside signManifest sorts keys so the
+          // signature is stable across re-serialization.
+          manifest.hmac = {
+            alg: 'hmac-sha256',
+            value: signManifest(stripHmac(manifest), passphrase, wrapped.kdf)
+          }
+        }
+
         writeFileSync(
           join(backupDir, 'manifest.json'),
           JSON.stringify(manifest, null, 2)
         )
 
         const dataFile = db.getStorePath()
-        const keyFile = join(app.getPath('userData'), 'apply-assistant-key')
         if (existsSync(dataFile)) {
           writeFileSync(join(backupDir, 'apply-assistant-data.json'), readFileSync(dataFile))
         }
-        if (existsSync(keyFile)) {
-          writeFileSync(join(backupDir, 'apply-assistant-key'), readFileSync(keyFile))
+
+        if (wrapped) {
+          writeFileSync(
+            join(backupDir, 'apply-assistant-key.wrapped'),
+            wrapped.wrapped
+          )
+          writeFileSync(
+            join(backupDir, 'kdf.json'),
+            JSON.stringify(wrapped.kdf, null, 2)
+          )
+        } else {
+          const keyFile = join(app.getPath('userData'), 'apply-assistant-key')
+          if (existsSync(keyFile)) {
+            writeFileSync(join(backupDir, 'apply-assistant-key'), readFileSync(keyFile))
+          }
         }
 
         db.updateSettings({ backup_last_success_at: new Date().toISOString() })
         db.updateSettings({ backup_last_error: '' })
+        appendAudit(parentDir, {
+          event: 'backup.success',
+          folder: basename(backupDir),
+          outcome: wrapped ? 'wrapped' : 'legacy'
+        })
         resolve({ ok: true, path: backupDir })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         try { db.updateSettings({ backup_last_error: msg }) } catch { /* ignore */ }
+        if (parentDir) {
+          appendAudit(parentDir, {
+            event: 'backup.failed',
+            folder: basename(backupDir) || '<uncreated>',
+            outcome: msg
+          })
+        }
         resolve({ ok: false, error: msg })
       }
     })
