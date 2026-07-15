@@ -354,7 +354,7 @@ export default function SettingsPage() {
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
         {([
           { id: 'profile', label: 'Profile & CV' },
-          { id: 'models', label: 'AI Models' },
+          { id: 'models', label: 'Models' },
           { id: 'companies', label: 'Companies' },
           { id: 'scan', label: 'Scan' },
           { id: 'data', label: 'Data' }
