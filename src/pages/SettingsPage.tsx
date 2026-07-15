@@ -33,6 +33,22 @@ export default function SettingsPage() {
   const [restoreError, setRestoreError] = useState('')
   const [restoreSelected, setRestoreSelected] = useState<{ name: string; path: string; createdAt: string } | null>(null)
   const [restoreBusy, setRestoreBusy] = useState(false)
+  const [restorePreview, setRestorePreview] = useState<null | {
+    wrapped?: boolean
+    signed?: boolean
+    hasKdf?: boolean
+    hasWrappedKey?: boolean
+    hasLegacyKey?: boolean
+    schema?: number
+    encryptionMode?: string
+    createdAt?: string
+    fileCount?: number
+    manifestError?: string
+  }>(null)
+  const [restorePassphrase, setRestorePassphrase] = useState('')
+  const [passphraseModalOpen, setPassphraseModalOpen] = useState(false)
+  const [passphraseInput, setPassphraseInput] = useState('')
+  const [passphraseConfirm, setPassphraseConfirm] = useState('')
 
   const emptyModel = { name: '', base_url: 'https://api.deepseek.com', api_key: '', model: 'deepseek-chat' }
 
@@ -66,7 +82,13 @@ export default function SettingsPage() {
   async function handleChooseBackupFolder() {
     const picked = await api.pickBackupFolder()
     if (!picked) return
-    const updated = await api.updateSettings({ backup_path: picked })
+    // If the chosen folder is on a synced/cloud drive, the main
+    // process flags it. Require explicit confirmation before saving.
+    if (picked.warning) {
+      const ok = window.confirm(`${picked.warning}\n\nContinue with this folder?`)
+      if (!ok) return
+    }
+    const updated = await api.updateSettings({ backup_path: picked.path })
     setSettings(updated)
     setBackupError('')
   }
