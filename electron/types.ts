@@ -148,6 +148,9 @@ export interface Settings {
   locations_normalized_v2: string
   employment_type_normalized: string
   work_mode_normalized: string
+  backup_path: string
+  backup_last_success_at: string
+  backup_last_error: string
 }
 
 export interface DashboardStats {

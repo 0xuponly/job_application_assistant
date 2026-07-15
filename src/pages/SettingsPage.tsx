@@ -437,6 +437,62 @@ export default function SettingsPage() {
 
       {tab === 'data' && (
         <>
+          <div className="section-title">Data backup</div>
+
+          <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+              Choose a folder where backups of your data and encryption key are saved. A new backup zip is created automatically every time the app closes.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <input
+                type="text"
+                readOnly
+                value={settings?.backup_path || ''}
+                placeholder="No backup folder set"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                  fontSize: 12,
+                  color: settings?.backup_path ? 'var(--text)' : 'var(--text-muted)'
+                }}
+              />
+              <button className="btn btn-secondary" onClick={handleChooseBackupFolder}>
+                Choose folder…
+              </button>
+              {settings?.backup_path && (
+                <button className="btn btn-secondary" onClick={handleClearBackupFolder}>
+                  Clear
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleBackupNow}
+                disabled={!settings?.backup_path || backupBusy}
+              >
+                {backupBusy ? 'Backing up…' : 'Backup now'}
+              </button>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {backupBusy
+                  ? 'Backing up…'
+                  : backupError
+                    ? `Backup failed: ${backupError}`
+                    : backupLastSuccessAt
+                      ? `Last backup: ${new Date(backupLastSuccessAt).toLocaleString()}`
+                      : settings?.backup_path
+                        ? 'No backup has been made yet.'
+                        : 'Choose a folder to enable backups.'}
+              </span>
+            </div>
+            {!backupBusy && backupLastError && !backupError && (
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, marginBottom: 0 }}>
+                Note: an automatic backup on a previous app close failed — {backupLastError}
+              </p>
+            )}
+          </div>
+
           <div className="section-title">Data export</div>
 
           <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>

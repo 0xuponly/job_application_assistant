@@ -120,6 +120,9 @@ export interface Settings {
   deleted_jobs_cap: number
   auto_scan_enabled: boolean
   auto_scan_interval_minutes: number
+  backup_path: string
+  backup_last_success_at: string
+  backup_last_error: string
 }
 
 export interface DashboardStats {
