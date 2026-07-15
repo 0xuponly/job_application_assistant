@@ -5,6 +5,7 @@ import { notify } from '../components/Notifications'
 import type { Application, Document, Job } from '../types'
 import { STATUS_COLORS, STATUS_LABELS } from '../types'
 import { EMPLOYMENT_TYPES, EMPLOYMENT_TYPE_LABELS, WORK_MODES, formatEmploymentType } from '../employmentType'
+import { enqueueFitRecompute, isJobInFitQueue } from '../fitQueue'
 
 interface Props {
   job: Job
@@ -17,7 +18,11 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
   const [application, setApplication] = useState<Application | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
   const [tailoring, setTailoring] = useState<'cv' | 'cover_letter' | null>(null)
-  const [recomputingFit, setRecomputingFit] = useState(false)
+  // Re-render trigger: the fit queue is module-scope, so we subscribe
+  // to its `app:fit-pending-jobs` event to refresh the per-button
+  // "in queue for this job" state. isJobInFitQueue is a Set lookup;
+  // we just need a counter to make React notice the change.
+  const [, setFitQueueTick] = useState(0)
   const [companyBlacklisted, setCompanyBlacklisted] = useState(false)
   const [blacklistBusy, setBlacklistBusy] = useState(false)
   const [showApply, setShowApply] = useState(false)
