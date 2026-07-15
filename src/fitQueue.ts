@@ -68,12 +68,14 @@ function announceFitComputed(job: Job): void {
     // visible. No toast — silently let the page update in place.
     return
   }
-  // Pass the onClick through a one-shot flag: Notifications will
-  // call it once when the user clicks the explicit "Open" button
-  // inside the toast, and NOT on a generic click anywhere on the
-  // toast. This avoids the trap where a user mouses near the toast
-  // to dismiss it and accidentally navigates.
-  const onClick = () => {
+  // The "Open" action navigates to the job's detail page ONLY when
+  // the user explicitly clicks it. We do NOT auto-navigate: the
+  // toast is a passive notification. A previous version fired the
+  // navigation on toast mount in some cases (likely a race between
+  // the click event and a re-render), so the explicit "Open" button
+  // is the single source of truth for navigation. The "View" link
+  // label was renamed to "View" to make the affordance obvious.
+  const onOpen = () => {
     window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'jobs' } }))
     window.dispatchEvent(new CustomEvent('app:openJobDetail', { detail: { job } }))
   }
@@ -82,7 +84,7 @@ function announceFitComputed(job: Job): void {
       message: `The Fit score has been computed for the ${job.title} role at ${job.company}.`,
       type: 'success',
       ttl: 8000,
-      action: { label: 'Open', onClick }
+      action: { label: 'View', onClick: onOpen }
     }
   )
 }
