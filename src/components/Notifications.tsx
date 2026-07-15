@@ -7,24 +7,48 @@ interface Toast {
   ttl: number
   dismissing?: boolean
   copied?: boolean
-  // Optional click handler. When set, clicking the toast runs this
-  // callback INSTEAD of dismissing — useful for "fit computed for
-  // [job]. Click to open it" toasts. If the user has a copy button
-  // on the toast, the copy button still stops propagation. The toast
-  // is dismissed after the callback resolves.
-  onClick?: () => void
+  // Optional action. When set, the toast renders an action button
+  // (label + onClick). Clicking the button fires onClick; clicking
+  // elsewhere on the toast does NOT trigger navigation — toasts are
+  // passive notifications and dismissing them with a stray click must
+  // not take the user somewhere. The action button dismisses the
+  // toast after firing.
+  action?: { label: string; onClick: () => void }
+}
+
+// Accept either a string message (the common case) or a full object
+// for advanced uses (actions). The string form is the public API;
+// the object form is reserved for callers that need actions.
+type NotifyInput = string | {
+  message: string
+  type?: Toast['type']
+  ttl?: number
+  action?: Toast['action']
 }
 
 let nextId = 0
 let listeners: ((toast: Toast) => void)[] = []
 
-export function notify(message: string, type: Toast['type'] = 'info', ttl?: number, onClick?: () => void): void {
-  const toast: Toast = {
-    id: nextId++,
-    message,
-    type,
-    ttl: ttl ?? (type === 'error' ? 8000 : 4000),
-    onClick
+export function notify(input: NotifyInput, type: Toast['type'] = 'info', ttl?: number, onClick?: () => void): void {
+  // String form: pass through with positional args.
+  // Object form: build a full toast with optional action.
+  let toast: Toast
+  if (typeof input === 'string') {
+    toast = {
+      id: nextId++,
+      message: input,
+      type,
+      ttl: ttl ?? (type === 'error' ? 8000 : 4000)
+    }
+    if (onClick) toast.action = { label: 'Open', onClick }
+  } else {
+    toast = {
+      id: nextId++,
+      message: input.message,
+      type: input.type ?? 'info',
+      ttl: input.ttl ?? ((input.type ?? 'info') === 'error' ? 8000 : 4000)
+    }
+    if (input.action) toast.action = input.action
   }
   for (const l of listeners) l(toast)
 }
