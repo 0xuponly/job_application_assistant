@@ -189,10 +189,11 @@ const api: Api = {
   addBlacklistedCompany: (name) => ipcRenderer.invoke('blacklist:add', name),
   removeBlacklistedCompany: (name) => ipcRenderer.invoke('blacklist:remove', name),
   pickBackupFolder: () => ipcRenderer.invoke('backup:pickFolder'),
-  runBackup: (dir) => ipcRenderer.invoke('backup:run', dir),
+  runBackup: (dir, passphrase) => ipcRenderer.invoke('backup:run', dir, passphrase),
   getBackupStatus: () => ipcRenderer.invoke('backup:status'),
   listBackups: () => ipcRenderer.invoke('backup:list'),
-  restoreBackup: (folderPath) => ipcRenderer.invoke('backup:restore', folderPath)
+  restoreBackup: (folderPath, passphrase) => ipcRenderer.invoke('backup:restore', folderPath, passphrase),
+  previewBackup: (folderPath) => ipcRenderer.invoke('backup:preview', folderPath)
 }
 
 contextBridge.exposeInMainWorld('api', api)
