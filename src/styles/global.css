@@ -309,8 +309,10 @@ textarea {
 
 .filter-menu {
   position: absolute;
-  top: 100%;
-  left: 0;
+  /* Default anchors: the trigger's top-left. The .filter-dropdown
+     consumer is expected to override left/right + top/bottom inline so
+     the menu flips to the opposite side when it would clip the
+     viewport edge (see useFilterPlacement in JobsPage.tsx). */
   z-index: 100;
   background: var(--bg-elevated);
   border: 1px solid var(--border);

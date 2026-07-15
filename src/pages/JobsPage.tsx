@@ -21,6 +21,76 @@ let lastFitToastAt = 0
 import { STATUS_COLORS, STATUS_LABELS } from '../types'
 import JobDetail from './JobDetail'
 
+// Decide how a dropdown menu should anchor to its trigger so the menu
+// stays inside the viewport. Anchors the menu to the right of the trigger
+// when it would clip the right edge, and below the trigger when it would
+// clip the bottom edge. Returns inline style (left/right + top/bottom)
+// applied on top of the default CSS positioning. Re-measures on resize
+// and scroll while the menu is open, so a sticky header that scrolls the
+// trigger around the viewport still keeps the menu attached.
+function useFilterPlacement(
+  triggerRef: React.RefObject<HTMLDivElement>,
+  menuRef: React.RefObject<HTMLDivElement>,
+  open: boolean
+): React.CSSProperties {
+  const [pos, setPos] = useState<React.CSSProperties>({})
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos({})
+      return
+    }
+    function measure() {
+      const trigger = triggerRef.current
+      const menu = menuRef.current
+      if (!trigger || !menu) return
+      const tr = trigger.getBoundingClientRect()
+      const mr = menu.getBoundingClientRect()
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      // The menu's own width/height is what we need to know. We can use
+      // `offsetWidth`/`offsetHeight` (the layout box) which is stable
+      // after mount, even when the menu's visual position is at (0,0).
+      const mw = menu.offsetWidth || mr.width
+      const mh = menu.offsetHeight || mr.height
+      const style: React.CSSProperties = { left: 0, top: '100%' }
+      // Horizontal: if the default left-anchored menu would extend past
+      // the right viewport edge, flip to a right-anchored menu instead.
+      if (tr.left + mw > vw - 4) {
+        style.left = 'auto'
+        style.right = 0
+      } else {
+        style.left = 0
+        style.right = 'auto'
+      }
+      // Vertical: if a down-anchored menu would extend past the bottom
+      // viewport edge, flip to up-anchored. Account for the height of
+      // the trigger itself so the menu sits flush above it.
+      if (tr.bottom + mh > vh - 4) {
+        style.top = 'auto'
+        style.bottom = '100%'
+      } else {
+        style.top = '100%'
+        style.bottom = 'auto'
+      }
+      setPos(style)
+    }
+    measure()
+    // The menu mounts synchronously when `open` flips, but its content
+    // can settle a frame later (the first paint of the menu's options
+    // happens after the layout effect). One re-measure on the next
+    // frame ensures we measure the *rendered* size, not the placeholder.
+    const raf = requestAnimationFrame(measure)
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [open, triggerRef, menuRef])
+  return pos
+}
+
 function FilterSelect({ options, selected, onChange, displayMap }: {
   options: string[]
   selected: string[]
