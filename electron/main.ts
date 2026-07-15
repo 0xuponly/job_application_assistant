@@ -654,10 +654,17 @@ ${htmlBody}
           resolve({ ok: false, error: `Backup path does not exist: ${dir}` })
           return
         }
+        // Always write into a `flow_job_backups` subfolder under the
+        // chosen location. Creating it on demand keeps the user's
+        // chosen folder clean and groups all backups together.
+        const backupDir = join(dir, 'flow_job_backups')
+        if (!existsSync(backupDir)) {
+          mkdirSync(backupDir, { recursive: true })
+        }
         const dataFile = db.getStorePath()
         const keyFile = join(app.getPath('userData'), 'apply-assistant-key')
         const filename = `flowjob-backup-${backupTimestamp()}.zip`
-        const destPath = join(dir, filename)
+        const destPath = join(backupDir, filename)
         const tmpPath = join(tmpdir(), filename + '.partial')
 
         const zipfile = new yazl.ZipFile()
