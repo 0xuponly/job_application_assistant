@@ -1473,6 +1473,17 @@ export function clearAllData(): void {
   persistStore()
 }
 
+/**
+ * Discard the in-memory store and re-read the data file from disk.
+ * Used after a backup restore so the renderer sees the restored
+ * data without requiring a full process restart (which is fragile
+ * in dev mode where app.relaunch can fail silently).
+ */
+export function reloadStore(): void {
+  store = null
+  loadStore()
+}
+
 // Board health tracking
 
 export function getBoardHealth(): Record<string, number[]> {

@@ -775,31 +775,13 @@ ${htmlBody}
       const msg = err instanceof Error ? err.message : String(err)
       return { ok: false, error: msg }
     }
-    // Mark the next launch as a post-restore boot BEFORE we exit.
-    // The new process will read this, clear it after it's safely
-    // up, and (critically) the close-time backup hook checks this
-    // flag and skips the backup during the relaunch — otherwise the
-    // old process's runBackup fires concurrently with the new
-    // process loading the restored store, producing a blank UI and
-    // potentially a partially-overwritten data file.
-    db.updateSettings({ restore_pending: '1' })
-    // Relaunch the app so the next start reads the restored data.
-    // app.relaunch + app.exit is more reliable than app.quit here
-    // because app.quit fires before-quit (which we now skip) and
-    // can race with the renderer's pending IPC replies. app.exit
-    // tears down the process immediately, which is what we want
-    // after a successful restore — there's nothing left to save.
-    try {
-      app.relaunch()
-      app.exit(0)
-    } catch (err) {
-      // Relaunch failed (e.g. running outside of a packaged app in
-      // dev). Surface the error so the user can restart manually
-      // — the data is already restored, so re-opening the app is
-      // safe either way.
-      const msg = err instanceof Error ? err.message : String(err)
-      return { ok: true, warning: `Restored, but failed to relaunch automatically: ${msg}` }
-    }
+    // Discard the in-memory store and re-read the data file from
+    // disk. The encryption-key file is also re-read fresh on the
+    // next load (secureStore.getOrCreateDek does not cache). This
+    // avoids the fragile app.relaunch() path — in dev mode the
+    // electron-vite wrapper can cause relaunch to spawn a process
+    // that exits immediately, leaving the user with a blank window.
+    db.reloadStore()
     return { ok: true }
   })
 
@@ -865,6 +847,15 @@ app.whenReady().then(() => {
   createWindow()
   startQueueProcessor()
   scheduleNextAutoScan()
+
+  // If the previous run set `restore_pending` (the user just clicked
+  // "Restore and restart"), clear it now that we're safely up. The
+  // flag exists ONLY to suppress the close-time backup hook during
+  // the brief relaunch window — leaving it set would silently
+  // disable every future auto-backup.
+  if (db.getSettings().restore_pending) {
+    db.updateSettings({ restore_pending: '' })
+  }
 
   // One-shot: normalize legacy locations to "City, REGION, CC" the first time
   // the app loads with a populated store. Idempotent — gated by a flag.
