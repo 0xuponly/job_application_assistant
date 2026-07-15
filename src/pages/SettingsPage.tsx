@@ -381,7 +381,7 @@ export default function SettingsPage() {
 
       {tab === 'profile' && (
         <>
-          <div className="section-title">Your profile</div>
+          <div className="section-title">Your Profile</div>
           <div className="card" style={{ maxWidth: 600 }}>
             <div className="form-row">
               <div className="form-group">
