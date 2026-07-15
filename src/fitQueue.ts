@@ -95,7 +95,7 @@ export function enqueueFitRecompute(jobId: number, onResult: OnResult): boolean 
     return false
   }
   queue.push({ jobId, onResult })
-  bumpPending(1)
+  bumpPending(1, jobId)
   void pump()
   return true
 }
