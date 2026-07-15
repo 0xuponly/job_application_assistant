@@ -48,6 +48,16 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
   const [savingDoc, setSavingDoc] = useState(false)
   const [exportingDoc, setExportingDoc] = useState(false)
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null)
+  // Subscribe to the fit queue's per-job pending events so the
+  // recompute-fit button shows its own spinner when this job is in
+  // the queue (queued or actively running). Multiple JobDetail tabs
+  // each get their own subscription; cleanup runs on unmount.
+  useEffect(() => {
+    const onPending = () => setFitQueueTick((n) => n + 1)
+    window.addEventListener('app:fit-pending-jobs', onPending)
+    return () => window.removeEventListener('app:fit-pending-jobs', onPending)
+  }, [])
+  const fitInQueue = isJobInFitQueue(job.id)
   const [reviewing, setReviewing] = useState<'cv' | 'cover_letter' | null>(null)
   const [selectedSection, setSelectedSection] = useState('')
   const [regenContext, setRegenContext] = useState('')
@@ -548,18 +558,18 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                       notify('Fit recompute queue is full (10 pending). Try again in a moment.', 'warning')
                     }
                   }}
-                  disabled={recomputingFit}
+                  disabled={fitInQueue}
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    cursor: recomputingFit ? 'wait' : 'pointer',
+                    cursor: fitInQueue ? 'wait' : 'pointer',
                     color: 'var(--text-muted)',
                     fontSize: 12,
                     padding: 0,
                     lineHeight: 1
                   }}
                 >
-                  {recomputingFit ? '…' : '↻'}
+                  {fitInQueue ? '…' : '↻'}
                 </button>
               </div>
               <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
