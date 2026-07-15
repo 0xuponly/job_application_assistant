@@ -758,7 +758,7 @@ function FitTooltip({ score, children }: { score: number; children: React.ReactN
             animation: 'fit-tooltip-in 0.12s ease-out'
           }}
         >
-          Fit: {pct}
+          {pct}
         </span>
       )}
     </span>
