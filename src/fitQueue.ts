@@ -20,6 +20,7 @@
  * completion and the matching decrement still fires.
  */
 import { api } from './api'
+import { notify } from './components/Notifications'
 import type { Job } from './types'
 
 const MAX_QUEUED = 10
@@ -43,6 +44,13 @@ let pendingDelta = 0
 // per-button spinner and disabled state).
 const pendingJobIds = new Set<number>()
 
+// Job ID the user is currently viewing in JobDetail, or null if the
+// detail view is closed. Updated by JobDetail's mount/unmount
+// `app:viewedJob` event. Read by the fit-computed toast to decide
+// whether to skip the "click to open" prompt (the user can already
+// see the result).
+let viewedJobId: number | null = null
+
 function bumpPending(delta: number, jobId?: number): void {
   pendingDelta += delta
   if (pendingDelta < 0) pendingDelta = 0
@@ -52,6 +60,26 @@ function bumpPending(delta: number, jobId?: number): void {
   }
   window.dispatchEvent(new CustomEvent('app:fit-progress', { detail: { delta } }))
   window.dispatchEvent(new CustomEvent('app:fit-pending-jobs'))
+}
+
+function announceFitComputed(job: Job): void {
+  if (viewedJobId === job.id) {
+    // User is already on the detail page; the recomputed score is
+    // visible. No toast — silently let the page update in place.
+    return
+  }
+  const onClick = () => {
+    // Navigate to the My Jobs page (in case the user is on a
+    // different tab) and ask JobsPage to open this specific job.
+    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'jobs' } }))
+    window.dispatchEvent(new CustomEvent('app:openJobDetail', { detail: { job } }))
+  }
+  notify(
+    `The Fit score has been computed for the ${job.title} role at ${job.company}.`,
+    'success',
+    8000,
+    onClick
+  )
 }
 
 export function isJobInFitQueue(jobId: number): boolean {
@@ -72,6 +100,13 @@ async function pump(): Promise<void> {
       // off undefined.
       next.onResult({ ok: false, error: `Job ${next.jobId} not found` })
     } else {
+      // Skip the toast when the LLM scored but set fit_last_error
+      // (heuristic fallback, LLM error): the score wasn't actually
+      // recomputed, so there's no "fit score has been computed"
+      // event to announce. The job row already shows the error.
+      if (!updated.fit_last_error) {
+        announceFitComputed(updated)
+      }
       next.onResult({ ok: true, job: updated })
     }
   } catch (err) {
@@ -84,6 +119,15 @@ async function pump(): Promise<void> {
     // show a 0 count.
     void pump()
   }
+}
+
+// Wire the viewedJobId tracker. Mounted once when the module loads;
+// the listener stays for the rest of the app's life.
+if (typeof window !== 'undefined') {
+  window.addEventListener('app:viewedJob', (e) => {
+    const detail = (e as CustomEvent<{ jobId: number | null }>).detail
+    viewedJobId = detail?.jobId ?? null
+  })
 }
 
 /**

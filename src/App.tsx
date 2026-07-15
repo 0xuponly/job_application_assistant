@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Notifications from './components/Notifications'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -14,6 +14,18 @@ import type { Page } from './types'
 
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard')
+
+  // External navigation channel: the "fit computed" toast dispatches
+  // `app:navigate` before requesting a specific job detail, so the
+  // toast can switch pages before JobsPage tries to open the detail.
+  useEffect(() => {
+    const onNavigate = (e: Event) => {
+      const detail = (e as CustomEvent<{ page: Page }>).detail
+      if (detail?.page) setPage(detail.page)
+    }
+    window.addEventListener('app:navigate', onNavigate)
+    return () => window.removeEventListener('app:navigate', onNavigate)
+  }, [])
 
   function renderPage() {
     switch (page) {

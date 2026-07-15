@@ -1096,6 +1096,24 @@ export default function JobsPage() {
     return () => window.removeEventListener('app:refresh', onRefresh)
   }, [])
 
+  // Listen for "open this job" requests fired by the fit-recompute
+  // toast's onClick. Dispatched from outside this page (via the
+  // Notifications component) when the user clicks the
+  // "Fit score has been computed for …" toast. The payload is a
+  // complete Job so we don't have to wait for a list reload before
+  // showing the detail. If the page is on a different tab, the
+  // caller is responsible for navigating first (the toast onClick
+  // dispatches app:navigate('jobs') before this event).
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ job: Job }>).detail
+      if (!detail?.job) return
+      setSelectedJob(detail.job)
+    }
+    window.addEventListener('app:openJobDetail', onOpen)
+    return () => window.removeEventListener('app:openJobDetail', onOpen)
+  }, [])
+
   // Background fit-score updates from the main process. After a manual
   // add or import-from-link, the main process kicks off `scoreJobFit`
   // in the background and emits `job:scoreUpdated` with the final row

@@ -58,6 +58,19 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
     return () => window.removeEventListener('app:fit-pending-jobs', onPending)
   }, [])
   const fitInQueue = isJobInFitQueue(job.id)
+
+  // Announce "the user is currently viewing this job" so the fit
+  // queue can suppress its "fit computed" toast while the user is
+  // already on the detail page. Emit on mount and whenever the
+  // viewed job changes; clear on unmount. Other components (the
+  // queue) listen for app:viewedJob to decide whether to show the
+  // "click to open" toast or skip it entirely.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('app:viewedJob', { detail: { jobId: job.id } }))
+    return () => {
+      window.dispatchEvent(new CustomEvent('app:viewedJob', { detail: { jobId: null } }))
+    }
+  }, [job.id])
   const [reviewing, setReviewing] = useState<'cv' | 'cover_letter' | null>(null)
   const [selectedSection, setSelectedSection] = useState('')
   const [regenContext, setRegenContext] = useState('')
