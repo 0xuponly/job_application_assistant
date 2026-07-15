@@ -11,8 +11,10 @@ let jobsStickyObserver: ResizeObserver | null = null
 // Module-scope "have we already toasted this job's fit failure?" record.
 // Lives for the lifetime of the renderer process, not the page instance —
 // so navigating away from the Job Board and back doesn't re-fire the
-// toast for the same failure. A job is re-armed only when its error text
-// changes or its error is cleared and then re-appears (handled in loadJobs).
+// toast for the same failure. Hydrated from the DB on first load (each
+// job carries its own `fit_error_toasted` marker) so a still-failing job
+// does not re-toast on every app open — only when the error text
+// actually changes (or is cleared and re-appears, handled in loadJobs).
 // Same for the last toast timestamp, which is checked in the debounce path.
 const toastedFitErrors = new Map<number, string | null>()
 let lastFitToastAt = 0

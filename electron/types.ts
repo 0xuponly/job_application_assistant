@@ -43,6 +43,12 @@ export interface Job {
   // UI shows this in place of a numeric score so the user can tell the
   // difference between "bad fit" and "scorer is broken".
   fit_last_error: string | null
+  // The fit_last_error string that was last surfaced to the user via a
+  // toast. Persisted so the toast does not re-fire on every app open for
+  // a still-failing job — only when the error text actually changes (or
+  // is cleared and re-appears). NULL = never toasted, or error was
+  // cleared since the last toast (a future re-occurrence re-arms).
+  fit_error_toasted: string | null
   notes: string | null
   date_posted: string | null
   last_updated: string | null

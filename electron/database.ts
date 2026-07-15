@@ -249,6 +249,10 @@ function loadStore(): Store {
         j.fit_last_error = null
         jobsMigrated = true
       }
+      if (j.fit_error_toasted === undefined) {
+        j.fit_error_toasted = null
+        jobsMigrated = true
+      }
     }
     if (typeof store.settings.cv_version !== 'number') {
       store.settings.cv_version = 0
@@ -532,6 +536,7 @@ export function createJob(
     fit_breakdown: input.fit_breakdown ?? null,
     fit_score_version: input.fit_score_version ?? null,
     fit_last_error: input.fit_last_error ?? null,
+    fit_error_toasted: null,
     notes: de(input.notes ?? null),
     date_posted: input.date_posted ?? null,
     last_updated: now(),
@@ -602,6 +607,7 @@ export function updateJob(
     fit_breakdown: fields.fit_breakdown !== undefined ? (fields.fit_breakdown ?? null) : existing.fit_breakdown,
     fit_score_version: fields.fit_score_version !== undefined ? (fields.fit_score_version ?? null) : existing.fit_score_version,
     fit_last_error: fields.fit_last_error !== undefined ? (fields.fit_last_error ?? null) : existing.fit_last_error,
+    fit_error_toasted: fields.fit_error_toasted !== undefined ? (fields.fit_error_toasted ?? null) : existing.fit_error_toasted,
     notes: fields.notes !== undefined ? de(fields.notes ?? null) : existing.notes,
     date_posted: fields.date_posted !== undefined ? (fields.date_posted ?? null) : existing.date_posted,
     last_updated: fields.last_updated !== undefined ? (fields.last_updated ?? null) : existing.last_updated,

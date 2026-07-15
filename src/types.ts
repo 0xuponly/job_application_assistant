@@ -36,6 +36,7 @@ export interface Job {
   fit_breakdown: FitBreakdown | null
   fit_score_version: number | null
   fit_last_error: string | null
+  fit_error_toasted: string | null
   notes: string | null
   date_posted: string | null
   last_updated: string | null
