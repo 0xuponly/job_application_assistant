@@ -697,13 +697,21 @@ export default function SettingsPage() {
                 </button>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <button
                 className="btn btn-primary"
                 onClick={handleBackupNow}
                 disabled={!settings?.backup_path || backupBusy}
               >
                 {backupBusy ? 'Backing up…' : 'Backup now'}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={handleOpenRestore}
+                disabled={!settings?.backup_path}
+                title={settings?.backup_path ? 'Restore from a previous backup' : 'Set a backup folder first'}
+              >
+                Restore Backup…
               </button>
               <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 {backupBusy
@@ -722,16 +730,6 @@ export default function SettingsPage() {
                 Note: an automatic backup on a previous app close failed — {backupLastError}
               </p>
             )}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-              <button
-                className="btn btn-secondary"
-                onClick={handleOpenRestore}
-                disabled={!settings?.backup_path}
-                title={settings?.backup_path ? 'Restore from a previous backup' : 'Set a backup folder first'}
-              >
-                Restore Backup…
-              </button>
-            </div>
           </div>
 
           <Modal
