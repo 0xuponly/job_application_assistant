@@ -162,6 +162,8 @@ export default function SettingsPage() {
   async function handleOpenRestore() {
     setRestoreOpen(true)
     setRestoreSelected(null)
+    setRestorePreview(null)
+    setRestorePassphrase('')
     setRestoreError('')
     setRestoreLoading(true)
     try {
@@ -175,19 +177,47 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSelectBackup(b: { name: string; path: string; createdAt: string }) {
+    setRestoreSelected(b)
+    setRestorePreview(null)
+    setRestoreError('')
+    try {
+      const preview = await api.previewBackup(b.path)
+      setRestorePreview(preview)
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   function handleCloseRestore() {
     if (restoreBusy) return
     setRestoreOpen(false)
     setRestoreSelected(null)
+    setRestorePreview(null)
+    setRestorePassphrase('')
     setRestoreError('')
   }
 
   async function handleConfirmRestore() {
     if (!restoreSelected) return
+    const preview = restorePreview
+    if (preview?.requiresPassphrase && !restorePassphrase) {
+      setRestoreError('Enter the passphrase for this backup.')
+      return
+    }
+    if (preview?.hasLegacyKey && !preview.requiresPassphrase) {
+      const ok = window.confirm(
+        'This backup is in the legacy (un-wrapped) format. The encryption key will be restored as-is, meaning the backup file alone is enough to decrypt your data. Continue?'
+      )
+      if (!ok) return
+    }
     setRestoreBusy(true)
     setRestoreError('')
     try {
-      const result = await api.restoreBackup(restoreSelected.path)
+      const result = await api.restoreBackup(
+        restoreSelected.path,
+        restorePassphrase || undefined
+      )
       if (!result.ok) {
         setRestoreError(result.error || 'Restore failed')
         setRestoreBusy(false)
@@ -201,8 +231,7 @@ export default function SettingsPage() {
       // The main process has re-read the data file from disk and
       // discarded its in-memory cache. Force the renderer to
       // re-mount from scratch so every component picks up the
-      // restored data. This is more reliable than a process
-      // relaunch (which can fail silently in dev mode).
+      // restored data.
       setTimeout(() => {
         window.location.reload()
       }, 600)
