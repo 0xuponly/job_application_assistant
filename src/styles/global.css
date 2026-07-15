@@ -611,8 +611,8 @@ input[type="checkbox"]:disabled {
    globally, which is what makes the sticky thead at .jobs-page .table
    thead th actually stick. */
 .jobs-page .table {
-  margin: 0 0 0 -32px;
-  width: calc(100% + 32px);
+  margin: 0 -32px;
+  width: calc(100% + 64px);
 }
 
 /* Sticky column headers on the Job Board. The `top` value is set
