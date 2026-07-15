@@ -1650,7 +1650,7 @@ export default function JobsPage() {
         actions={
           <>
             <button className="btn btn-secondary" onClick={() => setShowAddManual(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleCreateManual} disabled={saving || !form.title || !form.company}>
+            <button className="btn btn-primary" onClick={handleCreateManual} disabled={saving || !form.title || !form.company || !form.url || !form.description}>
               {saving ? 'Saving...' : 'Add job'}
             </button>
           </>
