@@ -654,21 +654,24 @@ ${htmlBody}
           resolve({ ok: false, error: `Backup path does not exist: ${dir}` })
           return
         }
-        // Always write into a `flow_job_backups` subfolder under the
-        // chosen location. Creating it on demand keeps the user's
-        // chosen folder clean and groups all backups together.
-        const backupDir = join(dir, 'flow_job_backups')
-        if (!existsSync(backupDir)) {
-          mkdirSync(backupDir, { recursive: true })
+        // Always write into a `flow_job_backups` parent folder under
+        // the chosen location. Each backup is its own subfolder named
+        // with the timestamp so individual backups are easy to find,
+        // copy, or delete.
+        const parentDir = join(dir, 'flow_job_backups')
+        if (!existsSync(parentDir)) {
+          mkdirSync(parentDir, { recursive: true })
         }
-        const dataFile = db.getStorePath()
-        const keyFile = join(app.getPath('userData'), 'apply-assistant-key')
-        const filename = `flowjob-backup-${backupTimestamp()}.zip`
-        const destPath = join(backupDir, filename)
-        const tmpPath = join(tmpdir(), filename + '.partial')
+        const backupDir = join(parentDir, `flow_job_backup_${backupTimestamp()}`)
+        if (existsSync(backupDir)) {
+          // Same-second collision (shouldn't happen in practice —
+          // the timestamp has 1s resolution and quit can only fire
+          // once per second). Refuse rather than overwriting.
+          resolve({ ok: false, error: `Backup folder already exists: ${backupDir}` })
+          return
+        }
+        mkdirSync(backupDir, { recursive: true })
 
-        const zipfile = new yazl.ZipFile()
-        // manifest.json first so it's at the top of the zip listing.
         const manifest = {
           appVersion: app.getVersion(),
           createdAt: new Date().toISOString(),
@@ -676,36 +679,23 @@ ${htmlBody}
           files: ['apply-assistant-data.json', 'apply-assistant-key'],
           encryptionMode: secureStore.encryptionMode()
         }
-        zipfile.addBuffer(
-          Buffer.from(JSON.stringify(manifest, null, 2), 'utf-8'),
-          'manifest.json'
+        writeFileSync(
+          join(backupDir, 'manifest.json'),
+          JSON.stringify(manifest, null, 2)
         )
+
+        const dataFile = db.getStorePath()
+        const keyFile = join(app.getPath('userData'), 'apply-assistant-key')
         if (existsSync(dataFile)) {
-          zipfile.addFile(dataFile, 'apply-assistant-data.json')
+          writeFileSync(join(backupDir, 'apply-assistant-data.json'), readFileSync(dataFile))
         }
         if (existsSync(keyFile)) {
-          zipfile.addFile(keyFile, 'apply-assistant-key')
+          writeFileSync(join(backupDir, 'apply-assistant-key'), readFileSync(keyFile))
         }
-        zipfile.end()
 
-        const out = createWriteStream(tmpPath)
-        zipfile.outputStream.pipe(out)
-        out.on('close', () => {
-          try {
-            renameSync(tmpPath, destPath)
-            db.updateSettings({ backup_last_success_at: new Date().toISOString() })
-            db.updateSettings({ backup_last_error: '' })
-            resolve({ ok: true, path: destPath })
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err)
-            db.updateSettings({ backup_last_error: msg })
-            resolve({ ok: false, error: msg })
-          }
-        })
-        out.on('error', (err: Error) => {
-          db.updateSettings({ backup_last_error: err.message })
-          resolve({ ok: false, error: err.message })
-        })
+        db.updateSettings({ backup_last_success_at: new Date().toISOString() })
+        db.updateSettings({ backup_last_error: '' })
+        resolve({ ok: true, path: backupDir })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         try { db.updateSettings({ backup_last_error: msg }) } catch { /* ignore */ }
