@@ -1320,7 +1320,7 @@ export default function SettingsPage() {
 
           <div className="section-title">Scan Memory</div>
 
-          <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
+          <div className="card" style={{ marginBottom: 12 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
               Deleted-jobs blacklist cap
             </label>
