@@ -556,7 +556,7 @@ export default function ScanJobsPage() {
               const hiddenNames = new Set(
                 showFrequentErrors
                   ? []
-                  : findFrequentErrorBoards(allBoards, boardHealth)
+                  : findFrequentErrorBoards(enabledBoards, boardHealth)
               )
               // Filter the category's board list to boards that are
               // actually visible in the grid. Hidden frequent-error
