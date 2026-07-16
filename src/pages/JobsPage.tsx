@@ -1058,14 +1058,13 @@ export default function JobsPage() {
 
     const cleanedForDedup = data.map(cleanJob)
     const dedupedForDisplay = dedupeJobs(cleanedForDedup)
-    setRawJobs(cleanedForDedup)
     setJobs(dedupedForDisplay)
     // Auto-dedupe: if the just-loaded list had hidden duplicates, drop
     // them in the store and reload. Latched per mount so the follow-up
-    // loadJobs() (which re-enters this code with hiddenDupes = 0) does
-    // not re-fire. A new scan that adds a dupe after a clean mount will
-    // still get cleaned on the next visit. Toast the count so the user
-    // sees something happened — the manual banner is gone.
+    // loadJobs() (which re-enters this code with no duplicates) does
+    // not re-fire. A new scan that adds a dupe after a clean mount
+    // will still get cleaned on the next visit. Toast the count so the
+    // user sees something happened — the manual banner is gone.
     if (!dedupeAutoRunRef.current) {
       const hidden = cleanedForDedup.length - dedupedForDisplay.length
       if (hidden > 0) {
@@ -1270,7 +1269,6 @@ export default function JobsPage() {
         }
       }
       setJobs((prev) => dedupeJobs([job, ...prev]))
-      setRawJobs((prev) => [job, ...prev])
       setShowAddLink(false)
       setLinkUrl('')
       setSelectedJob(job)
@@ -1324,7 +1322,6 @@ export default function JobsPage() {
         }
       }
       setJobs((prev) => dedupeJobs([job, ...prev]))
-      setRawJobs((prev) => [job, ...prev])
       setShowAddManual(false)
       setForm(EMPTY_FORM)
       setSelectedJob(job)
