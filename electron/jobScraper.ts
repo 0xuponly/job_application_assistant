@@ -300,7 +300,7 @@ async function fetchPageHtml(
     if (timeoutSignal.aborted) {
       // The request body was slow even though the headers arrived.
       // Treat the same as a timeout — fall through to the browser path.
-      console.log(`[scraper] fetch body timeout ${url} after ${elapsedMs}ms — falling back to browser`)
+      log.info(`fetch body timeout ${url} after ${elapsedMs}ms — falling back to browser`)
       return fetchHtmlViaBrowser(url)
     }
     if (!opts.skipChallengeCheck && isChallengePage(html)) {
