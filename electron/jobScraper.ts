@@ -428,6 +428,11 @@ async function tryWorkBcApi(jobId: string, signal?: AbortSignal): Promise<Create
   }
 }
 
+// Exported so the WorkBC first-party API integration in govApis.ts
+// can call it during the listing-side fan-out (one detail fetch per
+// search result).
+export { tryWorkBcApi }
+
 async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: string, source?: string): Promise<ScrapedJob> {
   const result: ScrapedJob = { source }
 

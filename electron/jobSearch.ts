@@ -9,7 +9,7 @@ import { fetchHtmlViaBrowser, isChallengePage, paginateHtmlViaBrowser } from './
 import { fetchAdzunaJobs } from './adzuna'
 import { fetchArbeitnowJobs, fetchHimalayasJobs, fetchJobicyJobs, fetchRemotiveJobs } from './aggregatorApis'
 import { fetchAtsJobs } from './atsAdapter'
-import { fetchJobBankJobs, fetchWorkBcSearchJobs } from './govApis'
+import { fetchJobBankJobs, fetchWorkBcJobs, fetchWorkBcSearchJobs } from './govApis'
 import { fetchRssFeed } from './rssFetcher'
 import { scoreJobFit } from './ai'
 import { scoreCompatibility } from './fitHeuristic'
@@ -220,6 +220,16 @@ export const BOARDS: BoardConfig[] = [
       return `https://www.workbc.ca/find-job/search-jobs#/${parts.join(';')}`
     },
     useBrowser: true
+  },
+  {
+    name: 'WorkBC (API)',
+    // First-party search + detail API. Replaces the browser-based
+    // listing walk and the per-job HTML scrape. Faster and
+    // structured; the user can keep both enabled (the search-side
+    // dedup will skip duplicates) or disable the browser one.
+    searchUrl: () => 'https://workbc-jb.a55eb5-prod.stratus.cloud.gov.bc.ca/api/Search/SearchJobs',
+    useBrowser: false,
+    apiFetcher: (k, l, signal) => fetchWorkBcJobs(k, l, signal)
   },
   {
     name: 'CareerBeacon',

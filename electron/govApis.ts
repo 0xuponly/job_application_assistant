@@ -8,6 +8,7 @@
 // the boards list. Northern Health (NH) and Interior Health (IH)
 // keep their existing scraper — no public API.
 
+import { tryWorkBcApi } from './jobScraper'
 import type { CreateJobInput } from './types'
 
 interface CommonOpts {
@@ -127,4 +128,34 @@ export async function fetchWorkBcSearchJobs(keywords: string, location: string, 
       : '',
     location: clean(typeof j.CityName === 'string' ? j.CityName : null)
   })).filter((j) => j.jobId && j.title && j.company)
+}
+
+// Combined WorkBC fetcher: hits the search-side API for the user's
+// keywords/location, then fans out to the per-job detail endpoint
+// (tryWorkBcApi) for each result. The detail calls run with bounded
+// concurrency (4 in flight) so we don't hammer the WorkBC API. The
+// returned `CreateJobInput[]` matches the shape the apiFetcher
+// board pipeline expects.
+//
+// Empty result is returned for any of: the search API returned 0
+// results, the search API errored, every detail fetch returned
+// null, or the user aborted.
+export async function fetchWorkBcJobs(
+  keywords: string,
+  location: string,
+  signal?: AbortSignal
+): Promise<CreateJobInput[]> {
+  const summaries = await fetchWorkBcSearchJobs(keywords, location, { signal })
+  if (summaries.length === 0) return []
+  const out: CreateJobInput[] = []
+  const DETAIL_CONCURRENCY = 4
+  for (let i = 0; i < summaries.length; i += DETAIL_CONCURRENCY) {
+    if (signal?.aborted) break
+    const window = summaries.slice(i, i + DETAIL_CONCURRENCY)
+    const details = await Promise.all(window.map((s) => tryWorkBcApi(s.jobId, signal)))
+    for (const d of details) {
+      if (d) out.push(d)
+    }
+  }
+  return out
 }
