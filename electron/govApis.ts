@@ -22,6 +22,17 @@ function stripHtml(html: string): string {
   return clean(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+// Read a nested string field from a record-of-unknown. Returns
+// undefined when any level is missing or non-string.
+function nested(j: Record<string, unknown>, ...keys: string[]): string | undefined {
+  let cur: unknown = j
+  for (const k of keys) {
+    if (cur == null || typeof cur !== 'object') return undefined
+    cur = (cur as Record<string, unknown>)[k]
+  }
+  return typeof cur === 'string' ? cur : undefined
+}
+
 // Job Bank GC: GET https://www.jobbank.gc.ca/jobsearch/search?querystring=…&locationstring=…
 // Returns HTML today but also serves JSON via /jobsearch/_jsearchresults when
 // the `ajax=1` query param is set. The HTML path is more reliable; we parse
@@ -56,16 +67,16 @@ export async function fetchJobBankJobs(keywords: string, location: string, opts:
           const item = (el as Record<string, unknown>).item as Record<string, unknown> | undefined
           if (!item || item['@type'] !== 'JobPosting') continue
           const title = clean(typeof item.title === 'string' ? item.title : null)
-          const company = clean(typeof item.hiringOrganization?.name === 'string' ? item.hiringOrganization.name : null)
+          const company = clean(nested(item, 'hiringOrganization', 'name'))
           const desc = stripHtml(typeof item.description === 'string' ? item.description : '')
           if (!title || !company || !desc) continue
           out.push({
             title,
             company,
-            location: clean(typeof item.jobLocation?.address?.addressLocality === 'string' ? item.jobLocation.address.addressLocality : null) || null,
+            location: clean(nested(item, 'jobLocation', 'address', 'addressLocality')),
             url: typeof item.url === 'string' ? item.url : null,
             description: desc,
-            salary_range: clean(typeof item.baseSalary?.value?.value === 'string' ? item.baseSalary.value.value : null) || null,
+            salary_range: clean(nested(item, 'baseSalary', 'value', 'value')),
             source: 'jobbank',
             requirements: null,
             application_requirements: null,
