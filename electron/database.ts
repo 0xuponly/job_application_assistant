@@ -25,7 +25,7 @@ const ENCRYPTED_PREFIX = '$enc$'
 function dedupKey(url: string): string {
   try {
     const u = new URL(url)
-    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'spm', 'ta', 'trk']
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'trackingId', 'trk', 'spm', 'ta', 'refId']
     trackingParams.forEach(p => u.searchParams.delete(p))
     // Most sites use the hash only for in-page anchors ("#apply",
     // "#section-2") — those aren't job identities, so we strip them.
@@ -579,6 +579,21 @@ export function createJob(
   }
   if (job.url) {
     const dk = dedupKey(job.url)
+    // Final, atomic dedup at the commit point. The earlier
+    // `findDuplicateJob` check (line ~533) runs against a store
+    // snapshot that may predate a concurrent `createJob` call. Two
+    // concurrent scanners can both pass the pre-check, both call
+    // `createJob`, and both commit before either has persisted — the
+    // first to commit doesn't tell the second. Re-check the URL
+    // against the *freshly* loaded store synchronously, immediately
+    // before the push. From here through `persistStore()` is a
+    // synchronous block on the Node event loop, so no other
+    // `createJob` can interleave. Manual-add callers opt out via
+    // `skipDuplicateCheck`; for those, skip the atomic recheck too
+    // (they've already been told they're forcing).
+    if (!opts.skipDuplicateCheck && s.jobs.some((j) => j.url && dedupKey(j.url) === dk)) {
+      throw new JobDuplicateError()
+    }
     if (!s.seen_urls.some(u => dedupKey(u) === dk)) {
       s.seen_urls.push(job.url)
     }
