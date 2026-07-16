@@ -287,6 +287,17 @@ export const BOARDS: BoardConfig[] = [
     // the hidden BrowserWindow fallback available for sites that block us.
     searchUrl: (k) => `https://jobs.northernhealth.ca/JobSearch/s-${encodeURIComponent(k)}-0-0-0-0-false-0-0`,
     useBrowser: true
+  },
+  {
+    name: 'Interior Health',
+    // Interior Health (BC health authority) runs the same ASP.NET WebForms
+    // platform as Northern Health with identical URL patterns
+    // (`/JobSearch/s-{keywords}-{...}`, `/ViewJobPosting/{id}`). Per-job
+    // pages emit a clean `JobPosting` JSON-LD block the existing
+    // selectJobPosting path picks up out of the box. Same page-1-only
+    // pagination limitation as Northern Health.
+    searchUrl: (k) => `https://jobs.interiorhealth.ca/JobSearch/s-${encodeURIComponent(k)}-0-0-0-0-false-0-0`,
+    useBrowser: true
   }
 ]
 

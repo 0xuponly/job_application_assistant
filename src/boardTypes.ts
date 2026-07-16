@@ -52,7 +52,8 @@ export const BOARD_TYPES: { label: string; boards: string[] }[] = [
       'CareerBeacon',
       'Vancouver Jobs',
       'UToronto',
-      'Northern Health'
+      'Northern Health',
+      'Interior Health'
     ]
   },
   {
