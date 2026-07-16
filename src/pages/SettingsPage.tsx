@@ -587,7 +587,7 @@ export default function SettingsPage() {
           </p>
 
           {models.every((m) => m.enabled === false) && (
-            <div className="alert alert-warning" style={{ maxWidth: 800, marginBottom: 12 }}>
+            <div className="alert alert-warning" style={{ marginBottom: 12 }}>
               All models are disabled — AI features (generation, verification, fit scoring) will fail.
             </div>
           )}
