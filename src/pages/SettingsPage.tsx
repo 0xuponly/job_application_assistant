@@ -856,63 +856,6 @@ export default function SettingsPage() {
               })()}
             </>
           )}
-        </>
-      )}
-
-      {tab === 'companies' && (
-        <>
-          <div className="section-title">Blacklisted Companies</div>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-            Jobs from these companies are never added by the scanner, and won't be re-added on future scans. You can also blacklist a company directly from any job's page.
-          </p>
-
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                value={newBlacklistCompany}
-                onChange={(e) => setNewBlacklistCompany(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAddBlacklist() }}
-                placeholder="Company name (e.g. Acme Corp)"
-                style={{ flex: 1 }}
-              />
-              <button
-                className="btn btn-primary"
-                onClick={handleAddBlacklist}
-                disabled={!newBlacklistCompany.trim()}
-              >
-                Add to blacklist
-              </button>
-            </div>
-          </div>
-
-          {blacklist.length === 0 ? (
-            <div className="card" style={{ padding: 16, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
-              No blacklisted companies yet.
-            </div>
-          ) : (
-            <div className="card" style={{ padding: 0 }}>
-              {blacklist.map((name, i) => (
-                <div
-                  key={name}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px 16px',
-                    borderBottom: i < blacklist.length - 1 ? '1px solid var(--border)' : 'none'
-                  }}
-                >
-                  <span style={{ fontSize: 13 }}>{name}</span>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleRemoveBlacklist(name)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
 
           <div className="section-title">Data Sources</div>
           <div className="card" style={{ marginBottom: 12 }}>
@@ -1035,6 +978,64 @@ export default function SettingsPage() {
               + Add ATS board
             </button>
           </div>
+        </>
+      )}
+
+      {tab === 'companies' && (
+        <>
+          <div className="section-title">Blacklisted Companies</div>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+            Jobs from these companies are never added by the scanner, and won't be re-added on future scans. You can also blacklist a company directly from any job's page.
+          </p>
+
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={newBlacklistCompany}
+                onChange={(e) => setNewBlacklistCompany(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddBlacklist() }}
+                placeholder="Company name (e.g. Acme Corp)"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={handleAddBlacklist}
+                disabled={!newBlacklistCompany.trim()}
+              >
+                Add to blacklist
+              </button>
+            </div>
+          </div>
+
+          {blacklist.length === 0 ? (
+            <div className="card" style={{ padding: 16, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
+              No blacklisted companies yet.
+            </div>
+          ) : (
+            <div className="card" style={{ padding: 0 }}>
+              {blacklist.map((name, i) => (
+                <div
+                  key={name}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '10px 16px',
+                    borderBottom: i < blacklist.length - 1 ? '1px solid var(--border)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: 13 }}>{name}</span>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleRemoveBlacklist(name)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
         </>
       )}
 
