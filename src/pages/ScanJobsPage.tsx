@@ -539,53 +539,64 @@ export default function ScanJobsPage() {
               )
             })}
           </div>
-          {boardsExpanded && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-              gap: 4,
-              padding: 8,
-              background: 'var(--bg)',
-              borderRadius: 6,
-              border: '1px solid var(--border)'
-            }}>
-              {[...allBoards].sort((a, b) => a.name.localeCompare(b.name)).map((b) => {
-                const checked = selectedBoards.has(b.name)
-                const history = boardHealth[b.name] || []
-                // Red if the last 5 results were all zero/errored
-                const allBad = history.length >= 5 && history.every((h) => h <= 0)
-                return (
-                  <label
-                    key={b.name}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 13,
-                      color: allBad ? '#ef4444' : undefined,
-                      fontWeight: allBad ? 600 : undefined,
-                      cursor: 'pointer',
-                      minWidth: 0
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        setSelectedBoards((prev) => {
-                          const next = new Set(prev)
-                          if (next.has(b.name)) next.delete(b.name)
-                          else next.add(b.name)
-                          return next
-                        })
+          {boardsExpanded && (() => {
+            const frequentErrors = new Set(findFrequentErrorBoards(allBoards, boardHealth))
+            // Hidden frequent-error boards don't render in the grid —
+            // the user can't see them, can't click them, and the
+            // checkbox can't be flipped. Reveal via the 👁 button
+            // above to interact with them. Sorting and check-state
+            // stay the same as before; only the filter changes.
+            const visibleBoards = [...allBoards]
+              .filter((b) => showFrequentErrors || !frequentErrors.has(b.name))
+              .sort((a, b) => a.name.localeCompare(b.name))
+            return (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                gap: 4,
+                padding: 8,
+                background: 'var(--bg)',
+                borderRadius: 6,
+                border: '1px solid var(--border)'
+              }}>
+                {visibleBoards.map((b) => {
+                  const checked = selectedBoards.has(b.name)
+                  const history = boardHealth[b.name] || []
+                  // Red if the last 5 results were all zero/errored
+                  const allBad = history.length >= 5 && history.every((h) => h <= 0)
+                  return (
+                    <label
+                      key={b.name}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 13,
+                        color: allBad ? '#ef4444' : undefined,
+                        fontWeight: allBad ? 600 : undefined,
+                        cursor: 'pointer',
+                        minWidth: 0
                       }}
-                    />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
-                  </label>
-                )
-              })}
-            </div>
-          )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedBoards((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(b.name)) next.delete(b.name)
+                            else next.add(b.name)
+                            return next
+                          })
+                        }}
+                      />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
         <div style={{ marginTop: 12 }}>
           <button className="btn btn-primary" onClick={handleScan} disabled={scanning || selectedBoards.size === 0}>
