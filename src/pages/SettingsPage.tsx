@@ -763,8 +763,20 @@ export default function SettingsPage() {
                                 disabled={boardsSaving}
                                 onChange={(e) => toggleBoard(b.name, e.target.checked)}
                               />
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>
                                 {b.name}
+                              </span>
+                              <span style={{
+                                fontSize: 10,
+                                color: 'var(--text-muted)',
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.5,
+                                border: '1px solid var(--border)',
+                                borderRadius: 3,
+                                padding: '1px 5px',
+                                flexShrink: 0
+                              }} title={b.useBrowser ? 'Uses a browser session to scrape' : 'HTTP-only'}>
+                                {b.useBrowser ? 'browser' : 'http'}
                               </span>
                             </label>
                           )
