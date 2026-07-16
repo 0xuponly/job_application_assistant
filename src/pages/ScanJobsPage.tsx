@@ -142,8 +142,20 @@ export default function ScanJobsPage() {
         if (cancelled) return
         setAllBoards(boards)
         setBoardHealth(health)
-        // Default: all selected
-        setSelectedBoards(new Set(boards.map((b) => b.name)))
+        // Default: all selected EXCEPT boards flagged as "Frequent
+        // Errors" (5+ recent runs with no jobs found). Auto-scanning
+        // boards that consistently return 0 listings burns time and
+        // adds noise to the result; let the user opt back in via the
+        // "Select Frequent Errors" button if they want to retry.
+        const frequentErrors = new Set(
+          boards
+            .filter((b) => {
+              const history = health[b.name] || []
+              return history.length >= 5 && history.every((h) => h <= 0)
+            })
+            .map((b) => b.name)
+        )
+        setSelectedBoards(new Set(boards.map((b) => b.name).filter((n) => !frequentErrors.has(n))))
       })
       .catch((err) => {
         console.error('Failed to load boards/health:', err)
