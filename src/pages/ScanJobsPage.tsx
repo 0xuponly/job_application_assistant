@@ -89,6 +89,13 @@ export default function ScanJobsPage() {
   const [logSnapshot, setLogSnapshot] = useState<ProgressEntry[]>([])
   const [logCopied, setLogCopied] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  // Live counter snapshot, pushed per-listing from the main process
+  // during a scan. Used to render the "Found N · Added N · Skipped N ·
+  // Incompatible N · Errors N" line under "Fetching job listings..." so
+  // the user sees the tally tick up instead of waiting for completion.
+  // Default zeros are fine — the line shows "0" until the first listing
+  // is processed, which usually lands within the first second.
+  const [liveCounters, setLiveCounters] = useState<{ totalFound: number; totalAdded: number; totalSkipped: number; totalIncompatible: number; totalErrors: number }>({ totalFound: 0, totalAdded: 0, totalSkipped: 0, totalIncompatible: 0, totalErrors: 0 })
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const entriesRef = useRef<ProgressEntry[]>([])
   // Unmutated log of every entry from the current scan, in arrival order.
@@ -110,6 +117,19 @@ export default function ScanJobsPage() {
       setLogSnapshot(fullLogRef.current)
       setScanning(false)
       setElapsed(Math.round((typeof result.durationMs === 'number' && Number.isFinite(result.durationMs) ? result.durationMs : 0) / 1000))
+      // Snap the live counters to the authoritative final values. The
+      // last scan:counters emit may have raced the cancel signal and
+      // missed a few tail listings, so the per-listing tick can end
+      // slightly behind the final result. The card header re-derives
+      // from `result` anyway, so this just keeps the in-progress line
+      // from showing stale numbers in the brief overlap window.
+      setLiveCounters({
+        totalFound: result.totalFound,
+        totalAdded: result.totalAdded,
+        totalSkipped: result.totalSkipped,
+        totalIncompatible: result.totalIncompatible ?? 0,
+        totalErrors: result.totalErrors
+      })
       // Refresh health data after a completed scan
       api.getBoardHealth().then((h) => { if (mountedRef.current) setBoardHealth(h) })
     })
@@ -117,6 +137,19 @@ export default function ScanJobsPage() {
       cancelled = true
       unsub()
     }
+  }, [])
+
+  // Live counter subscription. Mirrors the progress/complete listener
+  // shape — fires whether or not the user is on this tab, and survives
+  // a renderer reload (the main-process scan state holds the latest
+  // snapshot and re-emits via the status IPC on remount, but during an
+  // active scan the live stream is the source of truth).
+  useEffect(() => {
+    const unsub = api.onScanCounters((counters) => {
+      if (!mountedRef.current) return
+      setLiveCounters(counters)
+    })
+    return unsub
   }, [])
 
   // On mount, re-attach to an in-progress or completed scan
@@ -297,6 +330,10 @@ export default function ScanJobsPage() {
     setEntries([])
     setElapsed(0)
     setBoardsExpanded(false)
+    // Reset the live counter line so the user doesn't see a stale
+    // tally from the previous scan tick up for one frame before the
+    // first new emit lands.
+    setLiveCounters({ totalFound: 0, totalAdded: 0, totalSkipped: 0, totalIncompatible: 0, totalErrors: 0 })
     entriesRef.current = []
     fullLogRef.current = []
     await api.clearScanResult()
@@ -624,9 +661,18 @@ export default function ScanJobsPage() {
       {scanning && (
         <div className="card" style={{ maxWidth: 800, marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-            <p style={{ margin: 0 }}>
-              {`Fetching job listings from job boards... ${formatDuration(elapsed)} elapsed`}
-            </p>
+            <div>
+              <p style={{ margin: 0 }}>
+                {`Fetching job listings from job boards... ${formatDuration(elapsed)} elapsed`}
+              </p>
+              {/* Live tally line — pushes per-listing from the main
+                  process. Same wording as the post-scan card header so
+                  the user recognizes the format. Smaller / muted so it
+                  reads as a status line, not a headline. */}
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                {`Found ${liveCounters.totalFound} · Added ${liveCounters.totalAdded} · Skipped ${liveCounters.totalSkipped} · Incompatible ${liveCounters.totalIncompatible} · Errors ${liveCounters.totalErrors}`}
+              </p>
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 className="btn btn-secondary btn-sm"
