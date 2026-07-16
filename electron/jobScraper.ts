@@ -66,14 +66,47 @@ export async function scrapeJobFromUrl(rawUrl: string, signal?: AbortSignal): Pr
   if (hostname.endsWith('.myworkdayjobs.com') || hostname === 'myworkdayjobs.com' || hostname.endsWith('.workday.com') || hostname === 'workday.com') {
     const html = await fetchPageHtml(url, hostname, signal, { skipChallengeCheck: true })
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-    const scraped = await extractFromHtml(html, hostname, url, source)
-    return finalizeScrapedJob(scraped, url)
+    return finalizeWithDiagnostics(html, hostname, url, source, () => extractFromHtml(html, hostname, url, source))
   }
 
   const html = await fetchPageHtml(url, hostname, signal)
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-  const scraped = await extractFromHtml(html, hostname, url, source)
+  return finalizeWithDiagnostics(html, hostname, url, source, () => extractFromHtml(html, hostname, url, source))
+}
 
+/**
+ * Run an extraction and, on failure, log the URL, hostname, and a 500-char
+ * HTML snippet to stderr so the user (or the next session reading logs) can
+ * see exactly which field was missing and what the page looked like. The
+ * user-facing error is unchanged — only the log is added.
+ */
+async function finalizeWithDiagnostics(
+  html: string,
+  hostname: string,
+  url: string,
+  source: string,
+  extract: () => Promise<ScrapedJob> | ScrapedJob
+): Promise<CreateJobInput> {
+  let scraped: ScrapedJob
+  try {
+    scraped = await extract()
+  } catch (err) {
+    console.error(`[scraper] extract threw for ${url} (${hostname}, source=${source}):`, err)
+    throw err
+  }
+  const missing: string[] = []
+  if (!scraped.title) missing.push('job title')
+  if (!scraped.company) missing.push('company')
+  if (!scraped.description) missing.push('description')
+  if (missing.length > 0) {
+    const snippet = html.slice(0, 500).replace(/\s+/g, ' ')
+    const htmlLen = html.length
+    console.error(
+      `[scraper] missing fields ${JSON.stringify(missing)} for ${url} ` +
+      `(${hostname}, source=${source}, htmlBytes=${htmlLen}). ` +
+      `Snippet: ${snippet}`
+    )
+  }
   return finalizeScrapedJob(scraped, url)
 }
 
