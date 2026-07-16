@@ -292,7 +292,7 @@ function registerIpc(): void {
       } catch (err) {
         // Don't silently swallow — surface the error and leave the row alone.
         const msg = err instanceof Error ? err.message : 'Unknown error'
-        console.warn(`[fit] job ${job.id} (${job.company} — ${job.title}): ${msg}`)
+        log.fit.warn(`job ${job.id} (${job.company} — ${job.title}): ${msg}`)
         db.updateJob(job.id, { fit_last_error: msg })
       }
     }
