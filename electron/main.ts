@@ -1209,7 +1209,7 @@ app.whenReady().then(() => {
         log.startup.info(`Cleared heuristic-persisted fit on ${result.updated}/${result.total} jobs.`)
       }
     } catch (err) {
-      console.error('[startup] Heuristic-clear failed:', err)
+      log.startup.error('Heuristic-clear failed:', err)
     }
   }
 
