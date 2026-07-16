@@ -985,7 +985,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="card" style={{ maxWidth: 600 }}>
+          <div className="card">
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
               Add company career pages hosted on Greenhouse, Lever, Ashby, Workday, or SmartRecruiters.
               The token is the company's slug (e.g. <code>stripe</code> for Greenhouse).
