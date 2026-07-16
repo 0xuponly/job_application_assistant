@@ -595,7 +595,7 @@ export default function SettingsPage() {
           {models.map((model, i) => (
             <div
               className="card"
-              style={{ maxWidth: 800, marginBottom: 12, opacity: model.enabled === false ? 0.55 : 1 }}
+              style={{ marginBottom: 12, opacity: model.enabled === false ? 0.55 : 1 }}
               key={i}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
