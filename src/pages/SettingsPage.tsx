@@ -157,6 +157,12 @@ export default function SettingsPage() {
       if (typeof s.auto_scan_interval_minutes !== 'number' || s.auto_scan_interval_minutes <= 0) {
         s.auto_scan_interval_minutes = 120
       }
+      // Free public job APIs default to enabled for first-time users.
+      // Existing users with `false` (explicitly disabled) keep their choice.
+      if (typeof s.aggregator_remotive_enabled !== 'boolean') s.aggregator_remotive_enabled = true
+      if (typeof s.aggregator_arbeitnow_enabled !== 'boolean') s.aggregator_arbeitnow_enabled = true
+      if (typeof s.aggregator_jobicy_enabled !== 'boolean') s.aggregator_jobicy_enabled = true
+      if (typeof s.aggregator_himalayas_enabled !== 'boolean') s.aggregator_himalayas_enabled = true
       setSettings(s)
       setModels(m.length > 0 ? m : PRESETS.map((p, i) => ({ id: `model-${i + 1}`, ...p.model })))
       setEncryptionMode(sec.mode)
@@ -446,7 +452,7 @@ export default function SettingsPage() {
             <h1>Settings</h1>
             <p>Configure your profile, AI integration, and data</p>
           </div>
-          {(tab === 'profile' || tab === 'models') && (
+          {(tab === 'profile' || tab === 'models' || tab === 'boards') && (
             <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : saved ? 'Saved!' : 'Save settings'}
             </button>
