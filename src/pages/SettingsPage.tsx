@@ -1346,7 +1346,7 @@ export default function SettingsPage() {
 
           <div className="section-title" style={{ color: 'var(--danger)' }}>Danger zone</div>
 
-          <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
+          <div className="card" style={{ marginBottom: 12 }}>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
               Clears the scan memory so previously seen job URLs will be re-scraped on the next scan. All existing jobs, documents, applications, follow-ups, and interviews are preserved.
             </p>
