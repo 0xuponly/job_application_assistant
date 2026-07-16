@@ -1301,7 +1301,7 @@ export async function scanAllBoards(
           if (r.status === 'fulfilled') {
             if (r.value.action === 'added') {
               br.added++
-              result.totalAdded++
+              bump('totalAdded')
               if (r.value.job) {
                 result.addedJobs.push({
                   id: r.value.job.id,
@@ -1312,21 +1312,21 @@ export async function scanAllBoards(
               }
             } else if (r.value.action === 'skipped') {
               br.skipped++
-              result.totalSkipped++
+              bump('totalSkipped')
             } else if (r.value.action === 'incompatible') {
               br.incompatible++
-              result.totalIncompatible++
+              bump('totalIncompatible')
             } else if (r.value.action === 'error') {
               // Per-listing scrape/duplicate error: surfaced separately from
               // skipped so the user can see whether listings are being
               // dropped because of fit/duplicate filters vs. genuine scrape
               // failures. The 4-arg summary line in the UI shows both.
               br.errors++
-              result.totalErrors++
+              bump('totalErrors')
             }
           } else {
             br.errors++
-            result.totalErrors++
+            bump('totalErrors')
           }
         }
       }
