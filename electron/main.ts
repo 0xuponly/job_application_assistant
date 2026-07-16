@@ -278,7 +278,7 @@ function registerIpc(): void {
           db.updateJob(job.id, {
             fit_last_error: fit.error || 'LLM scorer fell back to heuristic.'
           })
-          console.warn(`[fit] job ${job.id} (${job.company} — ${job.title}): ${fit.error || 'heuristic fallback'}`)
+          log.fit.warn(`job ${job.id} (${job.company} — ${job.title}): ${fit.error || 'heuristic fallback'}`)
         } else {
           db.updateJob(job.id, {
             score: fit.score,
