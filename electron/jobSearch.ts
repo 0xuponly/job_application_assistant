@@ -407,6 +407,7 @@ export interface ScanResult {
   totalAdded: number
   totalSkipped: number
   totalErrors: number
+  totalIncompatible: number
   boards: ScanBoardResult[]
   errors: string[]
   addedJobs: { id: number; title: string; company: string }[]
@@ -924,7 +925,7 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
   const scanSeenUrls = new Set<string>()
 
   const startedAt = Date.now()
-  const result: ScanResult = { totalFound: 0, totalAdded: 0, totalSkipped: 0, totalErrors: 0, boards: [], errors: [], startedAt, durationMs: 0, cancelled: false, addedJobs: [] }
+  const result: ScanResult = { totalFound: 0, totalAdded: 0, totalSkipped: 0, totalErrors: 0, totalIncompatible: 0, boards: [], errors: [], startedAt, durationMs: 0, cancelled: false, addedJobs: [] }
   const _seenProgress = new Set<string>()
   const progress = (msg: string) => {
     if (_seenProgress.has(msg)) return

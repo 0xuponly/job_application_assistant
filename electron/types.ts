@@ -232,6 +232,7 @@ export interface ScanResult {
   startedAt: number | null
   durationMs: number
   cancelled: boolean
+  totalIncompatible: number
   addedJobs: { id: number; title: string; company: string }[]
 }
 

@@ -202,6 +202,7 @@ export interface ScanResult {
   totalAdded: number
   totalSkipped: number
   totalErrors: number
+  totalIncompatible: number
   boards: ScanBoardResult[]
   errors: string[]
   startedAt: number | null
