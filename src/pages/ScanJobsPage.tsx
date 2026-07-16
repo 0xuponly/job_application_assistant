@@ -436,26 +436,24 @@ export default function ScanJobsPage() {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
             {(() => {
               const frequentErrors = findFrequentErrorBoards(allBoards, boardHealth)
+              // Hide the button entirely when no boards are flagged.
+              // The flag is "5+ recent runs with no jobs found" — a
+              // healthy user with no failing boards has nothing to
+              // toggle, so don't clutter the picker.
+              if (frequentErrors.length === 0) return null
               const allSelected = frequentErrors.every((n) => selectedBoards.has(n))
-              const anySelected = frequentErrors.some((n) => selectedBoards.has(n))
-              const label = frequentErrors.length === 0
-                ? 'No frequent-error boards'
-                : allSelected
-                  ? 'Deselect Frequent Errors'
-                  : anySelected
-                    ? 'Select all Frequent Errors'
-                    : 'Select Frequent Errors'
+              // Label collapses the "some selected" case into the same
+              // "Select Errors" as the "none selected" case. Clicking
+              // either way adds the rest; clicking when all-selected
+              // removes them all. Two states, not three, keeps the
+              // button predictable.
+              const label = allSelected ? 'Deselect Errors' : 'Select Errors'
               return (
                 <button
                   key="frequent-errors"
                   type="button"
                   className="btn btn-sm btn-secondary"
-                  disabled={frequentErrors.length === 0}
-                  title={frequentErrors.length === 0
-                    ? 'No boards are currently flagged as frequent errors (5+ recent runs with no jobs found).'
-                    : undefined}
                   onClick={() => {
-                    if (frequentErrors.length === 0) return
                     setBoardsExpanded(true)
                     setSelectedBoards((prev) => {
                       const next = new Set(prev)
