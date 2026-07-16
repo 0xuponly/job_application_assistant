@@ -983,7 +983,11 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
       // any fetch throws. MAX_PAGES_PER_BOARD caps total iterations
       // for safety; the natural terminator is the short-page check.
       const PARALLEL_PAGINATE = 4
-      const MAX_PAGES_PER_BOARD = 80
+      // Raised from 80 to 200: NH/IH unfiltered has ~170 pages
+      // (1700 jobs at 10/page). 200 covers all of them with
+      // headroom. The < 500-byte stop is the primary terminator;
+      // this cap is a safety belt for runaway boards.
+      const MAX_PAGES_PER_BOARD = 200
       let lastReportedPage = 0
       let stopped = false
       for (let p = 1; p < MAX_PAGES_PER_BOARD && !stopped; p += PARALLEL_PAGINATE) {
