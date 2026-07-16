@@ -461,6 +461,12 @@ export default function ScanJobsPage() {
               // healthy user with no failing boards has nothing to
               // toggle, so don't clutter the picker.
               if (frequentErrors.length === 0) return null
+              // Also hide while the boards themselves are hidden from
+              // the grid — the user can't see the selection change,
+              // so the button would be a confusing affordance. They
+              // un-hide via the 👁/🙈 icon first, then this button
+              // appears and lets them select the revealed boards.
+              if (!showFrequentErrors) return null
               const allSelected = frequentErrors.every((n) => selectedBoards.has(n))
               // Label collapses the "some selected" case into the same
               // "Select Errors" as the "none selected" case. Clicking
@@ -491,8 +497,20 @@ export default function ScanJobsPage() {
               )
             })()}
             {BOARD_TYPES.map((t) => {
-              const allSelected = t.boards.every((n) => selectedBoards.has(n))
-              const anySelected = t.boards.some((n) => selectedBoards.has(n))
+              const hiddenNames = new Set(
+                showFrequentErrors
+                  ? []
+                  : findFrequentErrorBoards(allBoards, boardHealth)
+              )
+              // Filter the category's board list to boards that are
+              // actually visible in the grid. Hidden frequent-error
+              // boards are skipped so the "hidden boards can't be
+              // selected" invariant holds across every selection path
+              // (checkbox, + Errors, + <Category>).
+              const visibleBoards = t.boards.filter((n) => !hiddenNames.has(n))
+              if (visibleBoards.length === 0) return null
+              const allSelected = visibleBoards.every((n) => selectedBoards.has(n))
+              const anySelected = visibleBoards.some((n) => selectedBoards.has(n))
               const label = allSelected
                 ? `- ${t.label}`
                 : anySelected
@@ -508,9 +526,9 @@ export default function ScanJobsPage() {
                     setSelectedBoards((prev) => {
                       const next = new Set(prev)
                       if (allSelected) {
-                        for (const name of t.boards) next.delete(name)
+                        for (const name of visibleBoards) next.delete(name)
                       } else {
-                        for (const name of t.boards) next.add(name)
+                        for (const name of visibleBoards) next.add(name)
                       }
                       return next
                     })
