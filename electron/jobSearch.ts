@@ -793,17 +793,50 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
   // LLM scorer handles education/years contextually; we no longer hard-reject here.
   // We still call the LLM scorer for every job that passes the cheap filters above.
 
+  // Heuristic pre-filter: cheap keyword-overlap score before paying for
+  // an LLM call. Listings that obviously don't match the user's CV
+  // (different domain, junior roles, etc.) skip the LLM and are
+  // persisted with score=null + a note. The user can re-score any
+  // listing via the per-job "Recompute Fit" button, which uses the
+  // same scoreJobFit under the hood.
+  const HEURISTIC_FLOOR = 0.15
+  const heuristicScore = scoreCompatibility(input.title, desc, baseCv)
+  if (baseCv && heuristicScore < HEURISTIC_FLOOR) {
+    try {
+      const { job } = createJob({
+        ...input,
+        score: null,
+        fit_rationale: 'Pre-filtered by heuristic (low keyword overlap)',
+        fit_breakdown: null,
+        fit_score_version: null,
+        fit_last_error: null
+      })
+      seenUrlsSet.add(dk)
+      scanSeenUrlsSet.add(dk)
+      return { action: 'added', job }
+    } catch (err) {
+      if (err instanceof JobBlacklistedError) return { action: 'skipped', reason: 'Previously deleted with low fit' }
+      if (err instanceof JobDuplicateError) return { action: 'skipped', reason: 'Duplicate (race-guard)' }
+      throw err
+    }
+  }
+
   let fit
   try {
-    fit = await scoreJobFit({
+    // Cap LLM concurrency at LLM_SCAN_CONCURRENCY (2) so a single
+    // scan doesn't fire 6 LLM requests in parallel and trip
+    // provider rate limits. The queue is bounded; new requests
+    // queue until a slot frees up. The scan's AbortSignal
+    // propagates so cancel feels immediate.
+    fit = (await scoreLimiter(() => scoreJobFit({
       title: input.title,
       description: input.description || null,
       requirements: input.requirements || null,
       baseCv
-    })
+    }), signal)) as Awaited<ReturnType<typeof scoreJobFit>>
   } catch {
     fit = {
-      score: scoreCompatibility(input.title, input.description || '', baseCv),
+      score: heuristicScore,
       rationale: 'Heuristic fallback after LLM error.',
       breakdown: { matched_skills: [], missing_skills: [], experience_years_match: null },
       source: 'heuristic' as const
