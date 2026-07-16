@@ -289,25 +289,37 @@ export const BOARDS: BoardConfig[] = [
     name: 'Northern Health',
     // Northern Health (BC health authority) job board. URL pattern is
     // /JobSearch/s-/{keyword}-{location}-{employeeType}-{category}-{region}-{sort}-{status}-{page}-{perPage}
-    // The keyword sits in the 2nd path segment, after a literal `/`
-    // that comes from the `s-` prefix. Empirically, the keyword
-    // segment in the URL doesn't filter results — ASP.NET WebForms
-    // does its filtering via form state, not the path. The path
-    // carries the pagination index and perPage; the rest of the
-    // segments are filter positions which we pin to "0" (no filter).
-    // ASP.NET WebForms renders the page fully server-side, so direct
-    // URL navigation works for pagination — no browser fallback
-    // needed. The `paginate` driver swaps the page segment to walk
-    // through all result pages. The scan loop stops on empty-page
-    // detection or signal abort; no upper cap.
-    searchUrl: (k) => `https://jobs.northernhealth.ca/JobSearch/s-/${encodeURIComponent(k)}-0-0-0-0-false-0-0-0`,
+    //
+    // Quirks of the server (verified empirically):
+    //   1. The keyword segment in the path is NOT used for filtering
+    //      by the server — ASP.NET WebForms does that via form state,
+    //      not the path. The path carries pagination + perPage.
+    //   2. When the keyword segment is non-empty, the path-based page
+    //      parameter is IGNORED — the server returns page 0 of the
+    //      filtered (or unfiltered) set on every request, regardless
+    //      of the page number in the URL.
+    //   3. When the keyword segment is empty, the page parameter
+    //      works correctly — each page returns a unique set of jobs.
+    //
+    // We therefore leave the keyword segment empty and rely on the
+    // unfiltered listing + URL pagination. The unfiltered list is
+    // ~1.7k jobs ≈ 170 pages at 10 per page. The scan loop's
+    // empty-page detection is the natural terminator; no upper cap.
+    // (Keyword filtering, if wanted, would require running the search
+    // through a real browser via the form — out of scope for the
+    // plain-fetch path.)
+    //
+    // ASP.NET WebForms renders each page fully server-side, so direct
+    // URL navigation works — no browser fallback needed. The
+    // `paginate` driver swaps the page segment to walk through all
+    // result pages.
+    searchUrl: () => 'https://jobs.northernhealth.ca/JobSearch/s-/-0-0-0-0-0-false-0-0-0',
     useBrowser: false,
     paginate: (searchUrl, page) => {
       // Match the trailing "-{page}-{perPage}" segment pair and
       // rewrite only the page index. Anchoring on the END of the
-      // pathname (not on the keyword) keeps this driver robust to
-      // keywords that contain dashes — we never touch the keyword
-      // segment, only the tail.
+      // pathname (not on any keyword segment) keeps this driver
+      // robust regardless of which segments precede the page index.
       const u = new URL(searchUrl)
       const rewritten = u.pathname.replace(/-(\d+)-\d+$/, () => `-${page}-0`)
       return `${u.origin}${rewritten}`
@@ -319,8 +331,9 @@ export const BOARDS: BoardConfig[] = [
     // WebForms platform as Northern Health with identical URL
     // patterns and the same per-job `JobPosting` JSON-LD block.
     // Same pagination approach: direct URL navigation, stop on
-    // empty page.
-    searchUrl: (k) => `https://jobs.interiorhealth.ca/JobSearch/s-/${encodeURIComponent(k)}-0-0-0-0-false-0-0-0`,
+    // empty page. Same keyword-in-path quirk: we leave the keyword
+    // segment empty so the path-based page parameter works.
+    searchUrl: () => 'https://jobs.interiorhealth.ca/JobSearch/s-/-0-0-0-0-0-false-0-0-0',
     useBrowser: false,
     paginate: (searchUrl, page) => {
       const u = new URL(searchUrl)
