@@ -1250,6 +1250,11 @@ export async function scanAllBoards(
       const tParse0 = Date.now()
       let listings = extractJobUrls(html, searchUrl, board.name)
       br.found = listings.length
+      // Bump totalFound the moment we know the board's listing count —
+      // BEFORE the listing filter and per-listing loop. Same reasoning
+      // as the API path: the per-listing bumps then accumulate against
+      // a correct denominator so the live counters never exceed Found.
+      bumpFound(br.found)
       if (process.env.FLOW_JOB_SCAN_TIMING) {
         console.error(`[scan] stage=parse board=${board.name} listings=${listings.length} ms=${Date.now() - tParse0}`)
       }
@@ -1355,8 +1360,7 @@ export async function scanAllBoards(
           }
         }
       }
-
-      bumpFound(br.found)
+      // No trailing bumpFound — see the comment at br.found above.
     } catch (err) {
       br.error = err instanceof Error ? err.message : 'Unknown error'
       result.errors.push(`${board.name}: ${br.error}`)
