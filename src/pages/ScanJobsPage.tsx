@@ -409,7 +409,14 @@ export default function ScanJobsPage() {
                   <button
                     type="button"
                     className="btn btn-sm btn-secondary"
-                    onClick={() => setShowFrequentErrors((v) => !v)}
+                    onClick={() => {
+                      // Reveal the flagged boards AND open the
+                      // picker. Without the expand, the user has
+                      // toggled visibility but has no way to see
+                      // the change because the grid is collapsed.
+                      setShowFrequentErrors((v) => !v)
+                      setBoardsExpanded(true)
+                    }}
                     title={showFrequentErrors ? 'Hide boards with frequent errors' : 'Show boards with frequent errors'}
                     aria-label={showFrequentErrors ? 'Hide boards with frequent errors' : 'Show boards with frequent errors'}
                     style={{ minWidth: 32, padding: '0 8px' }}
