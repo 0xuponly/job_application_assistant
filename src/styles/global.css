@@ -645,6 +645,31 @@ input[type="checkbox"]:disabled {
   background: var(--bg-elevated);
 }
 
+/* Pinned header + tab bar for the Settings page. Mirrors the
+   .jobs-page-sticky pattern. The wrapper bleeds to .page's edges via
+   negative margin, paints a solid bg, and pins at y=0 of the scroll
+   container with zero scroll slack (the page's own padding-top is
+   moved into the wrapper). */
+.settings-page-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  margin: 0 -32px;
+  padding: 28px 32px 0;
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+/* Drop .page's top padding so the sticky wrapper pins immediately.
+   The wrapper's own padding-top (28px) restores the original visual
+   position of the title. overflow-x: hidden prevents negative-margin
+   children from producing a horizontal scrollbar. */
+.settings-page.page {
+  padding-top: 0;
+  overflow-x: hidden;
+}
+
 .toolbar .spacer {
   flex: 1;
 }
