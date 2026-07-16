@@ -794,7 +794,7 @@ export default function SettingsPage() {
                 const uncategorized = boards.filter((b) => !classified.has(b.name))
                 if (uncategorized.length === 0) return null
                 return (
-                  <div className="card" style={{ maxWidth: 700, padding: 0 }}>
+                  <div className="card" style={{ padding: 0 }}>
                     <div style={{
                       padding: '10px 16px',
                       borderBottom: '1px solid var(--border)'
