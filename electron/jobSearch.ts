@@ -834,7 +834,7 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
       description: input.description || null,
       requirements: input.requirements || null,
       baseCv
-    }), signal)) as Awaited<ReturnType<typeof scoreJobFit>>
+    }, signal), signal)) as Awaited<ReturnType<typeof scoreJobFit>>
   } catch {
     fit = {
       score: heuristicScore,
