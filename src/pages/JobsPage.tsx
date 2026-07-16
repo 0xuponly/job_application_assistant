@@ -1039,18 +1039,11 @@ export default function JobsPage() {
   // (different error text, or cleared then re-appeared).
   const FIT_TOAST_DEBOUNCE_MS = 5000
 
-  // The full-list dedupe sites (loadJobs, handleBatchDelete) call this
-  // to keep `hiddenDupes` in sync with what's currently shown. The
-  // single-row additions update both `jobs` and `rawJobs` in lockstep
-  // — they prepend into an already deduped list, so the hidden count
-  // can't change.
-  function applyDedupe(raw: Job[]): Job[] {
-    const cleaned = raw.map(cleanJob)
-    const deduped = dedupeJobs(cleaned)
-    setRawJobs(cleaned)
-    setHiddenDupes(cleaned.length - deduped.length)
-    return deduped
-  }
+  // The single-row additions in handleAddFromLink/handleAddManual
+  // prepend into an already deduped list, so they don't need to
+  // recompute the hidden count — the count only changes on a full
+  // re-fetch (loadJobs / handleBatchDelete), which now runs the
+  // auto-dedupe pass.
 
   async function loadJobs() {
     const before = lastSeenFitErrors.current
