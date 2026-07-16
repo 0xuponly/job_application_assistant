@@ -1064,7 +1064,36 @@ export default function JobsPage() {
       }
     }
 
-    setJobs(applyDedupe(data))
+    const cleanedForDedup = data.map(cleanJob)
+    const dedupedForDisplay = dedupeJobs(cleanedForDedup)
+    setRawJobs(cleanedForDedup)
+    setJobs(dedupedForDisplay)
+    // Auto-dedupe: if the just-loaded list had hidden duplicates, drop
+    // them in the store and reload. Latched per mount so the follow-up
+    // loadJobs() (which re-enters this code with hiddenDupes = 0) does
+    // not re-fire. A new scan that adds a dupe after a clean mount will
+    // still get cleaned on the next visit. Toast the count so the user
+    // sees something happened — the manual banner is gone.
+    if (!dedupeAutoRunRef.current) {
+      const hidden = cleanedForDedup.length - dedupedForDisplay.length
+      if (hidden > 0) {
+        dedupeAutoRunRef.current = true
+        try {
+          const result = await api.dedupeJobs()
+          notify(
+            `Removed ${result.removedIds.length} duplicate job${result.removedIds.length === 1 ? '' : 's'}.`,
+            'success'
+          )
+          await loadJobs()
+        } catch (err) {
+          notify(
+            `Auto-dedup failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            'error',
+            12000
+          )
+        }
+      }
+    }
     // Surface fit-level assessment failures that appeared since last load.
     // "New" = currently failing AND (never toasted this session, OR the
     // error text differs from what we last toasted, OR the error was
