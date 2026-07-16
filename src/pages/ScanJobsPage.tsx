@@ -235,11 +235,14 @@ export default function ScanJobsPage() {
         // Only apply the default if no selection has been persisted
         // yet — once the user customizes, their choice sticks.
         if (selectedBoardsRaw === null) {
-          // First-run default: all enabled boards minus frequent
-          // errors. Disabled boards are excluded so the default
-          // selection doesn't include them. Once the user
-          // customizes, their choice sticks.
-          const enabledBoardsFirstLoad = boards.filter((b) => b.enabled)
+          // First-run default: all boards minus frequent errors.
+          // `b.enabled !== false` (rather than `=== true`) is the
+          // dev hot-reload safety — when the main process restarts
+          // and returns the new shape while the renderer still
+          // holds a stale list, undefined `enabled` should mean
+          // "enabled" (legacy behaviour) rather than filtering the
+          // user to zero boards.
+          const enabledBoardsFirstLoad = boards.filter((b) => b.enabled !== false)
           const frequentErrors = new Set(findFrequentErrorBoards(enabledBoardsFirstLoad, health))
           setSelectedBoardsRaw(enabledBoardsFirstLoad.map((b) => b.name).filter((n) => !frequentErrors.has(n)))
         } else {
@@ -248,7 +251,7 @@ export default function ScanJobsPage() {
           // matches what's actually selectable. Done silently (no
           // toast) because disabling a board in Settings is itself
           // the explicit user action — a notification would be noise.
-          const disabledNames = new Set(boards.filter((b) => !b.enabled).map((b) => b.name))
+          const disabledNames = new Set(boards.filter((b) => b.enabled === false).map((b) => b.name))
           const cleaned = selectedBoardsRaw.filter((n) => !disabledNames.has(n))
           if (cleaned.length !== selectedBoardsRaw.length) {
             setSelectedBoardsRaw(cleaned)
