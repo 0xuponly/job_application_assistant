@@ -888,7 +888,7 @@ export default function SettingsPage() {
               No blacklisted companies yet.
             </div>
           ) : (
-            <div className="card" style={{ maxWidth: 700, padding: 0 }}>
+            <div className="card" style={{ padding: 0 }}>
               {blacklist.map((name, i) => (
                 <div
                   key={name}
