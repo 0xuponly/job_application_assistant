@@ -4,6 +4,18 @@ import type { ScanResult, WorkType } from '../types'
 import { BOARD_TYPES } from '../boardTypes'
 import { usePersistedState } from '../persistedState'
 
+// Backfill fields that may be missing on results cached from older
+// app versions. _scanState.result is in-memory across renderer
+// reloads, so a result captured before `addedJobs` existed can re-
+// surface after a hot reload and crash the render. Defensively default
+// to [] so the UI degrades to the old behavior (no per-job list).
+function normalizeScanResult(r: ScanResult): ScanResult {
+  if (r && !r.addedJobs) {
+    return { ...r, addedJobs: [] }
+  }
+  return r
+}
+
 function formatDuration(s: number): string {
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
@@ -88,7 +100,7 @@ export default function ScanJobsPage() {
     let cancelled = false
     const unsub = api.onScanComplete((result) => {
       if (cancelled || !mountedRef.current) return
-      setResult(result)
+      setResult(normalizeScanResult(result))
       setLogSnapshot(fullLogRef.current)
       setScanning(false)
       setElapsed(Math.round((typeof result.durationMs === 'number' && Number.isFinite(result.durationMs) ? result.durationMs : 0) / 1000))
