@@ -519,7 +519,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
               fontSize: 13,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
-              padding: '8px 28px 8px 16px',
+              padding: '8px 16px',
               left: -9999,
               top: -9999
             }}
