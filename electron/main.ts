@@ -177,7 +177,7 @@ function registerIpc(): void {
       return updated
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
-      console.warn(`[fit] job ${jobId} (${job.company} — ${job.title}): ${msg}`)
+      log.fit.warn(`job ${jobId} (${job.company} — ${job.title}): ${msg}`)
       const updated = db.updateJob(jobId, { fit_last_error: msg })
       emitJobScoreUpdated(jobId)
       return updated
