@@ -592,6 +592,14 @@ export default function ScanJobsPage() {
               )
             })()}
             {BOARD_TYPES.map((t) => {
+              // Hidden frequent-error boards are skipped, AND disabled
+              // boards are skipped. Both conditions together mean:
+              // if a category is fully disabled in Settings, the
+              // + / − <Category> button is not rendered (the
+              // `if (visibleBoards.length === 0)` guard). A user
+              // can't select a disabled board via any of the bulk
+              // paths (checkbox, + Errors, + <Category>).
+              const disabledNames = new Set(allBoards.filter((b) => !b.enabled).map((b) => b.name))
               const hiddenNames = new Set(
                 showFrequentErrors
                   ? []
@@ -599,10 +607,10 @@ export default function ScanJobsPage() {
               )
               // Filter the category's board list to boards that are
               // actually visible in the grid. Hidden frequent-error
-              // boards are skipped so the "hidden boards can't be
-              // selected" invariant holds across every selection path
-              // (checkbox, + Errors, + <Category>).
-              const visibleBoards = t.boards.filter((n) => !hiddenNames.has(n))
+              // boards AND Settings-disabled boards are both skipped
+              // so the "boards can't be selected" invariant holds
+              // across every selection path.
+              const visibleBoards = t.boards.filter((n) => !hiddenNames.has(n) && !disabledNames.has(n))
               if (visibleBoards.length === 0) return null
               const allSelected = visibleBoards.every((n) => selectedBoards.has(n))
               const anySelected = visibleBoards.some((n) => selectedBoards.has(n))

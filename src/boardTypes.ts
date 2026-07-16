@@ -47,10 +47,12 @@ export const BOARD_TYPES: { label: string; boards: string[] }[] = [
     boards: [
       'Indeed Canada',
       'Job Bank (GC)',
+      'Job Bank GC (API)',
       'Eluta.ca',
       'Workopolis',
       'Jobboom',
       'WorkBC',
+      'WorkBC (API)',
       'CareerBeacon',
       'Vancouver Jobs',
       'UToronto'
