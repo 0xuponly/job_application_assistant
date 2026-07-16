@@ -594,7 +594,7 @@ export async function scoreJobFit(input: {
   description: string | null
   requirements: string | null
   baseCv: string
-}): Promise<JobFitResult> {
+}, signal?: AbortSignal): Promise<JobFitResult> {
   const cvEduLevel = extractEducationLevel(input.baseCv)
   const cvYears = extractYearsExperience(input.baseCv)
 
