@@ -133,8 +133,13 @@ export const BOARDS: BoardConfig[] = [
   },
   {
     name: 'Adzuna',
+    // First-party Adzuna API when both app_id and app_key are
+    // configured in Settings; otherwise fall back to scraping the
+    // search results page. The API is faster, has no Cloudflare,
+    // and returns structured records that skip the scrape step.
     searchUrl: (k, l) => `https://www.adzuna.com/search?q=${encodeURIComponent(k)}${l ? `&l=${encodeURIComponent(l)}` : ''}`,
-    useBrowser: true
+    useBrowser: true,
+    apiFetcher: (k, l, signal) => fetchAdzunaJobs('ca', k, l, signal)
   },
   {
     name: 'Talent.com',
