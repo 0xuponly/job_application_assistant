@@ -357,8 +357,15 @@ export default function ScanJobsPage() {
   // surface below. The main process also drops them (defence in
   // depth), so a stale persisted selection or hand-crafted IPC
   // payload can't bypass the user-visible toggle.
-  const enabledBoards = allBoards.filter((b) => b.enabled)
-  const enabledBoardNames = new Set(enabledBoards.map((b) => b.name))
+  //
+  // The `b.enabled !== false` (not `b.enabled === true`) is a
+  // dev-mode hot-reload safety: when the main process restarts and
+  // returns the new shape while the renderer module is still holding
+  // a stale `useState<{name,useBrowser}[]>`, every entry has
+  // `enabled === undefined`. Treating `undefined` as enabled (the
+  // legacy behaviour) is the right default — better to show all
+  // boards than to filter everything out.
+  const enabledBoards = allBoards.filter((b) => b.enabled !== false)
 
   async function handleScan() {
     scanActiveRef.current = true
