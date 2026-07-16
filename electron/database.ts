@@ -102,8 +102,7 @@ function defaultStore(): Store {
       work_mode_normalized: '',
       statuses_recomputed: '',
       heuristic_scores_cleared: '',
-      backup_path: '',
-      backup_last_success_at: '',
+      backup_path: '',      backup_last_success_at: '',
       backup_last_error: '',
       passphrase: ''
     },
