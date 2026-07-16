@@ -544,7 +544,7 @@ function dedupKey(url: string): string {
     const u = new URL(url)
     u.hash = ''
     // Remove common tracking params
-    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'spm', 'ta', 'trk']
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source', 'src', 'tracking', 'trackingId', 'trk', 'spm', 'ta', 'refId']
     trackingParams.forEach(p => u.searchParams.delete(p))
     const key = u.origin + u.pathname.replace(/\/$/, '').toLowerCase() + u.search
     return key
