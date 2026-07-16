@@ -466,7 +466,7 @@ export default function ScanJobsPage() {
               const label = allSelected
                 ? `- ${t.label}`
                 : anySelected
-                  ? `+ all ${t.label}`
+                  ? `+ ${t.label}`
                   : `+ ${t.label}`
               return (
                 <button
