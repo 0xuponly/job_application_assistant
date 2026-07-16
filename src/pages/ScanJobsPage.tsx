@@ -393,12 +393,7 @@ export default function ScanJobsPage() {
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
             {(() => {
-              const frequentErrors = allBoards
-                .filter((b) => {
-                  const history = boardHealth[b.name] || []
-                  return history.length >= 5 && history.every((h) => h <= 0)
-                })
-                .map((b) => b.name)
+              const frequentErrors = findFrequentErrorBoards(allBoards, boardHealth)
               if (frequentErrors.length === 0) return null
               const allSelected = frequentErrors.every((n) => selectedBoards.has(n))
               const anySelected = frequentErrors.some((n) => selectedBoards.has(n))
