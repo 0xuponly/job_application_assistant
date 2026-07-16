@@ -301,18 +301,17 @@ export const BOARDS: BoardConfig[] = [
     useBrowser: false,
     paginate: (searchUrl, page) => {
       // The page parameter is the 8th dash-separated segment in the
-      // path (e.g. .../s-KW-0-0-0-0-false-0-{page}-0). We rewrite
-      // only that segment by counting from the right: the trailing
-      // `-0` is the perPage value (we leave it alone), so the segment
-      // immediately before it is the page number. To avoid
-      // encode/decode ambiguity (keywords can contain `-`), we
-      // anchor on the trailing `-{perPage}` and replace the segment
-      // before it.
+      // path (e.g. .../s-KW-0-0-0-0-false-0-{page}-{perPage}). We
+      // anchor the rewrite on the trailing "-{perPage}" segment and
+      // replace only the segment immediately before it (the page
+      // index). This avoids any decode ambiguity from keywords
+      // containing dashes — we only touch the tail of the path.
       const u = new URL(searchUrl)
-      // Pattern: capture "prefix" (everything up to and including the
-      // last `-`) and "trailing perPage" (the final 0). New page index
-      // goes between them.
-      const rewritten = u.pathname.replace(/-(\d+)$/, (_, perPage) => `-${page}-${perPage}`)
+      // Match: "<rest>-{page}-{perPage}" anchored at end of pathname.
+      // We accept the final `-<digits>` (perPage) and the `-<digits>`
+      // immediately before it (page), then rewrite just the page
+      // segment.
+      const rewritten = u.pathname.replace(/-(\d+)-\d+$/, (_, _page) => `-${page}-0`)
       return `${u.origin}${rewritten}`
     }
   },
@@ -326,7 +325,7 @@ export const BOARDS: BoardConfig[] = [
     useBrowser: false,
     paginate: (searchUrl, page) => {
       const u = new URL(searchUrl)
-      const rewritten = u.pathname.replace(/-(\d+)$/, (_, perPage) => `-${page}-${perPage}`)
+      const rewritten = u.pathname.replace(/-(\d+)-\d+$/, (_, _page) => `-${page}-0`)
       return `${u.origin}${rewritten}`
     }
   }
@@ -846,6 +845,7 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
       // returns a short page (< 500 bytes = empty/error), the
       // driver throws, or the user aborts. No hard cap on iteration
       // count — the empty-page check is the natural terminator.
+      let lastReportedPage = 0
       for (let p = 1; p < 10_000; p++) {
         if (signal?.aborted) break
         const url = board.paginate(searchUrl, p)
@@ -858,6 +858,13 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
           // possible" work without a total-page count.
           if (html.length < 500) break
           chunks.push(html)
+          // Throttle progress reports to every 5 pages so the UI
+          // doesn't strobe. The first non-empty extra page always
+          // reports, so the user sees "page 1 of N" immediately.
+          if (p === 1 || p - lastReportedPage >= 5) {
+            progress(`Scanning ${board.name}... page ${p + 1}`)
+            lastReportedPage = p
+          }
         } catch (err) {
           // A single page failure shouldn't kill the whole scan —
           // log and stop. Common causes: site rate-limits mid-
