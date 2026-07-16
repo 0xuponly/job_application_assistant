@@ -505,7 +505,7 @@ export default function SettingsPage() {
                   <button className="btn btn-secondary btn-sm" onClick={() => removeModel(i)}>Remove</button>
                 )}
               </div>
-              <div className="form-row">
+              <div className="form-row-wrap">
                 <div className="form-group">
                   <label>Name</label>
                   <input value={model.name} onChange={(e) => updateModel(i, 'name', e.target.value)} placeholder="e.g. DeepSeek, Groq" />
@@ -514,8 +514,6 @@ export default function SettingsPage() {
                   <label>Model</label>
                   <input value={model.model} onChange={(e) => updateModel(i, 'model', e.target.value)} placeholder="deepseek-chat" />
                 </div>
-              </div>
-              <div className="form-row">
                 <div className="form-group">
                   <label>Base URL</label>
                   <input value={model.base_url} onChange={(e) => updateModel(i, 'base_url', e.target.value)} placeholder="https://api.deepseek.com" />

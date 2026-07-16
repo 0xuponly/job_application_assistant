@@ -505,6 +505,26 @@ input[type="checkbox"]:disabled {
   gap: 14px;
 }
 
+/* Flex-wrap row used by the Models card so all 4 fields (Name, Model,
+ * Base URL, API key) sit on one line and wrap onto a new line on
+ * narrow screens. Each direct child is sized by its own flex
+ * declaration (see .form-row-wrap > .form-group below). */
+.form-row-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.form-row-wrap > .form-group {
+  /* Min width prevents the inputs from being crushed below usable
+   * size. flex: 1 1 0 lets them grow to fill the row, and the
+   * wrap behavior of the parent kicks in when the row gets too
+   * narrow. */
+  flex: 1 1 0;
+  min-width: 180px;
+  margin-bottom: 0;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
