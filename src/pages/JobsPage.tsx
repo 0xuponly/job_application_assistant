@@ -1026,6 +1026,11 @@ export default function JobsPage() {
   // batch-score refresh. The Map persists across renders for the lifetime
   // of this page instance.
   const lastSeenFitErrors = useRef<Map<number, string | null>>(new Map())
+  // Latches so the auto-dedupe fires at most once per page mount.
+  // Reset by remount; the follow-up loadJobs() call inside the auto-dedup
+  // branch re-enters loadJobs but the latch is already true so it won't
+  // re-fire on the no-duplicates reload.
+  const dedupeAutoRunRef = useRef<boolean>(false)
   // No local `toastedFitErrors` ref or `lastFitToastAt` ref here — both
   // are module-scope above so they survive the page unmounting when the
   // user navigates to another tab and back. The dedupe state should
@@ -1529,74 +1534,6 @@ export default function JobsPage() {
           </div>
         )}
       </div>
-
-      {hiddenDupes > 0 && !showAll && (
-        <div
-          className="alert"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            padding: '8px 12px',
-            borderRadius: 6,
-            fontSize: 13,
-            marginTop: 8,
-            marginBottom: 8
-          }}
-        >
-          <span>
-            {hiddenDupes} duplicate{hiddenDupes === 1 ? '' : 's'} hidden from My Jobs (store has {hiddenDupes + jobs.length}).
-          </span>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowAll(true)}>
-            Show all
-          </button>
-          <button
-            className="btn btn-secondary btn-sm"
-            disabled={deduping}
-            onClick={async () => {
-              if (!confirm(`Permanently delete ${hiddenDupes} duplicate job${hiddenDupes === 1 ? '' : 's'} (and their documents, applications, follow-ups, interviews)? The kept row is the one with the lowest id (created first).`)) return
-              setDeduping(true)
-              try {
-                const result = await api.dedupeJobs()
-                notify(`Removed ${result.removedIds.length} duplicate${result.removedIds.length === 1 ? '' : 's'}. ${result.remaining} jobs remain.`, 'success')
-                setShowAll(false)
-                await loadJobs()
-              } catch (err) {
-                notify(`Dedup failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
-              } finally {
-                setDeduping(false)
-              }
-            }}
-          >
-            {deduping ? 'Cleaning…' : 'Delete Duplicates'}
-          </button>
-        </div>
-      )}
-      {showAll && hiddenDupes > 0 && (
-        <div
-          className="alert"
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            padding: '8px 12px',
-            borderRadius: 6,
-            fontSize: 13,
-            marginTop: 8,
-            marginBottom: 8
-          }}
-        >
-          Showing all {hiddenDupes + jobs.length} rows (includes duplicates).
-          <button
-            className="btn btn-secondary btn-sm"
-            style={{ marginLeft: 12 }}
-            onClick={() => setShowAll(false)}
-          >
-            Hide duplicates
-          </button>
-        </div>
-      )}
 
       {jobs.length === 0 ? (
         <div className="empty-state">
