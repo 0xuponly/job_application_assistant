@@ -486,9 +486,11 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
               fontSize: 13,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
-              padding: '8px 28px 8px 16px',
+              padding: '8px 16px',
               cursor: statusBusy ? 'wait' : 'pointer',
               outline: 'none',
+              textAlign: 'center',
+              textAlignLast: 'center',
               width: statusWidth != null ? `${statusWidth}px` : undefined
             }}
           >
