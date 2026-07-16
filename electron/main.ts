@@ -1225,7 +1225,7 @@ app.whenReady().then(() => {
       db.markFitRescored()
       log.startup.info(`Bumped cv_version to ${v} to force fit re-score of all jobs.`)
     } catch (err) {
-      console.error('[startup] CV version bump failed:', err)
+      log.startup.error('CV version bump failed:', err)
     }
   }
 
