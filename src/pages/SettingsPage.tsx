@@ -537,11 +537,11 @@ export default function SettingsPage() {
                 <input value={settings.user_email} onChange={(e) => update('user_email', e.target.value)} />
               </div>
               <div className="form-group">
-                <label>Default scan keywords</label>
+                <label>Phone number</label>
                 <input
-                  value={settings.job_search_keywords ?? ''}
-                  onChange={(e) => update('job_search_keywords', e.target.value)}
-                  placeholder="e.g. senior analyst, data engineer"
+                  value={settings.user_phone ?? ''}
+                  onChange={(e) => update('user_phone', e.target.value)}
+                  placeholder="e.g. +1 555 123 4567"
                 />
               </div>
               <div className="form-group">
