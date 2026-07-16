@@ -1029,7 +1029,7 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
   }
 
   async function processBoard(board: BoardConfig, location: string): Promise<ScanBoardResult> {
-    const br: ScanBoardResult = { board: board.name, found: 0, added: 0, skipped: 0, errors: 0 }
+    const br: ScanBoardResult = { board: board.name, found: 0, added: 0, skipped: 0, errors: 0, incompatible: 0 }
     try {
       const locTag = location ? ` (${location})` : ''
       progress(`Scanning ${board.name}${locTag}...`)
