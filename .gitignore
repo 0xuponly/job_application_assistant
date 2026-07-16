@@ -5,6 +5,7 @@ dist/
 .DS_Store
 docs/*
 !docs/templates/
+.superpowers/
 *.tsbuildinfo
 
 # Claude Code hook config (local-only)
