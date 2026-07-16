@@ -683,8 +683,16 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
       // job id in the fragment, so the path-only regex would drop every
       // real card and only keep links that happen to be real paths.
       const hash = new URL(fullUrl).hash
+      // Generic path match. The list was widened from a strict
+      // /jobs?|careers? subset to cover the real-world URL patterns
+      // used by niche boards: /posting/ (Built In), /position/
+      // (Workday), /vacancy|vacancies/ (EU government boards),
+      // /role/ (Ashby-style), /opportunity/ (Idealist), /jobid/
+      // (some legacy boards). Tighter "exactly /jobs" matches were
+      // silently dropping real listings that the user could see by
+      // browsing manually.
       const pathMatch =
-        /^\/(jobs?|careers?|positions?|opportunities?|postings?)/i.test(pathname) ||
+        /^\/(jobs?|careers?|positions?|opportunities?|postings?|openings?|vacancies?|vacancy|roles?|jobid|job_id|posting|position|opportunity)/i.test(pathname) ||
         pathname.includes('/job/') ||
         /^#\/?(job[-_]?details?|job[-_]?posting|jobs?|posting|find[-_]?jobs?\/job|postings?)\b/i.test(hash)
       if (!pathMatch) continue
