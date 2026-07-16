@@ -20,7 +20,9 @@ export const BOARD_TYPES: { label: string; boards: string[] }[] = [
     boards: [
       'Remote OK',
       'We Work Remotely',
+      'We Work Remotely (RSS)',
       'Remotive',
+      'Remotive (API)',
       'Remote.co',
       'Working Nomads',
       'JustRemote',
@@ -66,13 +68,6 @@ export const BOARD_TYPES: { label: string; boards: string[] }[] = [
     boards: [
       'CharityVillage',
       'Idealist'
-    ]
-  },
-  {
-    label: 'General',
-    boards: [
-      'Google Careers',
-      'CareerHound'
     ]
   }
 ]
