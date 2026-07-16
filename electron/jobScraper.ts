@@ -288,8 +288,8 @@ async function fetchPageHtml(
     signal: combinedSignal
   })
   const elapsedMs = Date.now() - startedAt
-  console.log(
-    `[scraper] fetch response ${url} status=${response.status} ` +
+  log.info(
+    `fetch response ${url} status=${response.status} ` +
     `finalUrl=${response.url} bytes=${response.headers.get('content-length') ?? '?'} ` +
     `ct=${response.headers.get('content-type') ?? '?'} elapsedMs=${elapsedMs}`
   )
