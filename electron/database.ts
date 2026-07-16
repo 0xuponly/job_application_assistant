@@ -875,10 +875,12 @@ export function recomputeJobStatusFromDocs(jobId: number): JobStatus | null {
   const cl = docs.find((d) => d.type === 'cover_letter')
 
   let next: JobStatus
-  if (docs.length === 0) {
+  if (docs.length === 0 || !cv || !cl) {
+    // No docs yet, or only one of CV/cover letter exists. Stay in
+    // Sourced — Reviewing should only kick in once BOTH documents
+    // have been generated, even before verification passes.
     next = 'sourced'
   } else if (
-    cv && cl &&
     (cv.verification_score ?? 0) >= 70 &&
     (cl.verification_score ?? 0) >= 70
   ) {
