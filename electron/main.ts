@@ -1194,7 +1194,7 @@ app.whenReady().then(() => {
         log.startup.info(`Refreshed status for ${result.updated}/${result.total} jobs.`)
       }
     } catch (err) {
-      console.error('[startup] Status refresh failed:', err)
+      log.startup.error('Status refresh failed:', err)
     }
   }
 
