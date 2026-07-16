@@ -669,6 +669,24 @@ export function updateJob(
     last_updated: fields.last_updated !== undefined ? (fields.last_updated ?? null) : existing.last_updated,
     updated_at: now()
   }
+  // Bump last_updated on real content edits (title, company, location,
+  // description, salary, type, work mode, hiring manager, requirements,
+  // application requirements). Status / fit / notes / url / source
+  // changes are intentionally NOT tracked here — those are bookkeeping
+  // moves, not content edits. Skip if the caller already passed an
+  // explicit last_updated (backfill, createJob) so we don't overwrite
+  // the authoritative value.
+  if (fields.last_updated === undefined) {
+    const CONTENT_FIELDS = [
+      'title', 'company', 'location', 'description', 'salary_range',
+      'employment_type', 'work_mode', 'hiring_manager', 'requirements',
+      'application_requirements'
+    ] as const
+    const changed = CONTENT_FIELDS.some(
+      (k) => s.jobs[idx][k] !== existing[k]
+    )
+    if (changed) s.jobs[idx].last_updated = now()
+  }
   // Track new URL for dedup if it changed
   const newUrl = s.jobs[idx].url
   if (newUrl && newUrl !== existing.url) {
