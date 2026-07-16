@@ -395,8 +395,12 @@ export default function SettingsPage() {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Phone</label>
-                <input value={settings.user_phone} onChange={(e) => update('user_phone', e.target.value)} />
+                <label>Default scan keywords</label>
+                <input
+                  value={settings.job_search_keywords ?? ''}
+                  onChange={(e) => update('job_search_keywords', e.target.value)}
+                  placeholder="e.g. senior analyst, data engineer"
+                />
               </div>
               <div className="form-group">
                 <label>Preferred location</label>
