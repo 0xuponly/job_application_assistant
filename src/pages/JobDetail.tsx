@@ -502,8 +502,8 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
           </select>
           {/* Hidden measure node: same typography as the <select>, so
               getBoundingClientRect reports the exact pixel width needed
-              to fit the current label (and any longer option the user
-              could pick) without clipping. Absolutely positioned
+              to fit the currently selected label without padding tricks
+              or width:max-content guessing. Absolutely positioned
               off-screen so it never affects layout. */}
           <span
             ref={statusMeasureRef}
@@ -522,15 +522,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
               top: -9999
             }}
           >
-            {(() => {
-              const visible = (Object.keys(STATUS_LABELS) as JobStatus[])
-                .filter((s) => s !== 'tailoring' && s !== 'follow_up' && s !== 'withdrawn')
-              const longest = visible.reduce((a, b) => (STATUS_LABELS[a].length >= STATUS_LABELS[b].length ? a : b), visible[0])
-              // Render the longer of (current selection, longest option)
-              // side-by-side so the measured width fits the current
-              // label while still leaving room for a longer pick.
-              return `${STATUS_LABELS[job.status]}${STATUS_LABELS[longest]}`
-            })()}
+            {STATUS_LABELS[job.status]}
           </span>
         </span>
         <div className="spacer" />
