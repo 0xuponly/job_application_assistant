@@ -1225,6 +1225,11 @@ export async function scanAllBoards(
             else { br.errors++; bump('totalErrors') }
           }
         }
+        // Aggregate per-board totals into the live counters (and push
+        // the snapshot to the renderer). The browser path does the
+        // same after its per-listing loop; the API path returns
+        // early, so this is the only chance to bump totalFound.
+        bumpFound(br.found)
         result.boards.push(br)
         return br
       }
@@ -1346,7 +1351,6 @@ export async function scanAllBoards(
         }
       }
 
-      result.totalFound = 0
       bumpFound(br.found)
     } catch (err) {
       br.error = err instanceof Error ? err.message : 'Unknown error'
