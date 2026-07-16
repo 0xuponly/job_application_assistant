@@ -133,7 +133,12 @@ export async function fetchHtmlViaBrowser(url: string): Promise<string> {
 
     const extract = async (attempt = 0) => {
       try {
-        await new Promise((r) => setTimeout(r, attempt === 0 ? CHALLENGE_WAIT_MS : 4000))
+        // First attempt: short wait so non-challenge pages return fast
+        // (the vast majority of browser-mode boards aren't behind
+        // Cloudflare). On retry, fall back to the full
+        // CHALLENGE_WAIT_MS — challenges need real time to resolve.
+        const initialWait = attempt === 0 ? 1500 : CHALLENGE_WAIT_MS
+        await new Promise((r) => setTimeout(r, initialWait))
         const html = await win.webContents.executeJavaScript(
           'document.documentElement.outerHTML',
           true

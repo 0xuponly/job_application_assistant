@@ -1062,6 +1062,16 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
 
       for (const batch of batches) {
         if (signal?.aborted) break
+        // Polite-crawl jitter: one short sleep at the start of each
+        // batch instead of one per listing. The old per-listing
+        // sleep serialized 6 listings × 350ms = 2.1s of dead time
+        // per batch. Browser boards still want this to avoid
+        // hammering the host; HTTP-only boards can skip it
+        // (Node's fetch with `connection: keep-alive` doesn't need
+        // the same politeness as a fresh BrowserWindow).
+        if (board.useBrowser) {
+          await new Promise(r => setTimeout(r, 200 + Math.random() * 300))
+        }
         // Race the batch against the abort signal. If the user cancels mid-
         // batch, we don't wait for the in-flight listings to finish; we drop
         // whatever hasn't settled yet and bail out. The settled values for
