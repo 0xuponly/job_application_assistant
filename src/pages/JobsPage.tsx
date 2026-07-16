@@ -783,10 +783,11 @@ export default function JobsPage() {
   const [filterSalary, setFilterSalary] = useState<SalaryFilter>(EMPTY_SALARY_FILTER)
   const [filterFit, setFilterFit] = useState<string[]>([])
   const [filterDatePosted, setFilterDatePosted] = useState<DateFilter>(EMPTY_DATE_FILTER)
+  const [filterDateUpdated, setFilterDateUpdated] = useState<DateFilter>(EMPTY_DATE_FILTER)
   // Sort: null = default behavior (score DESC, nulls last). A column click
   // cycles default → asc → desc → default. Only one column is sorted at a
   // time; clicking a different column resets the previous one to default.
-  type SortColumn = 'fit' | 'company' | 'title' | 'location' | 'status' | 'date_posted' | 'salary_range'
+  type SortColumn = 'fit' | 'company' | 'title' | 'location' | 'status' | 'date_posted' | 'last_updated' | 'salary_range'
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null)
 
@@ -852,6 +853,7 @@ export default function JobsPage() {
       if (!matchesSalaryFilter(j.salary_range, filterSalary)) return false
       if (filterFit.length && !filterFit.includes(fitLabel(j.score))) return false
       if (!matchesDateFilter(j.date_posted, filterDatePosted)) return false
+      if (!matchesDateFilter(j.last_updated, filterDateUpdated)) return false
       return true
     })
     // Default behavior: score DESC, with null scores at the end. When the
@@ -865,6 +867,7 @@ export default function JobsPage() {
         case 'status': return j.status
         case 'salary_range': return parseSalaryForSort(j.salary_range)
         case 'date_posted': return j.date_posted ?? null
+        case 'last_updated': return j.last_updated ?? null
         default: return null
       }
     }
@@ -885,7 +888,7 @@ export default function JobsPage() {
     }
     return rows.sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
   },
-    [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSalary, filterFit, filterDatePosted, sortColumn, sortDir])
+    [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSalary, filterFit, filterDatePosted, filterDateUpdated, sortColumn, sortDir])
 
   const allFilteredSelected = useMemo(
     () => filteredJobs.length > 0 && filteredJobs.every((j) => selectedIds.has(j.id)),
@@ -1585,6 +1588,12 @@ export default function JobsPage() {
                   <DateFilterSelect filter={filterDatePosted} onChange={setFilterDatePosted} />
                 </div>
               </th>
+              <th>
+                <div className="filter-header">
+                  <SortableLabel columnKey="last_updated" label="Updated" sortColumn={sortColumn} sortDir={sortDir} onCycle={cycleSort} />
+                  <DateFilterSelect filter={filterDateUpdated} onChange={setFilterDateUpdated} />
+                </div>
+              </th>
               <th></th>
             </tr>
           </thead>
@@ -1625,6 +1634,7 @@ export default function JobsPage() {
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>{hasMeaningfulSalary(job.salary_range) ? formatSalaryForDisplay(job.salary_range, job) : '—'}</td>
                 <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatJobDate(job.date_posted)}</td>
+                <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatJobDate(job.last_updated)}</td>
                 <td>
                   <button
                     className="icon-btn icon-btn-danger"
