@@ -442,8 +442,8 @@ async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: stri
   // Diagnostic: how many JobPosting JSON-LD blocks were found, and how the
   // selector picked one (or didn't). Helps distinguish "no schema on the
   // page" from "schema present but the selector rejected it".
-  console.log(
-    `[scraper] ${pageUrl} (${hostname}) jsonLdCount=${jobPostings.length} ` +
+  log.info(
+    `${pageUrl} (${hostname}) jsonLdCount=${jobPostings.length} ` +
     `jsonLdPicked=${jobPosting ? 'yes' : 'no'}` +
     (jobPosting?.title ? ` title=${JSON.stringify(jobPosting.title).slice(0, 120)}` : '') +
     (jobPosting?.hiringOrganization?.name ? ` company=${JSON.stringify(jobPosting.hiringOrganization.name).slice(0, 80)}` : '')
