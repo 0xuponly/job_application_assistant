@@ -1159,7 +1159,7 @@ app.whenReady().then(() => {
       }
       db.markEmploymentTypeNormalized()
     } catch (err) {
-      console.error('[startup] Employment type retrofit failed:', err)
+      log.startup.error('Employment type retrofit failed:', err)
     }
   }
 
