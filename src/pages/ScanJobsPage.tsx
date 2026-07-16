@@ -43,15 +43,15 @@ let _nextId = 0
 let _showAllScanColumns = false
 
 export default function ScanJobsPage() {
-  const [keywords, setKeywords, resetKeywords] = usePersistedState<string>('scan:keywords', '')
-  const [location, setLocation, resetLocation] = usePersistedState<string>('scan:location', '')
-  const [workType, setWorkType, resetWorkType] = usePersistedState<WorkType>('scan:workType', 'any')
+  const [keywords, setKeywords] = usePersistedState<string>('scan:keywords', '')
+  const [location, setLocation] = usePersistedState<string>('scan:location', '')
+  const [workType, setWorkType] = usePersistedState<WorkType>('scan:workType', 'any')
   const [allBoards, setAllBoards] = useState<{ name: string; useBrowser: boolean }[]>([])
   // Stored as a string[] in localStorage. `null` means "no saved
   // selection yet" — the boards-load effect will compute the default
   // (all minus frequent errors) and persist it. Once the user
   // changes the selection, their value sticks across reloads.
-  const [selectedBoardsRaw, setSelectedBoardsRaw, resetSelectedBoards] = usePersistedState<string[] | null>('scan:selected', null)
+  const [selectedBoardsRaw, setSelectedBoardsRaw] = usePersistedState<string[] | null>('scan:selected', null)
   const selectedBoards = new Set(selectedBoardsRaw ?? [])
   const setSelectedBoards = (next: Set<string> | ((prev: Set<string>) => Set<string>)) => {
     setSelectedBoardsRaw((prev) => {
@@ -407,30 +407,6 @@ export default function ScanJobsPage() {
                 Deselect All
               </button>
             )}
-            <button
-              type="button"
-              className="btn btn-sm btn-secondary"
-              onClick={() => {
-                // Clear keywords/location/workType to defaults.
-                resetKeywords()
-                resetLocation()
-                resetWorkType()
-                // If the boards list is already loaded, recompute
-                // the "all minus frequent errors" default in place.
-                // Otherwise, drop the persisted selection back to
-                // null and let the boards-load effect pick it up on
-                // next mount. Either way, the user's saved custom
-                // selection is wiped.
-                if (allBoards.length > 0) {
-                  const frequentErrors = new Set(findFrequentErrorBoards(allBoards, boardHealth))
-                  setSelectedBoardsRaw(allBoards.map((b) => b.name).filter((n) => !frequentErrors.has(n)))
-                } else {
-                  resetSelectedBoards()
-                }
-                setBoardsExpanded(true)
-              }}
-            >
-              Reset
             </button>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
