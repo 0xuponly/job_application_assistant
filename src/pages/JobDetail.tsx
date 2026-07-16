@@ -292,6 +292,23 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
     await load()
   }
 
+  const [statusBusy, setStatusBusy] = useState(false)
+  async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = e.target.value as JobStatus
+    if (next === job.status || statusBusy) return
+    setStatusBusy(true)
+    try {
+      const updated = await api.updateJob(job.id, { status: next })
+      setCurrentJob(updated)
+      onUpdate(updated)
+      await load()
+    } catch (err) {
+      notify(`Status change failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
+    } finally {
+      setStatusBusy(false)
+    }
+  }
+
   function handleViewDoc(doc: Document) {
     setViewDoc(doc)
     setDocTitle(doc.title)
@@ -417,22 +434,48 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
       <div className="toolbar">
         <button className="btn btn-secondary" onClick={onBack}>← Back</button>
         <span
-          title={`Status: ${STATUS_LABELS[job.status]}`}
+          title={statusBusy ? 'Saving status…' : `Status: ${STATUS_LABELS[job.status]} — click to change`}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            padding: '8px 16px',
+            padding: 0,
             borderRadius: 8,
             fontWeight: 500,
             fontSize: 13,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
             background: `${STATUS_COLORS[job.status]}22`,
             color: STATUS_COLORS[job.status],
-            border: `1px solid ${STATUS_COLORS[job.status]}55`
+            border: `1px solid ${STATUS_COLORS[job.status]}55`,
+            opacity: statusBusy ? 0.6 : 1
           }}
         >
-          {STATUS_LABELS[job.status]}
+          <select
+            value={job.status}
+            onChange={handleStatusChange}
+            disabled={statusBusy}
+            aria-label="Change job status"
+            style={{
+              appearance: 'none',
+              WebkitAppearance: 'none',
+              MozAppearance: 'none',
+              background: 'transparent',
+              color: 'inherit',
+              border: 'none',
+              font: 'inherit',
+              fontWeight: 500,
+              fontSize: 13,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              padding: '8px 28px 8px 16px',
+              cursor: statusBusy ? 'wait' : 'pointer',
+              outline: 'none'
+            }}
+          >
+            {(Object.keys(STATUS_LABELS) as JobStatus[]).map((s) => (
+              <option key={s} value={s} style={{ color: 'var(--text)', background: 'var(--bg)' }}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
         </span>
         <div className="spacer" />
         <button
