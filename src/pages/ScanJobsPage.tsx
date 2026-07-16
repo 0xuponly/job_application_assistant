@@ -720,7 +720,7 @@ export default function ScanJobsPage() {
                 <p style={{ margin: 0 }}>
                   New jobs added. Go to <strong>My Jobs</strong> to view and manage them.
                 </p>
-                {result.addedJobs.length > 0 && (
+                {result.addedJobs && result.addedJobs.length > 0 && (
                   <ul style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 12 }}>
                     {result.addedJobs.map((j) => (
                       <li key={j.id} style={{ marginBottom: 2 }}>
