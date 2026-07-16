@@ -1399,9 +1399,18 @@ export async function scanAllBoards(
   // (~200MB+) and macOS throttles beyond ~5-6.
   const BOARD_CONCURRENCY_HTTP = 6
   const BOARD_CONCURRENCY_BROWSER = 3
-  const selectedBoards = filters?.boards && filters.boards.length > 0
-    ? BOARDS.filter((b) => filters.boards!.includes(b.name))
-    : BOARDS
+  const selectedBoards = (() => {
+    const explicit = filters?.boards && filters.boards.length > 0
+      ? BOARDS.filter((b) => filters.boards!.includes(b.name))
+      : BOARDS
+    // Defence-in-depth: also drop boards the user has disabled in
+    // Settings > Boards, regardless of whether the renderer's picker
+    // was stale. The renderer filters too, but the main process is the
+    // actual enforcement point — a stale persisted selection or a
+    // hand-crafted IPC call can't bypass the user-visible toggle.
+    const disabled = new Set((settings.disabled_boards || []) as string[])
+    return explicit.filter((b) => !disabled.has(b.name))
+  })()
   const httpBoards = selectedBoards.filter((b) => !b.useBrowser)
   const browserBoards = selectedBoards.filter((b) => b.useBrowser)
   // Track per-board totals across locations for health recording
