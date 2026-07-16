@@ -73,6 +73,12 @@ export default function ScanJobsPage() {
     })
   }
   const [boardsExpanded, setBoardsExpanded] = useState(false)
+  // Visibility toggle for boards flagged as "Frequent Errors". Default
+  // false: these boards (5+ recent runs with no jobs) are hidden from the
+  // grid and can't be selected until the user explicitly reveals them.
+  // Persisted across reloads so the choice sticks; a one-time manual
+  // toggle then reflects user intent, not a default we'd auto-flip.
+  const [showFrequentErrors, setShowFrequentErrors] = usePersistedState<boolean>('scan:showFrequentErrors', false)
   const [boardHealth, setBoardHealth] = useState<Record<string, number[]>>({})
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
@@ -389,13 +395,37 @@ export default function ScanJobsPage() {
             <label>
               Job boards ({selectedBoards.size} of {allBoards.length} selected)
             </label>
-            <button
-              type="button"
-              className="btn btn-sm btn-secondary"
-              onClick={() => setBoardsExpanded((v) => !v)}
-            >
-              {boardsExpanded ? '−' : '+'}
-            </button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(() => {
+                // Visibility toggle for frequent-error boards. Only
+                // rendered when at least one board is flagged — a
+                // healthy user has nothing to reveal, so the button
+                // would just be clutter (per the project's
+                // "hide-toggle-when-empty" rule). Icon-only to keep
+                // the row compact; the tooltip carries the meaning.
+                const frequentErrors = findFrequentErrorBoards(allBoards, boardHealth)
+                if (frequentErrors.length === 0) return null
+                return (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={() => setShowFrequentErrors((v) => !v)}
+                    title={showFrequentErrors ? 'Hide boards with frequent errors' : 'Show boards with frequent errors'}
+                    aria-label={showFrequentErrors ? 'Hide boards with frequent errors' : 'Show boards with frequent errors'}
+                    style={{ minWidth: 32, padding: '0 8px' }}
+                  >
+                    {showFrequentErrors ? '🙈' : '👁'}
+                  </button>
+                )
+              })()}
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary"
+                onClick={() => setBoardsExpanded((v) => !v)}
+              >
+                {boardsExpanded ? '−' : '+'}
+              </button>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
             {selectedBoards.size < allBoards.length && (
