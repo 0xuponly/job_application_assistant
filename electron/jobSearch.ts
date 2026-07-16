@@ -1204,7 +1204,17 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
       const seenTitleCompany = new Set<string>()
       listings = listings.filter(l => {
         const dk = dedupKey(l.url)
-        if (scanSeenUrls.has(dk)) return false
+        // Listing-level dedup hits must increment br.skipped + totalSkipped
+        // so the card header (Found / Added / Skipped / Incompatible / Errors)
+        // sums to br.found. Without this, listings dropped here count toward
+        // `Found` but land in no category — leaving a permanent gap in the
+        // tally. The API path (above) handles its dedup branches the same
+        // way; this path was missed on the original landing.
+        if (scanSeenUrls.has(dk)) {
+          br.skipped++
+          result.totalSkipped++
+          return false
+        }
         scanSeenUrls.add(dk)
         if (seenUrls.has(dk)) {
           br.skipped++
@@ -1213,7 +1223,11 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
         // Dedup by company+title within the same board
         if (l.title && l.company) {
           const tcKey = (`${l.company  }||${  l.title}`).toLowerCase()
-          if (seenTitleCompany.has(tcKey)) return false
+          if (seenTitleCompany.has(tcKey)) {
+            br.skipped++
+            result.totalSkipped++
+            return false
+          }
           seenTitleCompany.add(tcKey)
         }
         return true
