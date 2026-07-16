@@ -1071,7 +1071,7 @@ ${htmlBody}
     if (!s.backup_path) return
     runBackup(s.backup_path, s.passphrase).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error('[backup] close-time backup failed:', msg)
+      log.backup.error('close-time backup failed:', msg)
     })
   })
 
