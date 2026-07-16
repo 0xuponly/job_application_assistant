@@ -716,9 +716,20 @@ export default function ScanJobsPage() {
               </div>
             )}
             {result.totalAdded > 0 && (
-              <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-                New jobs added. Go to <strong>My Jobs</strong> to view and manage them.
-              </p>
+              <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>
+                <p style={{ margin: 0 }}>
+                  New jobs added. Go to <strong>My Jobs</strong> to view and manage them.
+                </p>
+                {result.addedJobs.length > 0 && (
+                  <ul style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 12 }}>
+                    {result.addedJobs.map((j) => (
+                      <li key={j.id} style={{ marginBottom: 2 }}>
+                        {j.title} — {j.company}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
         )

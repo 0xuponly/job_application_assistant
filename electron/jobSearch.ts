@@ -985,6 +985,11 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
               br.added++
               result.totalAdded++
               if (r.value.job) {
+                result.addedJobs.push({
+                  id: r.value.job.id,
+                  title: decodeEntities(r.value.job.title),
+                  company: decodeEntities(r.value.job.company)
+                })
                 progress(`✓ Added ${decodeEntities(r.value.job.company)} — ${decodeEntities(r.value.job.title)}`)
               }
             } else if (r.value.action === 'skipped' || r.value.action === 'incompatible') {
