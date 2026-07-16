@@ -422,7 +422,7 @@ export default function ScanJobsPage() {
               // either way adds the rest; clicking when all-selected
               // removes them all. Two states, not three, keeps the
               // button predictable.
-              const label = allSelected ? 'Deselect Errors' : 'Select Errors'
+              const label = allSelected ? '- Errors' : '+ Errors'
               return (
                 <button
                   key="frequent-errors"
