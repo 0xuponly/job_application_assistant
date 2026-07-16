@@ -73,13 +73,11 @@ export default function SettingsPage() {
       // The settings list may have stale names (board renamed/removed
       // in a future version) — keep only the ones that match a real
       // board so the disabled set stays authoritative.
-      const s = (typeof window !== 'undefined') ? null : null
       api.getSettings().then((settings) => {
         if (cancelled) return
         const realNames = new Set(list.map((b) => b.name))
         setDisabled(new Set((settings.disabled_boards || []).filter((n) => realNames.has(n))))
       }).catch(() => { /* settings load failed; user will see empty list */ })
-      void s
     }).catch(() => { /* list load failed; user will see empty list */ })
     return () => { cancelled = true }
   }, [tab])
@@ -138,6 +136,8 @@ export default function SettingsPage() {
       setBoardsSaving(false)
     }
   }
+
+  const emptyModel = { name: '', base_url: 'https://api.deepseek.com', api_key: '', model: 'deepseek-chat' }
 
   const loadSettings = () => {
     Promise.all([
