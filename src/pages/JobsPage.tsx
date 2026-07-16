@@ -775,7 +775,6 @@ export default function JobsPage() {
   const [importing, setImporting] = useState(false)
   const [form, setForm] = useState<CreateJobInput>(EMPTY_FORM)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
-  const [rawJobs, setRawJobs] = useState<Job[]>([])
   const [saving, setSaving] = useState(false)
   const [filterCompany, setFilterCompany] = useState<string[]>([])
   const [filterTitle, setFilterTitle] = useState<string[]>([])
@@ -990,8 +989,14 @@ export default function JobsPage() {
   // ResizeObserver to handle font-size changes, toolbar button toggles,
   // window resize, etc. The value is exposed as a CSS custom property
   // on the page root so the table header cells can pick it up.
+  // useLayoutEffect (not useEffect) so the offset is set before the
+  // browser paints the first frame — otherwise the th cells would
+  // briefly pin to 0px and overlap the wrapper for one frame, and on
+  // a fast scroll that overlap is visible to the user. The ResizeObserver
+  // attached inside the effect handles later dynamic changes (toolbar
+  // buttons appearing, batch-op buttons toggling, etc.).
   const stickyRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!stickyRef.current) return
     const el = stickyRef.current
     const setOffset = () => {
@@ -1005,7 +1010,7 @@ export default function JobsPage() {
       jobsStickyObserver?.disconnect()
       jobsStickyObserver = null
     }
-  }, [])
+  }, [jobs.length > 0])
 
   function cleanJob(j: Job): Job {
     return {
