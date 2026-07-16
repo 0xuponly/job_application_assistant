@@ -1191,7 +1191,7 @@ app.whenReady().then(() => {
     try {
       const result = db.recomputeAllJobStatuses()
       if (result.updated > 0) {
-        console.log(`[startup] Refreshed status for ${result.updated}/${result.total} jobs.`)
+        log.startup.info(`Refreshed status for ${result.updated}/${result.total} jobs.`)
       }
     } catch (err) {
       console.error('[startup] Status refresh failed:', err)
