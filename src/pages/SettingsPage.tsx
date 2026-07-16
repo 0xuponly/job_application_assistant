@@ -884,7 +884,7 @@ export default function SettingsPage() {
           </div>
 
           {blacklist.length === 0 ? (
-            <div className="card" style={{ maxWidth: 700, padding: 16, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
+            <div className="card" style={{ padding: 16, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', fontStyle: 'italic' }}>
               No blacklisted companies yet.
             </div>
           ) : (
