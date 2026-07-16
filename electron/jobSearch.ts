@@ -1003,7 +1003,12 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
   }
 }
 
-export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: string) => void, signal?: AbortSignal): Promise<ScanResult> {
+export async function scanAllBoards(
+  filters?: ScanFilters,
+  onProgress?: (msg: string) => void,
+  signal?: AbortSignal,
+  onCounters?: (counters: Pick<ScanResult, 'totalFound' | 'totalAdded' | 'totalSkipped' | 'totalIncompatible' | 'totalErrors'>) => void
+): Promise<ScanResult> {
   const settings = getSettings()
   const keywords = (filters?.keywords || settings.job_search_keywords || '').trim()
   const locationInput = (filters?.location || settings.job_search_location || '').trim()
