@@ -28,14 +28,14 @@ interface BoardConfig {
   searchUrl: (keywords: string, location: string) => string
   useBrowser: boolean
   /**
-   * Optional pagination driver. If set, the board driver fetches the
-   * search URL, then iterates the URLs returned here, concatenating the
-   * HTML of each page. The driver should keep producing URLs until
-   * the caller breaks the loop (the driver itself decides when to
-   * stop — typically by detecting an empty page or no more pages).
-   * If omitted, the board is treated as single-page.
+   * Optional pagination driver. Given a 0-indexed page number (1, 2,
+   * 3, ...), returns the URL to fetch for that page. The driver must
+   * be able to return a URL for any page — the caller loops 1..N and
+   * breaks on empty page, fetch failure, or signal abort. No upper
+   * cap is enforced by the loop; boards that want a cap can return
+   * `''` (empty string) to signal "no more pages."
    */
-  paginate?: (searchUrl: string) => string[]
+  paginate?: (searchUrl: string, page: number) => string
 }
 
 export const BOARDS: BoardConfig[] = [
