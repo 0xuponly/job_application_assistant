@@ -87,7 +87,8 @@ async function callAI(
   systemPrompt: string,
   userPrompt: string,
   temperature = 0.7,
-  timeoutMs = 20000
+  timeoutMs = 20000,
+  externalSignal?: AbortSignal
 ): Promise<CallAIResult> {
   const models: ApiModelConfig[] = listApiModels().filter((m) => m.enabled !== false)
   if (models.length === 0) throw new Error('No enabled AI models configured. Add one in Settings.')
@@ -103,6 +104,15 @@ async function callAI(
       if (model.api_key) headers['Authorization'] = `Bearer ${model.api_key}`
       const abort = new AbortController()
       const timer = setTimeout(() => abort.abort(), timeoutMs)
+      // Honor an external abort (e.g. scan cancel) so the in-flight
+      // HTTP request tears down immediately rather than waiting the
+      // full 20s timeout. Without this, canceling a scan leaves LLM
+      // requests running server-side until the timeout.
+      const onExternalAbort = () => abort.abort()
+      if (externalSignal) {
+        if (externalSignal.aborted) abort.abort()
+        else externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+      }
       const response = await fetch(`${model.base_url}/chat/completions`, {
         method: 'POST',
         headers,
@@ -117,6 +127,7 @@ async function callAI(
         })
       })
       clearTimeout(timer)
+      if (externalSignal) externalSignal.removeEventListener('abort', onExternalAbort)
       if (response.ok) {
         const data = (await response.json()) as { choices: { message: { content: string } }[] }
         content = data.choices[0]?.message?.content ?? null
