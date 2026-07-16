@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>('profile')
   const [settings, setSettings] = useState<Settings | null>(null)
   const [models, setModels] = useState<ApiModelConfig[]>([])
+  const [dragging, setDragging] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [encryptionMode, setEncryptionMode] = useState<'sealed' | 'plaintext-fallback' | 'uninitialized' | null>(null)
@@ -398,8 +399,32 @@ export default function SettingsPage() {
     setModels((prev) => [...prev, { id: '', ...emptyModel }])
   }
 
-  function removeModel(i: number) {
-    setModels((prev) => prev.filter((_, idx) => idx !== i))
+  function moveModel(from: number, to: number) {
+    if (from === to) return
+    setModels((prev) => {
+      const next = [...prev]
+      const [m] = next.splice(from, 1)
+      next.splice(to, 0, m)
+      // Auto-save on drop / arrow click. Catch and roll back on failure
+      // so the on-screen order matches the persisted order.
+      api.saveApiModels(next).catch((err) => {
+        notify(`Failed to save model order: ${err.message}`, 'error')
+        setModels(prev)
+      })
+      return next
+    })
+  }
+
+  function handleDeleteModel(i: number) {
+    const m = models[i]
+    if (!m) return
+    const label = m.name || `Model ${i + 1}`
+    if (!confirm(`Delete ${label}? This cannot be undone.`)) return
+    const next = models.filter((_, idx) => idx !== i)
+    setModels(next)
+    api.saveApiModels(next).catch((err) => {
+      notify(`Failed to save model changes: ${err.message}`, 'error')
+    })
   }
 
   function addPreset(preset: typeof PRESETS[number]) {
@@ -585,11 +610,27 @@ export default function SettingsPage() {
 
           {models.map((model, i) => (
             <div
-              className="card"
-              style={{ marginBottom: 12, opacity: model.enabled === false ? 0.55 : 1 }}
+              className={`card ${dragging === i ? 'model-card-dragging' : ''}`}
+              style={{ marginBottom: 12, opacity: dragging === i ? 0.5 : (model.enabled === false ? 0.55 : 1) }}
               key={i}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}
+                onDragOver={(e) => {
+                  if (dragging === null) return
+                  e.preventDefault()
+                  e.currentTarget.classList.add('model-card-drop-target')
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.classList.remove('model-card-drop-target')
+                }}
+                onDrop={(e) => {
+                  e.currentTarget.classList.remove('model-card-drop-target')
+                  if (dragging === null || dragging === i) return
+                  moveModel(dragging, i)
+                  setDragging(null)
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
                     <input
@@ -604,9 +645,61 @@ export default function SettingsPage() {
                     {model.enabled === false && <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>(disabled)</span>}
                   </strong>
                 </div>
-                {models.length > 1 && (
-                  <button className="btn btn-secondary btn-sm" onClick={() => removeModel(i)}>Remove</button>
-                )}
+                <div className="model-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span
+                    className="model-drag-handle"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', String(i))
+                      e.dataTransfer.effectAllowed = 'move'
+                      setDragging(i)
+                    }}
+                    onDragEnd={() => {
+                      setDragging(null)
+                      // Clear any lingering drop-target highlights (defensive —
+                      // onDragLeave on the target usually fires first).
+                      document.querySelectorAll('.model-card-drop-target').forEach((el) => el.classList.remove('model-card-drop-target'))
+                    }}
+                    title="Drag to reorder"
+                    aria-label="Drag to reorder"
+                    role="button"
+                  >
+                    <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
+                      <circle cx="2" cy="3" r="1.2" fill="currentColor" />
+                      <circle cx="8" cy="3" r="1.2" fill="currentColor" />
+                      <circle cx="2" cy="8" r="1.2" fill="currentColor" />
+                      <circle cx="8" cy="8" r="1.2" fill="currentColor" />
+                      <circle cx="2" cy="13" r="1.2" fill="currentColor" />
+                      <circle cx="8" cy="13" r="1.2" fill="currentColor" />
+                    </svg>
+                  </span>
+                  <button
+                    className="icon-btn"
+                    onClick={() => moveModel(i, i - 1)}
+                    disabled={i === 0}
+                    title="Move model up"
+                    aria-label="Move model up"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="icon-btn"
+                    onClick={() => moveModel(i, i + 1)}
+                    disabled={i === models.length - 1}
+                    title="Move model down"
+                    aria-label="Move model down"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="icon-btn icon-btn-danger"
+                    onClick={() => handleDeleteModel(i)}
+                    title="Delete model"
+                    aria-label="Delete model"
+                  >
+                    <span aria-hidden="true">✕</span>
+                  </button>
+                </div>
               </div>
               <div className="form-row-wrap">
                 <div className="form-group">

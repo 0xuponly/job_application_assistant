@@ -976,3 +976,34 @@ input[type="checkbox"]:disabled {
   color: var(--danger);
   border-color: rgba(239, 68, 68, 0.6);
 }
+
+/* Models page: drag handle + reorder/delete visual states. The handle
+   matches .icon-btn's 20px square footprint so it lines up with the
+   up/down/delete buttons next to it. The dragging class fades the
+   source card to 50%; the drop-target class paints a 2px accent
+   top-border on the card under the cursor. */
+.model-drag-handle {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: grab;
+  user-select: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+/* Bump the per-row icon-btn footprint inside the model actions cluster
+   so the up/down/delete buttons match the 24px drag handle. */
+.model-actions .icon-btn {
+  width: 24px;
+  height: 24px;
+}
+.model-drag-handle:active { cursor: grabbing; }
+.model-drag-handle:hover { color: var(--text); border-color: var(--text-muted); }
+.model-card-dragging { opacity: 0.5; }
+.model-card-drop-target { border-top: 2px solid var(--accent); }
