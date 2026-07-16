@@ -621,7 +621,7 @@ export default function ScanJobsPage() {
 
       {result && (() => {
         // Merge duplicates from multi-location scans: sum counts per board
-        const merged = new Map<string, { board: string; found: number; added: number; skipped: number; errors: number; error?: string }>()
+        const merged = new Map<string, { board: string; found: number; added: number; skipped: number; errors: number; incompatible: number; error?: string }>()
         for (const b of result.boards) {
           const existing = merged.get(b.board)
           if (existing) {
@@ -629,6 +629,7 @@ export default function ScanJobsPage() {
             existing.added += b.added
             existing.skipped += b.skipped
             existing.errors += b.errors
+            existing.incompatible += b.incompatible
             if (b.error && !existing.error) existing.error = b.error
           } else {
             merged.set(b.board, { ...b })
