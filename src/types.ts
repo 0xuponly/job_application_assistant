@@ -124,6 +124,24 @@ export interface Settings {
   backup_last_success_at: string
   backup_last_error: string
   passphrase: string
+  adzuna_app_id: string
+  adzuna_app_key: string
+  aggregator_remotive_enabled: boolean
+  aggregator_arbeitnow_enabled: boolean
+  aggregator_jobicy_enabled: boolean
+  aggregator_himalayas_enabled: boolean
+  ats_boards: AtsBoard[]
+}
+
+export type AtsPlatform = 'greenhouse' | 'lever' | 'ashby' | 'workday' | 'smartrecruiters'
+
+export interface AtsBoard {
+  id: string
+  name: string
+  platform: AtsPlatform
+  token: string
+  enabled: boolean
+}
 }
 
 export interface DashboardStats {

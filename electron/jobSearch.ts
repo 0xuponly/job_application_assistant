@@ -9,7 +9,7 @@ import { fetchHtmlViaBrowser, isChallengePage, paginateHtmlViaBrowser } from './
 import { scoreJobFit } from './ai'
 import { scoreCompatibility } from './fitHeuristic'
 export { scoreCompatibility } from './fitHeuristic'
-import type { Job, ScanFilters, WorkType } from './types'
+import type { CreateJobInput, Job, ScanFilters, WorkType } from './types'
 
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
@@ -86,6 +86,18 @@ interface BoardConfig {
    * `''` (empty string) to signal "no more pages."
    */
   paginate?: (searchUrl: string, page: number) => string
+  /**
+   * Optional first-party API fetcher. When present, the board's
+   * listing/scrape/score flow is bypassed entirely; the fetcher
+   * returns ready-to-insert job records straight from a partner API
+   * (Adzuna, Greenhouse, Lever, etc.). The fetcher takes the user's
+   * keywords, location, and an abort signal; returns an array of
+   * `CreateJobInput` ready for `createJob`. Empty array = nothing
+   * matched (or the API key isn't configured). The location param
+   * is the same string the scrape path uses; the fetcher is
+   * responsible for adapting it to whatever the partner API expects.
+   */
+  apiFetcher?: (keywords: string, location: string, signal?: AbortSignal) => Promise<CreateJobInput[]>
 }
 
 export const BOARDS: BoardConfig[] = [

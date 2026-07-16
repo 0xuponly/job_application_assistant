@@ -227,6 +227,9 @@ export default function ScanJobsPage() {
       if (s.job_search_location && !location) {
         setLocation(s.job_search_location)
       }
+      if (s.job_search_keywords && !keywords) {
+        setKeywords(s.job_search_keywords)
+      }
     })
     return () => { cancelled = true }
   }, [])
