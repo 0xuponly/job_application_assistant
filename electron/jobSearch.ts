@@ -963,39 +963,48 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
       const firstPage = await fetchPageHtml(searchUrl, board.useBrowser)
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
       const chunks: string[] = [firstPage]
-      // Start at page 1 (the searchUrl was page 0). Loop until the
-      // driver returns '' (signaling "no more pages"), the fetch
-      // returns a short page (< 500 bytes = empty/error), the
-      // driver throws, or the user aborts. No hard cap on iteration
-      // count — the empty-page check is the natural terminator.
+      // Generic paginate driver (NH, IH, etc.). Walk pages in
+      // windows of PARALLEL_PAGINATE in parallel — each page is
+      // 1-2s and NH/IH alone can be 170+ pages, so 4-way parallel
+      // cuts wall time to ~25%. Order is preserved (we await the
+      // window in order, not the individual fetches). Stop the
+      // moment any page is short (< 500 bytes = end of listing) or
+      // any fetch throws. MAX_PAGES_PER_BOARD caps total iterations
+      // for safety; the natural terminator is the short-page check.
+      const PARALLEL_PAGINATE = 4
+      const MAX_PAGES_PER_BOARD = 80
       let lastReportedPage = 0
-      for (let p = 1; p < 10_000; p++) {
+      let stopped = false
+      for (let p = 1; p < MAX_PAGES_PER_BOARD && !stopped; p += PARALLEL_PAGINATE) {
         if (signal?.aborted) break
-        const url = board.paginate(searchUrl, p)
-        if (!url) break
-        try {
-          const html = await fetchPageHtml(url, board.useBrowser)
-          if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-          // Stop on empty page: a page with no listings means we've
-          // reached the end. This is what makes "as many pages as
-          // possible" work without a total-page count.
-          if (html.length < 500) break
-          chunks.push(html)
-          // Throttle progress reports to every 5 pages so the UI
-          // doesn't strobe. The first non-empty extra page always
-          // reports, so the user sees "page 1 of N" immediately.
-          if (p === 1 || p - lastReportedPage >= 5) {
-            progress(`Scanning ${board.name}... page ${p + 1}`)
-            lastReportedPage = p
+        const window: number[] = []
+        for (let k = 0; k < PARALLEL_PAGINATE && p + k < MAX_PAGES_PER_BOARD; k++) {
+          window.push(p + k)
+        }
+        const results = await Promise.all(window.map(async (pageNum) => {
+          if (signal?.aborted) return { pageNum, html: '' }
+          const url = board.paginate!(searchUrl, pageNum)
+          if (!url) return { pageNum, html: '' }
+          try {
+            const html = await fetchPageHtml(url, board.useBrowser)
+            return { pageNum, html }
+          } catch (err) {
+            log.warn(`${board.name} page ${url} failed:`, err)
+            return { pageNum, html: '', error: true as const }
           }
-        } catch (err) {
-          // A single page failure shouldn't kill the whole scan —
-          // log and stop. Common causes: site rate-limits mid-
-          // pagination, or page N doesn't exist (server returns a
-          // short error page that the < 500-byte check already
-          // catches, but this is a belt for unusual statuses).
-          log.warn(`${board.name} page ${url} failed:`, err)
-          break
+        }))
+        // Process the window in order so a short page in the middle
+        // stops the rest. The short page itself is the natural
+        // terminator ("we've reached the end").
+        for (const r of results) {
+          if (r.error) { stopped = true; break }
+          if (r.html === '' && board.paginate(searchUrl, r.pageNum) !== '') { stopped = true; break }
+          if (r.html.length < 500) { stopped = true; break }
+          chunks.push(r.html)
+          if (r.pageNum === 1 || r.pageNum - lastReportedPage >= 5) {
+            progress(`Scanning ${board.name}... page ${r.pageNum + 1}`)
+            lastReportedPage = r.pageNum
+          }
         }
       }
       return chunks.join('\n')
