@@ -491,7 +491,11 @@ export default function SettingsPage() {
         <>
           <div className="section-title">Your Profile</div>
           <div className="card">
-            <div className="form-row">
+            {/* All 4 fields on a single row, wrapping on narrow screens.
+                The .form-row-wrap utility (see global.css) uses flex+wrap
+                with min-width: 180px per child so a narrow window
+                reflows cleanly without input fields being crushed. */}
+            <div className="form-row-wrap">
               <div className="form-group">
                 <label>Full name</label>
                 <input value={settings.user_name} onChange={(e) => update('user_name', e.target.value)} />
@@ -500,8 +504,6 @@ export default function SettingsPage() {
                 <label>Email</label>
                 <input value={settings.user_email} onChange={(e) => update('user_email', e.target.value)} />
               </div>
-            </div>
-            <div className="form-row">
               <div className="form-group">
                 <label>Default scan keywords</label>
                 <input
