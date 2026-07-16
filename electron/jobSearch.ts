@@ -1100,36 +1100,62 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
     return br
   }
 
-  // Process boards with limited concurrency (2 at a time), for each location
-  const BOARD_CONCURRENCY = 2
+  // Process boards split into two parallel tracks: HTTP-only boards
+  // can run much wider (cheap I/O, no Chrome process) than browser
+  // boards (each opens a fresh BrowserWindow). Running them
+  // separately means a slow browser board doesn't block HTTP boards
+  // for the same location, and vice versa. The browser cap is held
+  // low because each concurrent browser session is a Chrome process
+  // (~200MB+) and macOS throttles beyond ~5-6.
+  const BOARD_CONCURRENCY_HTTP = 6
+  const BOARD_CONCURRENCY_BROWSER = 3
   const selectedBoards = filters?.boards && filters.boards.length > 0
     ? BOARDS.filter((b) => filters.boards!.includes(b.name))
     : BOARDS
+  const httpBoards = selectedBoards.filter((b) => !b.useBrowser)
+  const browserBoards = selectedBoards.filter((b) => b.useBrowser)
   // Track per-board totals across locations for health recording
   const boardTotals = new Map<string, { found: number; errored: boolean }>()
   for (const location of locations) {
     if (location) progress(`Searching in: ${location}`)
-    for (let i = 0; i < selectedBoards.length; i += BOARD_CONCURRENCY) {
-      if (signal?.aborted) {
-        result.cancelled = true
-        break
-      }
-      const chunk = selectedBoards.slice(i, i + BOARD_CONCURRENCY)
-      const results = await Promise.allSettled(chunk.map(board => processBoard(board, location)))
-      for (let j = 0; j < results.length; j++) {
-        const r = results[j]
-        const boardName = chunk[j].name
-        const totals = boardTotals.get(boardName) || { found: 0, errored: false }
-        if (r.status === 'fulfilled') {
-          totals.found += r.value.found
-          if (r.value.error) totals.errored = true
-        } else {
-          totals.errored = true
+    if (signal?.aborted) break
+
+    async function runTrack(track: BoardConfig[], concurrency: number, trackName: 'http' | 'browser') {
+      for (let i = 0; i < track.length; i += concurrency) {
+        if (signal?.aborted) break
+        const chunk = track.slice(i, i + concurrency)
+        const t0 = Date.now()
+        const results = await Promise.allSettled(chunk.map(board => processBoard(board, location)))
+        if (process.env.FLOW_JOB_SCAN_TIMING) {
+          const elapsed = Date.now() - t0
+          console.error(`[scan] track=${trackName} chunk=[${chunk.map(b => b.name).join(',')}] ms=${elapsed}`)
         }
-        boardTotals.set(boardName, totals)
+        for (let j = 0; j < results.length; j++) {
+          const r = results[j]
+          const boardName = chunk[j].name
+          const totals = boardTotals.get(boardName) || { found: 0, errored: false }
+          if (r.status === 'fulfilled') {
+            totals.found += r.value.found
+            if (r.value.error) totals.errored = true
+          } else {
+            totals.errored = true
+          }
+          boardTotals.set(boardName, totals)
+        }
       }
     }
-    if (signal?.aborted) break
+
+    // Both tracks run in parallel for the same location, so a slow
+    // browser board never gates the HTTP track (and vice versa).
+    await Promise.allSettled([
+      runTrack(httpBoards, BOARD_CONCURRENCY_HTTP, 'http'),
+      runTrack(browserBoards, BOARD_CONCURRENCY_BROWSER, 'browser')
+    ])
+
+    if (signal?.aborted) {
+      result.cancelled = true
+      break
+    }
   }
   // Record per-board health (-1 means errored with no listings)
   for (const [name, totals] of boardTotals) {
