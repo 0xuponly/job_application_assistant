@@ -404,7 +404,7 @@ export default function ScanJobsPage() {
                   setBoardsExpanded(true)
                 }}
               >
-                Deselect All
+                - All
               </button>
             )}
           </div>
