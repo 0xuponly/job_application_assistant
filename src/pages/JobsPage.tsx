@@ -925,7 +925,7 @@ export default function JobsPage() {
     // it) is visible to the user immediately rather than hidden until
     // the next refresh.
     const data = await (search ? api.searchJobs(search) : api.listJobs())
-    setJobs(applyDedupe(data))
+    setJobs(dedupeJobs(data))
     setSelectedIds(new Set())
     if (selectedJob && ids.includes(selectedJob.id)) setSelectedJob(null)
     // Surface what actually got deleted vs. what was requested so the
