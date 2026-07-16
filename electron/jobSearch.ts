@@ -275,6 +275,18 @@ export const BOARDS: BoardConfig[] = [
     // params stay pinned to the defaults so the result set stays broad.
     searchUrl: (k) => `https://www.careerhound.io/job-search/all?categories=Data+and+Analytics&countries=CA&q=${encodeURIComponent(k)}`,
     useBrowser: false
+  },
+  {
+    name: 'Northern Health',
+    // Northern Health (BC health authority) job board. URL pattern is
+    // /JobSearch/s-{keywords}-{location}-{employeeType}-{category}-{region}-{sort}-{status}-{page}-{perPage}
+    // The first segment carries the keyword (a slash `s-` prefix); the rest
+    // are filter positions. We pin the location segment to "0" (no filter)
+    // and use the keywords slot. Pagination is ASP.NET postback-driven, so
+    // only page 1 is reachable via plain fetch — `useBrowser: true` keeps
+    // the hidden BrowserWindow fallback available for sites that block us.
+    searchUrl: (k) => `https://jobs.northernhealth.ca/JobSearch/s-${encodeURIComponent(k)}-0-0-0-0-false-0-0`,
+    useBrowser: true
   }
 ]
 

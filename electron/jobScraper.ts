@@ -5,6 +5,30 @@ import { normalizeEmploymentType, normalizeWorkMode } from './employmentType'
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
+// Compact one-line snapshot of which ScrapedJob fields are populated. Used
+// for diagnostic logging — every per-site applyXxx() can call this after
+// it runs so we can see, after a failure, exactly which step populated
+// what and which step left gaps. The output truncates long strings so a
+// verbose description doesn't drown the rest of the log line.
+function logExtractedFields(stage: string, result: ScrapedJob): void {
+  const trunc = (v: string | undefined): string | undefined => {
+    if (!v) return undefined
+    const s = v.replace(/\s+/g, ' ').trim()
+    if (s.length <= 80) return s
+    return `${s.slice(0, 77)}...`
+  }
+  console.log(
+    `[scraper]   ${stage}: ` +
+    `title=${trunc(result.title) ?? '∅'} ` +
+    `company=${trunc(result.company) ?? '∅'} ` +
+    `location=${trunc(result.location) ?? '∅'} ` +
+    `descLen=${result.description?.length ?? 0} ` +
+    `salary=${trunc(result.salary_range) ?? '∅'} ` +
+    `employmentType=${trunc(result.employment_type) ?? '∅'} ` +
+    `workMode=${trunc(result.work_mode) ?? '∅'}`
+  )
+}
+
 // Hosts that are reliably Cloudflare-blocked for our headless browser.
 // For these, the browser fallback (which spins up a hidden BrowserWindow
 // and waits up to 90s for the challenge to clear) is wasted effort — the
@@ -248,6 +272,8 @@ async function fetchPageHtml(
   const combinedSignal = signal
     ? AbortSignal.any([signal, timeoutSignal])
     : timeoutSignal
+  console.log(`[scraper] fetch start ${url} (${hostname}, skipChallenge=${opts.skipChallengeCheck ?? false})`)
+  const startedAt = Date.now()
   const response = await fetch(url, {
     headers: {
       'User-Agent': USER_AGENT,
@@ -257,6 +283,12 @@ async function fetchPageHtml(
     redirect: 'follow',
     signal: combinedSignal
   })
+  const elapsedMs = Date.now() - startedAt
+  console.log(
+    `[scraper] fetch response ${url} status=${response.status} ` +
+    `finalUrl=${response.url} bytes=${response.headers.get('content-length') ?? '?'} ` +
+    `ct=${response.headers.get('content-type') ?? '?'} elapsedMs=${elapsedMs}`
+  )
 
   if (response.ok) {
     const html = await response.text()
@@ -264,12 +296,15 @@ async function fetchPageHtml(
     if (timeoutSignal.aborted) {
       // The request body was slow even though the headers arrived.
       // Treat the same as a timeout — fall through to the browser path.
+      console.log(`[scraper] fetch body timeout ${url} after ${elapsedMs}ms — falling back to browser`)
       return fetchHtmlViaBrowser(url)
     }
     if (!opts.skipChallengeCheck && isChallengePage(html)) {
       if (CF_BLOCKED_HOSTS.has(hostname)) {
+        console.log(`[scraper] challenge page detected for ${url} but ${hostname} is in CF_BLOCKED_HOSTS — refusing to fall back`)
         throw new Error('This site blocked automated access (Cloudflare). Open the job in your browser and try again later.')
       }
+      console.log(`[scraper] challenge page detected for ${url} — falling back to browser`)
       return fetchHtmlViaBrowser(url)
     }
     return html
@@ -283,8 +318,10 @@ async function fetchPageHtml(
     const body = await response.text().catch(() => '')
     if (isChallengePage(body)) {
       if (CF_BLOCKED_HOSTS.has(hostname)) {
+        console.log(`[scraper] ${response.status} body was a challenge page for ${url} but ${hostname} is in CF_BLOCKED_HOSTS — refusing to fall back`)
         throw new Error('This site blocked automated access (Cloudflare). Open the job in your browser and try again later.')
       }
+      console.log(`[scraper] ${response.status} body was a challenge page for ${url} — falling back to browser`)
       return fetchHtmlViaBrowser(url)
     }
   }
@@ -494,15 +531,18 @@ async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: stri
   } else if (source) {
     result.source = source
   }
+  logExtractedFields(`site(${result.source ?? 'unknown'})`, result)
 
   // Generic fallback for unrecognized job sites — tries common patterns
   if (!result.title || !result.company || !result.description) {
     applyGeneric(result, html, pageUrl)
   }
+  logExtractedFields('generic', result)
 
   // Always run post-processing to extract salary + metadata from raw HTML
   extractSalaryAndMetadata(result, html)
   extractPostingDateFromHtml(result, html)
+  logExtractedFields('metadata', result)
 
   // Vancouver Jobs: BC public-sector pay grades (Pay Grade RNG-, EXM-,
   // etc.) quote an hourly rate but suffix it with "per annum" —
@@ -530,6 +570,7 @@ async function extractFromHtmlImpl(html: string, hostname: string, pageUrl: stri
     result.title = cleanTitle(result.title, result.company, result.source)
   }
 
+  logExtractedFields('final', result)
   return result
 }
 

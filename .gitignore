@@ -9,3 +9,23 @@ docs/*
 
 # Claude Code hook config (local-only)
 .openclaude/
+
+# Log files (audit, scraper, hook) — could contain user URLs and job content
+*.log
+*.log.*
+logs/
+log/
+
+# Backup folders — encrypted data + key + audit trail; never commit
+flow_job_backups/
+flow_job_backup_*/
+
+# Encrypted store artifacts (in case anyone symlinks userData into the repo
+# or copies a file out for debugging; safe defaults)
+apply-assistant-data.json
+apply-assistant-data.json.*
+apply-assistant-key
+apply-assistant-key.wrapped
+kdf.json
+manifest.json
+manifest.hmac
