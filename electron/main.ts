@@ -363,7 +363,13 @@ function registerIpc(): void {
         if (_scanAbortController?.signal.aborted) return
         _scanState.progress.push(msg)
         e.sender.send('scan:progress', msg)
-      }, _scanAbortController.signal)
+      }, _scanAbortController.signal, (counters) => {
+        // Live counter snapshot, pushed per-listing. Drop after cancel
+        // for the same reason as progress — a stale snapshot that ticks
+        // up after the user cancelled is more confusing than a freeze.
+        if (_scanAbortController?.signal.aborted) return
+        e.sender.send('scan:counters', counters)
+      })
       _scanState.result = result
       markScanCompleted()
       // Notify all renderers that the scan has completed (success or cancelled)
