@@ -439,17 +439,48 @@ export default function SettingsPage() {
   if (!settings) return null
 
   return (
-    <div className="page">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1>Settings</h1>
-          <p>Configure your profile, AI integration, and data</p>
+    <div className="page settings-page">
+      <div className="settings-page-sticky">
+        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1>Settings</h1>
+            <p>Configure your profile, AI integration, and data</p>
+          </div>
+          {(tab === 'profile' || tab === 'models') && (
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : saved ? 'Saved!' : 'Save settings'}
+            </button>
+          )}
         </div>
-        {(tab === 'profile' || tab === 'models') && (
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save settings'}
-          </button>
-        )}
+
+        <div style={{ display: 'flex', gap: 4, marginTop: 16 }}>
+          {([
+            { id: 'profile', label: 'My Profile' },
+            { id: 'models', label: 'Models' },
+            { id: 'boards', label: 'Boards' },
+            { id: 'companies', label: 'Companies' },
+            { id: 'scan', label: 'Scan' },
+            { id: 'data', label: 'Data' }
+          ] as { id: Tab; label: string }[]).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="btn btn-sm"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderBottom: tab === t.id ? '2px solid var(--accent)' : '2px solid transparent',
+                color: tab === t.id ? 'var(--text)' : 'var(--text-muted)',
+                borderRadius: 0,
+                padding: '8px 16px',
+                fontWeight: tab === t.id ? 600 : 400,
+                cursor: 'pointer'
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {encryptionMode === 'plaintext-fallback' && (
@@ -458,34 +489,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
-        {([
-          { id: 'profile', label: 'My Profile' },
-          { id: 'models', label: 'Models' },
-          { id: 'boards', label: 'Boards' },
-          { id: 'companies', label: 'Companies' },
-          { id: 'scan', label: 'Scan' },
-          { id: 'data', label: 'Data' }
-        ] as { id: Tab; label: string }[]).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className="btn btn-sm"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              borderBottom: tab === t.id ? '2px solid var(--accent)' : '2px solid transparent',
-              color: tab === t.id ? 'var(--text)' : 'var(--text-muted)',
-              borderRadius: 0,
-              padding: '8px 16px',
-              fontWeight: tab === t.id ? 600 : 400,
-              cursor: 'pointer'
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* tab content follows below; unchanged from before */}
 
       {tab === 'profile' && (
         <>
