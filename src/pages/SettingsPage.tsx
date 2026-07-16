@@ -913,7 +913,7 @@ export default function SettingsPage() {
           )}
 
           <div className="section-title">Data Sources</div>
-          <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
+          <div className="card" style={{ marginBottom: 12 }}>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
               Adzuna replaces the scrape of <code>adzuna.com</code> with structured JSON.
               Get a free API key at <a href="https://developer.adzuna.com/" target="_blank" rel="noreferrer">developer.adzuna.com</a>.
