@@ -1223,7 +1223,7 @@ app.whenReady().then(() => {
     try {
       const v = db.bumpCvVersion()
       db.markFitRescored()
-      console.log(`[startup] Bumped cv_version to ${v} to force fit re-score of all jobs.`)
+      log.startup.info(`Bumped cv_version to ${v} to force fit re-score of all jobs.`)
     } catch (err) {
       console.error('[startup] CV version bump failed:', err)
     }
