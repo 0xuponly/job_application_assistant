@@ -58,7 +58,12 @@ export default function ScanJobsPage() {
   const [keywords, setKeywords] = usePersistedState<string>('scan:keywords', '')
   const [location, setLocation] = usePersistedState<string>('scan:location', '')
   const [workType, setWorkType] = usePersistedState<WorkType>('scan:workType', 'any')
-  const [allBoards, setAllBoards] = useState<{ name: string; useBrowser: boolean }[]>([])
+  // All boards + their enabled flag from the main process. `enabled`
+  // reflects the Settings > Boards toggle — disabled boards are
+  // filtered out of the picker below so the user can't select them.
+  // The main-process scan loop also drops disabled boards (defence-
+  // in-depth), so a stale persisted selection can't bypass the toggle.
+  const [allBoards, setAllBoards] = useState<{ name: string; useBrowser: boolean; enabled: boolean }[]>([])
   // Stored as a string[] in localStorage. `null` means "no saved
   // selection yet" — the boards-load effect will compute the default
   // (all minus frequent errors) and persist it. Once the user
