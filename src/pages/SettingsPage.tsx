@@ -939,7 +939,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
+          <div className="card" style={{ marginBottom: 12 }}>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
               Free public job APIs for remote work. No keys required.
             </p>
