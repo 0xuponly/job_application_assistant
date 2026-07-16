@@ -1172,8 +1172,8 @@ app.whenReady().then(() => {
     try {
       const result = db.retrofitWorkModeNormalization()
       if (result.updated > 0 || result.nulled > 0) {
-        console.log(
-          `[startup] Standardized ${result.updated} work_mode values, ` +
+        log.startup.info(
+          `Standardized ${result.updated} work_mode values, ` +
           `nulled ${result.nulled} unmappable.`
         )
       }
