@@ -511,7 +511,7 @@ export default function ScanJobsPage() {
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' }}>
             {(() => {
-              const frequentErrors = findFrequentErrorBoards(allBoards, boardHealth)
+              const frequentErrors = findFrequentErrorBoards(enabledBoards, boardHealth)
               // Hide the button entirely when no boards are flagged.
               // The flag is "5+ recent runs with no jobs found" — a
               // healthy user with no failing boards has nothing to
