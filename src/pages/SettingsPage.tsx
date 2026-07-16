@@ -1040,7 +1040,7 @@ export default function SettingsPage() {
         <>
           <div className="section-title">Data Backup</div>
 
-          <div className="card" style={{ maxWidth: 600, marginBottom: 12 }}>
+          <div className="card" style={{ marginBottom: 12 }}>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
               Choose a folder where backups of your data and encryption key are saved. Backups are passphrase-protected; the passphrase is required to restore.
             </p>
