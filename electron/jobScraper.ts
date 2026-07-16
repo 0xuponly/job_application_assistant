@@ -252,20 +252,49 @@ async function fetchPageHtml(
   const combinedSignal = signal
     ? AbortSignal.any([signal, timeoutSignal])
     : timeoutSignal
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      // Node's fetch auto-decodes gzip/deflate/br when this header
-      // is set, so the response.text() body is identical to before
-      // but transferred over the wire 5-10× smaller for typical
-      // job-board listing pages.
-      'Accept-Encoding': 'gzip, deflate, br'
-    },
-    redirect: 'follow',
-    signal: combinedSignal
-  })
+
+  // Retry on transient HTTP errors (429, 5xx) up to 2 times with
+  // 1s/3s exponential backoff. Honors Retry-After if the host
+  // sent one. The existing 30s AbortSignal.timeout is the hard
+  // upper bound — we won't retry past it. 501 (Not Implemented)
+  // is excluded because no host is going to start implementing
+  // it during our retry window.
+  const MAX_RETRIES = 2
+  const RETRY_DELAYS_MS = [1000, 3000]
+  let response: Response
+  for (let attempt = 0; ; attempt++) {
+    response = await fetch(url, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        // Node's fetch auto-decodes gzip/deflate/br when this header
+        // is set, so the response.text() body is identical to before
+        // but transferred over the wire 5-10× smaller for typical
+        // job-board listing pages.
+        'Accept-Encoding': 'gzip, deflate, br'
+      },
+      redirect: 'follow',
+      signal: combinedSignal
+    })
+    if (response.ok || signal?.aborted) break
+    const status = response.status
+    const transient = status === 429 || (status >= 500 && status !== 501)
+    if (!transient || attempt >= MAX_RETRIES) break
+    // Consume & discard the body so the connection can be reused,
+    // then back off. Honor Retry-After if present (seconds or HTTP date).
+    response.body?.cancel().catch(() => { /* ignore */ })
+    let delayMs = RETRY_DELAYS_MS[attempt]
+    const retryAfter = response.headers.get('retry-after')
+    if (retryAfter) {
+      const seconds = Number(retryAfter)
+      if (Number.isFinite(seconds) && seconds > 0) {
+        delayMs = Math.max(delayMs, seconds * 1000)
+      }
+    }
+    if (timeoutSignal.aborted) break
+    await new Promise((r) => setTimeout(r, delayMs))
+  }
 
   if (response.ok) {
     const html = await response.text()
