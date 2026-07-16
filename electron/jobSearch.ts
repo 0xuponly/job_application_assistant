@@ -1053,7 +1053,7 @@ export async function scanAllBoards(filters?: ScanFilters, onProgress?: (msg: st
           Promise.allSettled(
             batch.map(async (l) => {
               progress(`Scraping ${board.name}${location ? ` (${location})` : ''} — ${decodeEntities(l.company || l.title || l.url)}`)
-              return fetchAndScore(l.url, baseCv, seenUrls, scanSeenUrls, workType, location)
+              return fetchAndScore(l.url, baseCv, seenUrls, scanSeenUrls, workType, location, signal)
             })
           ),
           abortPromise(signal).then(() => null)
