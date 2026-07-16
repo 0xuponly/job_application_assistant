@@ -1186,6 +1186,15 @@ export async function scanAllBoards(
           console.error(`[scan] stage=api board=${board.name} jobs=${apiJobs.length} ms=${Date.now() - tApi0}`)
         }
         br.found = apiJobs.length
+        // Bump totalFound the moment we know the board's listing count —
+        // BEFORE the per-listing loop. The per-listing bumps then
+        // accumulate against an already-correct denominator, so the
+        // live "Found / Added / Skipped / Incompatible / Errors" line
+        // never shows per-listing counters exceeding Found. The
+        // end-of-board bumpFound was removed for the same reason
+        // (it would double-count and make the lag worse on long
+        // boards).
+        bumpFound(br.found)
         let added = 0
         for (const input of apiJobs) {
           if (signal?.aborted) break
@@ -1225,11 +1234,7 @@ export async function scanAllBoards(
             else { br.errors++; bump('totalErrors') }
           }
         }
-        // Aggregate per-board totals into the live counters (and push
-        // the snapshot to the renderer). The browser path does the
-        // same after its per-listing loop; the API path returns
-        // early, so this is the only chance to bump totalFound.
-        bumpFound(br.found)
+        // No trailing bumpFound here — see the comment above br.found.
         result.boards.push(br)
         return br
       }
