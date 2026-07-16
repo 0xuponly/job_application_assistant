@@ -119,7 +119,7 @@ async function finalizeWithDiagnostics(
   try {
     scraped = await extract()
   } catch (err) {
-    console.error(`[scraper] extract threw for ${url} (${hostname}, source=${source}):`, err)
+    log.error(`extract threw for ${url} (${hostname}, source=${source}):`, err)
     throw err
   }
   const missing: string[] = []
