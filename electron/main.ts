@@ -12,7 +12,7 @@ import {
   wrapDekWithPassphrase
 } from './backupCrypto'
 import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocumentContent, scoreJobFit, RateLimitError } from './ai'
-import { enforceOnePageCeilings } from '../src/cvOnePage'
+import { enforceOnePageCeilings, countPdfPages } from '../src/cvOnePage'
 import { scrapeJobFromUrl } from './jobScraper'
 import { scanAllBoards, BOARDS } from './jobSearch'
 import { createLogger } from './logger'
@@ -449,6 +449,11 @@ function registerIpc(): void {
   ipcMain.handle('documents:exportPdf', async (_e, title: string, content: string, docType?: string, company?: string, position?: string) => {
     const win = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, nodeIntegration: false } })
 
+    const SHRINK_SCALES = [1.0, 0.92, 0.85] as const
+    let bestPdf: Buffer | null = null
+    let bestPages = Infinity
+    let bestScale = 1.0
+
     function stripMarkdown(s: string): string {
       return s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1').replace(/__(.+?)__/g, '$1').replace(/_(.+?)_/g, '$1')
     }
@@ -575,7 +580,7 @@ function registerIpc(): void {
       ? `<div class="header">${headerLines.map((l, j) => j === 0 ? `<div class="name">${esc(l)}</div>` : `<div class="contact">${esc(l)}</div>`).join('\n')}</div>`
       : ''
 
-    const fullHtml = `<!DOCTYPE html>
+    const fullHtml = (scale: number) => `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><style>
   @page { margin: 0.6in 0.7in; }
@@ -592,15 +597,40 @@ function registerIpc(): void {
   .bullet::before { content: "• "; }
   .body-line { margin-bottom: 1px; }
   .spacer { height: 6px; }
+  .scale-wrapper { transform: scale(${scale}); transform-origin: top left; width: ${(100 / scale).toFixed(4)}%; }
 </style></head>
 <body>
+<div class="scale-wrapper">
 ${headerHtml}
 ${htmlBody}
+</div>
 </body>
 </html>`
-    await win.loadURL(`data:text/html;charset=utf-8,${  encodeURIComponent(fullHtml)}`)
-    const pdf = await win.webContents.printToPDF({})
+    let pdf: Buffer = Buffer.alloc(0)
+    let lastPages = 0
+    let lastScale = 1.0
+    for (const scale of SHRINK_SCALES) {
+      await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(fullHtml(scale))}`)
+      const attempt = await win.webContents.printToPDF({})
+      const pages = countPdfPages(attempt)
+      if (pages < bestPages) {
+        bestPdf = attempt
+        bestPages = pages
+        bestScale = scale
+      }
+      lastPages = pages
+      lastScale = scale
+      if (pages <= 1) break
+    }
     win.close()
+    if (bestPdf === null) {
+      // Should not happen — SHRINK_SCALES always iterates at least once.
+      throw new Error('CV render produced no PDF')
+    }
+    if (lastPages > 1) {
+      console.warn(`[cv] PDF still ${lastPages} pages after shrink-to-fit (scale ${lastScale}); saving the best attempt (${bestPages} pages, scale ${bestScale})`)
+    }
+    pdf = bestPdf
     const settings = db.getSettings()
     const userName = (settings.user_name || '').replace(/[^a-zA-Z0-9]/g, '')
     const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '')
