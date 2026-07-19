@@ -140,7 +140,6 @@ export function LocationAutocomplete({
                   e.preventDefault();
                   commitPick(m);
                 }}
-                onClick={() => commitPick(m)}
                 onMouseEnter={() => setHighlight(i)}
               >
                 <span className="location-suggestion-name">{m.name}</span>

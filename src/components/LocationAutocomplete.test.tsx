@@ -47,11 +47,11 @@ describe('LocationAutocomplete', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('clicking a suggestion accepts it', () => {
+  it('mousing down a suggestion accepts it', () => {
     const onChange = vi.fn();
     render(<LocationAutocomplete value="van" onChange={onChange} />);
     const options = screen.getAllByRole('option');
-    fireEvent.click(options[0]);
+    fireEvent.mouseDown(options[0]);
     expect(onChange).toHaveBeenCalled();
   });
 
