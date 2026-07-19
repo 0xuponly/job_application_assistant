@@ -61,6 +61,12 @@ FORMATTING RULES (must follow exactly):
 - Quantify wherever possible
 - Output plain text only
 
+ONE-PAGE RULE (overrides verbosity):
+- The output MUST fit on a single US-Letter page at 11pt Calibri with 0.6in/0.7in margins.
+- Hard ceilings: ≤ 4 Experience entries, ≤ 4 bullet points per entry, ≤ 2 Leadership entries, ≤ 6 Skills & Interests lines, Education kept to at most 4 lines (one compressed block).
+- If the candidate has more, prioritize the items most relevant to the target job and DROP the rest. Do not abbreviate, do not shrink, do not move to a second page.
+- Never pad with filler to "fill" the page — sparse is correct when the background is sparse.
+
 CRITICAL — TRUTHFULNESS (this overrides everything else):
 - Use ONLY experience, skills, education, and projects that appear in the candidate's Base CV / Background below.
 - Do NOT invent or fabricate any experience, employers, job titles, projects, technologies, degrees, courses, GPA, awards, dates, or numbers that are not in the Base CV.
@@ -519,6 +525,12 @@ CRITICAL — TRUTHFULNESS (this overrides everything else):
 - Do NOT add skills, tools, languages, or technologies the candidate did not list.
 - You MAY reword, reframe, reorder, and tighten existing entries to highlight what is most relevant to the target job. The candidate's actual accomplishments stay — they just sound as strong and as role-aligned as possible.
 - If the section content is sparse, the output should be sparse. Do not pad with generic filler.
+
+ONE-PAGE RULE (overrides verbosity):
+- The output MUST fit on a single US-Letter page at 11pt Calibri with 0.6in/0.7in margins.
+- Hard ceilings: ≤ 4 Experience entries, ≤ 4 bullet points per entry, ≤ 2 Leadership entries, ≤ 6 Skills & Interests lines, Education kept to at most 4 lines (one compressed block).
+- If the candidate has more, prioritize the items most relevant to the target job and DROP the rest. Do not abbreviate, do not shrink, do not move to a second page.
+- Never pad with filler to "fill" the page — sparse is correct when the background is sparse.
 
 Rewrite the section content to better match the target job. Keep only relevant entries. Output ONLY the section body — no header line, no markdown.`
 
