@@ -22,7 +22,10 @@ const EDUCATION_KEYS = ['education']
 const CEILINGS = {
   experienceEntries: 4,
   bulletsPerEntry: 4,
-  leadershipEntries: 2,
+  // L&A cap raised from 2 → 3: each entry is now a single line
+  // (see enforceLeadershipOneLine), so three one-line entries take
+  // comparable vertical space to the prior 2-entry multi-line format.
+  leadershipEntries: 3,
   skillsLines: 6,
   // Education content lines: 4 lines max. The spec treats each line in
   // the Education section as a single line, not a school/degree pair.
@@ -52,6 +55,7 @@ function whichKey(line: string): string | null {
 
 export interface CullOptions {
   log?: (msg: string) => void
+  max?: number
 }
 
 export function enforceOnePageCeilings(markdown: string, opts: CullOptions = {}): string {
@@ -64,8 +68,6 @@ export function enforceOnePageCeilings(markdown: string, opts: CullOptions = {})
   let expEntriesKept = 0
   let expLastWasBullet = false
   let expDroppingEntry = false
-  let leadershipEntriesKept = 0
-  let leadershipLastWasBullet = false
   let leadershipDroppingEntry = false
   let skillsLinesKept = 0
   let educationLinesKept = 0
@@ -95,7 +97,6 @@ export function enforceOnePageCeilings(markdown: string, opts: CullOptions = {})
       currentSection = whichKey(trimmed)
       expLastWasBullet = false
       expDroppingEntry = false
-      leadershipLastWasBullet = false
       leadershipDroppingEntry = false
       out.push(raw)
       continue
@@ -115,7 +116,6 @@ export function enforceOnePageCeilings(markdown: string, opts: CullOptions = {})
           droppedLeadership++
           leadershipDroppingEntry = false
         }
-        leadershipLastWasBullet = false
       }
       out.push(raw)
       continue
@@ -175,40 +175,10 @@ export function enforceOnePageCeilings(markdown: string, opts: CullOptions = {})
     }
 
     if (currentSection === 'leadership') {
-      if (leadershipDroppingEntry) {
-        const isNonBullet = !isBulletStart(trimmed)
-        const isNextEntryStart = isNonBullet && (leadershipLastWasBullet || leadershipEntriesKept === 0)
-        if (isNextEntryStart) {
-          droppedLeadership++
-          leadershipDroppingEntry = false
-        } else {
-          if (isNonBullet) {
-            leadershipLastWasBullet = false
-          } else {
-            // Bullet of the entry currently being dropped; do not re-emit.
-            leadershipLastWasBullet = true
-          }
-          continue
-        }
-      }
-
-      if (!isBulletStart(trimmed)) {
-        const isNewEntryStart = leadershipLastWasBullet || leadershipEntriesKept === 0
-        if (isNewEntryStart) {
-          if (leadershipEntriesKept >= CEILINGS.leadershipEntries) {
-            leadershipDroppingEntry = true
-            leadershipLastWasBullet = false
-            continue
-          }
-          leadershipEntriesKept++
-          leadershipLastWasBullet = false
-          out.push(raw)
-          continue
-        }
-        out.push(raw)
-        continue
-      }
-      leadershipLastWasBullet = true
+      // The L&A one-line cull is handled by enforceLeadershipOneLine,
+      // which we run as a second pass below. For the in-line ceiling
+      // pass, we just keep the section content as-is; the second pass
+      // will trim it.
       out.push(raw)
       continue
     }
@@ -248,6 +218,144 @@ export function enforceOnePageCeilings(markdown: string, opts: CullOptions = {})
   if (droppedEducation) summary.push(`education ${droppedEducation + CEILINGS.educationLines}→${CEILINGS.educationLines}`)
   if (summary.length > 0) {
     log(`cull: ${summary.join(', ')}`)
+  }
+
+  // Re-scope the L&A section to one line per entry. The first pass
+  // walked the document for section-level ceilings; this pass trims
+  // each L&A entry to its title line and caps the entry count.
+  return enforceLeadershipOneLine(out.join('\n'), opts)
+}
+
+// L&A one-line cull. Scopes to the Leadership section (any of the
+// header keys in LEADERSHIP_KEYS) and:
+//   1. Keeps only the first non-blank, non-bullet line of each entry
+//      (a "title line"). Drops sub-bullets and wrapped continuation
+//      lines that follow.
+//   2. Caps the total kept entries at `max` (default 3).
+//
+// "Entry" is delimited by a blank line or the next section header.
+// The rest of the document is passed through unchanged.
+export function enforceLeadershipOneLine(
+  markdown: string,
+  opts: CullOptions = {}
+): string {
+  const log = opts.log ?? ((msg: string) => console.info(`[cv] ${msg}`))
+  const max = opts.max ?? CEILINGS.leadershipEntries
+  const lines = markdown.split('\n')
+  const out: string[] = []
+  let currentSection: string | null = null
+  let inLeadership = false
+  let entriesKept = 0
+  let titleLineSeen = false
+  let dropping = false
+  let droppedContinuation = 0
+  let droppedEntries = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    const trimmed = raw.trim()
+    if (isHeader(trimmed)) {
+      // If we were dropping an over-cap entry, count it now.
+      if (inLeadership && dropping) {
+        droppedEntries++
+        dropping = false
+      }
+      currentSection = whichKey(trimmed)
+      inLeadership = currentSection === 'leadership'
+      titleLineSeen = false
+      out.push(raw)
+      continue
+    }
+
+    if (!inLeadership) {
+      out.push(raw)
+      continue
+    }
+
+    // Inside the L&A section.
+    if (trimmed === '') {
+      // Blank line ends the current entry.
+      if (dropping) {
+        droppedEntries++
+        dropping = false
+      }
+      titleLineSeen = false
+      out.push(raw)
+      continue
+    }
+
+    // A `*` is a bullet only when followed by whitespace, not another
+    // `*` (which would be the start of a `**bold**` title line). This
+    // matches the L&A title format: `**Title**, Org<tab>Year`.
+    const isBullet = /^([•\-]|\*\s|\d+[.)])/.test(trimmed)
+
+    if (!titleLineSeen) {
+      // We're at the start of a new entry. Title line is the first
+      // non-blank, non-bullet line. A bullet at entry start is
+      // treated as a continuation of a prior dropped entry and is
+      // dropped along with the entry.
+      if (isBullet) {
+        // A bullet at start of an entry means this is a bullet-only
+        // entry or an artifact — drop the whole entry.
+        dropping = true
+        droppedContinuation++
+        continue
+      }
+      if (entriesKept >= max) {
+        dropping = true
+        continue
+      }
+      entriesKept++
+      titleLineSeen = true
+      out.push(raw)
+      continue
+    }
+
+    // We saw the title line of an entry already. Anything that
+    // follows in the same entry (a bullet or a wrapped prose line)
+    // is dropped as a continuation.
+    //
+    // Exception: if the next non-bullet line LOOKS LIKE another
+    // title line (i.e. a bold-prefixed line), treat it as a new
+    // entry, not a continuation. The LLM may produce entries back-
+    // to-back with no blank line between them; the spec's entry
+    // delimiter is "a blank line OR the next bold-prefixed title
+    // line," not just a blank line.
+    if (!isBullet && trimmed.startsWith('**')) {
+      // New entry begins here. If we were dropping a prior over-cap
+      // entry, count it now.
+      if (dropping) {
+        droppedEntries++
+        dropping = false
+      }
+      if (entriesKept >= max) {
+        titleLineSeen = true
+        dropping = true
+        continue
+      }
+      entriesKept++
+      titleLineSeen = true
+      out.push(raw)
+      continue
+    }
+
+    // Past the title line of an entry — everything else in this
+    // entry (bullets and wrapped prose) is dropped.
+    dropping = true
+    droppedContinuation++
+  }
+
+  if (inLeadership && dropping) droppedEntries++
+
+  if (droppedEntries > 0 || droppedContinuation > 0) {
+    const parts: string[] = []
+    if (droppedEntries > 0) {
+      parts.push(`entries ${entriesKept + droppedEntries}→${entriesKept}`)
+    }
+    if (droppedContinuation > 0) {
+      parts.push(`continuation ${droppedContinuation}`)
+    }
+    log(`leadership cull: ${parts.join(', ')}`)
   }
 
   return out.join('\n')

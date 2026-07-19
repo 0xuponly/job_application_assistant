@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { enforceOnePageCeilings } from './cvOnePage'
+import { enforceOnePageCeilings, enforceLeadershipOneLine } from './cvOnePage'
 
 describe('enforceOnePageCeilings', () => {
   it('caps Experience entries to 4, keeping the first 4', () => {
@@ -24,14 +24,17 @@ describe('enforceOnePageCeilings', () => {
     expect(out).not.toMatch(/- b6/)
   })
 
-  it('caps Leadership & Activities to 2 entries', () => {
-    const entry = (n: number) => `Org ${n}\tCity, ST\nTitle ${n}\tJan 2024 – Present\n- bullet\n`
-    const md = `Name\nemail\n\nLEADERSHIP & ACTIVITIES\n${entry(1)}${entry(2)}${entry(3)}${entry(4)}\n`
+  it('caps Leadership & Activities to 3 one-line entries', () => {
+    const md = 'Name\nemail\n\nLEADERSHIP & ACTIVITIES\n' +
+      '**Org 1**, City\t2024\n' +
+      '**Org 2**, City\t2023\n' +
+      '**Org 3**, City\t2022\n' +
+      '**Org 4**, City\t2021\n'
     const out = enforceOnePageCeilings(md)
-    expect(out).toMatch(/Org 1\b/)
-    expect(out).toMatch(/Org 2\b/)
-    expect(out).not.toMatch(/Org 3\b/)
-    expect(out).not.toMatch(/Org 4\b/)
+    expect(out).toMatch(/\*\*Org 1\*\*/)
+    expect(out).toMatch(/\*\*Org 2\*\*/)
+    expect(out).toMatch(/\*\*Org 3\*\*/)
+    expect(out).not.toMatch(/\*\*Org 4\*\*/)
   })
 
   it('caps Skills & Interests lines to 6', () => {
@@ -81,6 +84,103 @@ describe('enforceOnePageCeilings', () => {
     const log = vi.fn()
     const md = `Name\nemail\n\nEDUCATION\nSchool\n`
     enforceOnePageCeilings(md, { log })
+    expect(log).not.toHaveBeenCalled()
+  })
+})
+
+describe('enforceLeadershipOneLine', () => {
+  it('keeps a one-line entry unchanged', () => {
+    const md = 'LEADERSHIP & ACTIVITIES\n**President**, UBC Coding Club\t2023 – 2024\n'
+    expect(enforceLeadershipOneLine(md)).toBe(md)
+  })
+
+  it('drops a sub-bullet that follows a one-line entry', () => {
+    const md =
+      'LEADERSHIP & ACTIVITIES\n' +
+      '**President**, UBC Coding Club\t2023 – 2024\n' +
+      '- Organized weekly hackathons\n' +
+      '- Mentored 12 first-years\n'
+    const out = enforceLeadershipOneLine(md)
+    // Output is multi-line (header + title), so use toContain rather
+    // than ^...$ which can only match a single-line string.
+    expect(out).toContain('**President**, UBC Coding Club\t2023 – 2024')
+    expect(out).not.toMatch(/hackathons/)
+    expect(out).not.toMatch(/Mentored/)
+  })
+
+  it('drops a wrapped continuation line (not a bullet) after the title', () => {
+    const md =
+      'LEADERSHIP & ACTIVITIES\n' +
+      '**President**, UBC Coding Club\t2023 – 2024\n' +
+      'A continuation of the description that wrapped.\n'
+    const out = enforceLeadershipOneLine(md)
+    expect(out).not.toMatch(/continuation/)
+  })
+
+  it('caps at 3 entries by default', () => {
+    const md =
+      'LEADERSHIP & ACTIVITIES\n' +
+      '**A**, Org A\t2024\n' +
+      '**B**, Org B\t2023\n' +
+      '**C**, Org C\t2022\n' +
+      '**D**, Org D\t2021\n'
+    const out = enforceLeadershipOneLine(md)
+    expect(out).toMatch(/Org A/)
+    expect(out).toMatch(/Org C/)
+    expect(out).not.toMatch(/Org D/)
+  })
+
+  it('respects a custom max', () => {
+    const md =
+      'LEADERSHIP & ACTIVITIES\n' +
+      '**A**, Org A\t2024\n' +
+      '**B**, Org B\t2023\n' +
+      '**C**, Org C\t2022\n'
+    const out = enforceLeadershipOneLine(md, { max: 2 })
+    expect(out).toMatch(/Org A/)
+    expect(out).toMatch(/Org B/)
+    expect(out).not.toMatch(/Org C/)
+  })
+
+  it('returns text unchanged when there is no Leadership section', () => {
+    const md = 'Name\nemail\n\nEXPERIENCE\nRole A\n- bullet\n'
+    expect(enforceLeadershipOneLine(md)).toBe(md)
+  })
+
+  it('preserves sections before and after Leadership', () => {
+    const md =
+      'Name\nemail\n\nEXPERIENCE\nRole A\n- bullet\n\n' +
+      'LEADERSHIP & ACTIVITIES\n' +
+      '**President**, UBC Coding Club\t2023 – 2024\n' +
+      '- dropped\n\n' +
+      'EDUCATION\nSchool\n'
+    const out = enforceLeadershipOneLine(md)
+    expect(out).toMatch(/EXPERIENCE/)
+    expect(out).toMatch(/EDUCATION/)
+    expect(out).toMatch(/UBC Coding Club/)
+    expect(out).not.toMatch(/dropped/)
+  })
+
+  it('emits a log when continuation lines or over-cap entries are dropped', () => {
+    const log = vi.fn()
+    const md =
+      'LEADERSHIP & ACTIVITIES\n' +
+      '**A**, Org A\t2024\n- dropped\n' +
+      '**B**, Org B\t2023\n' +
+      '**C**, Org C\t2022\n' +
+      '**D**, Org D\t2021\n'
+    enforceLeadershipOneLine(md, { log })
+    expect(log).toHaveBeenCalled()
+    expect(log.mock.calls[0][0]).toMatch(/leadership/)
+  })
+
+  it('does not log when nothing is dropped', () => {
+    const log = vi.fn()
+    const md =
+      'LEADERSHIP & ACTIVITIES\n' +
+      '**A**, Org A\t2024\n' +
+      '**B**, Org B\t2023\n'
+    enforceLeadershipOneLine(md, { log })
     expect(log).not.toHaveBeenCalled()
   })
 })
