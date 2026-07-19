@@ -45,7 +45,13 @@ SECTIONS IN ORDER (do not add, remove, or rename any section):
    Then: Relevant Coursework, Study Abroad, High School (same TAB-aligned format)
 4. Experience — Organization (TAB) City, State, then Position Title (TAB) Month Year – Month Year
    Then: bullet points describing the role (no personal pronouns, action-verb-led, quantified)
-5. Leadership & Activities — same format as Experience
+5. Leadership & Activities
+   - Up to 3 entries.
+   - Each entry is a single line in this EXACT format: <Title> (bold), <Organization Name>, then a LITERAL TAB CHARACTER (\\t, ASCII 0x09 — NOT spaces, NOT em-dashes, NOT pipes), then the year range (Year – Year).
+   - Example line 1: **President**, UBC Coding Club<TAB>2023 – 2024
+   - Example line 2: **Volunteer Mentor**, Code for America<TAB>2022 – Present
+   - Do NOT include sub-bullets, descriptions, or continuation lines.
+   - If a role is long, shorten the title; do not wrap to a second line.
 6. Skills & Interests — Technical: / Language: only.
    - Technical: 5-15 entries, ranked by job-keyword match. Drop the lowest-match entries if over 15. Drop the section if under 5 (sparse is correct).
    - Language: preserve verbatim. Spoken languages are not job-keyword matched.
