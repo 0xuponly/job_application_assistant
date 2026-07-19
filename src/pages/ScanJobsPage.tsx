@@ -456,7 +456,7 @@ export default function ScanJobsPage() {
         <p>Search job boards for postings matching your profile</p>
       </div>
 
-      <div className="card" style={{ maxWidth: 800 }}>
+      <div className="card">
         <div className="form-row">
           <div className="form-group">
             <label>Keywords</label>
