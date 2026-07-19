@@ -1262,7 +1262,7 @@ export async function scanAllBoards(
    *     stop; this loop breaks on empty page or signal abort.
    *   - Default: single fetch, same as before.
    */
-  async function fetchBoardListingsHtml(searchUrl: string, board: BoardConfig): Promise<string> {
+  async function fetchBoardListingsHtml(searchUrl: string, board: BoardConfig, signal?: AbortSignal): Promise<string> {
     if (board.name === 'WorkBC') {
       // WorkBC's search-results page is `/find-job/search-jobs#/job-search;...`.
       // The hash carries `q`, `city`, and `page`. Build the hashes for pages
@@ -1280,7 +1280,7 @@ export async function scanAllBoards(
     }
 
     if (board.paginate) {
-      const firstPage = await fetchPageHtml(searchUrl, board.useBrowser)
+      const firstPage = await fetchPageHtml(searchUrl, board.useBrowser, signal)
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
       const chunks: string[] = [firstPage]
       // Generic paginate driver (NH, IH, etc.). Walk pages in
@@ -1310,7 +1310,7 @@ export async function scanAllBoards(
           const url = board.paginate!(searchUrl, pageNum)
           if (!url) return { pageNum, html: '' }
           try {
-            const html = await fetchPageHtml(url, board.useBrowser)
+            const html = await fetchPageHtml(url, board.useBrowser, signal)
             return { pageNum, html }
           } catch (err) {
             log.warn(`${board.name} page ${url} failed:`, err)
@@ -1334,7 +1334,7 @@ export async function scanAllBoards(
       return chunks.join('\n')
     }
 
-    return fetchPageHtml(searchUrl, board.useBrowser)
+    return fetchPageHtml(searchUrl, board.useBrowser, signal)
   }
 
   async function processBoard(board: BoardConfig, location: string): Promise<ScanBoardResult> {
