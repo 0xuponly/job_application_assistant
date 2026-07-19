@@ -202,3 +202,52 @@ export function runDocumentRuleChecks(args: {
 
   return [onePageCheck, paragraphCheck, skillsCheck, coverageCheck]
 }
+
+export interface SelectSkillsArgs {
+  values: string[]
+  keywords: string[]
+  min?: number
+  max?: number
+}
+
+export interface SelectSkillsResult {
+  kept: string[]
+  dropped: string[]
+}
+
+export function selectTechnicalSkills(args: SelectSkillsArgs): SelectSkillsResult {
+  const min = args.min ?? 5
+  const max = args.max ?? 15
+  const values = args.values
+  // Deduplicate case-insensitively before any other check. The spec requires
+  // dedup to run always (not only when over the cap), and the deduped list
+  // is the basis for every subsequent decision.
+  const seen = new Set<string>()
+  const deduped: string[] = []
+  for (const v of values) {
+    const key = v.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(v)
+  }
+  if (deduped.length <= max || deduped.length < min) {
+    return { kept: deduped, dropped: [] }
+  }
+  // Score: number of keywords that match (case-insensitive word boundary).
+  const score = (v: string): number => {
+    const lower = v.toLowerCase()
+    let n = 0
+    for (const kw of args.keywords) {
+      const re = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+      if (re.test(lower)) n++
+    }
+    return n
+  }
+  const indexed = deduped.map((v, i) => ({ v, i, s: score(v) }))
+  // Sort by score desc, then by original index (stable tiebreak).
+  indexed.sort((a, b) => b.s - a.s || a.i - b.i)
+  const top = indexed.slice(0, max).map((x) => x.v)
+  const droppedSet = new Set(indexed.slice(max).map((x) => x.v))
+  const dropped = deduped.filter((v) => droppedSet.has(v))
+  return { kept: top, dropped }
+}

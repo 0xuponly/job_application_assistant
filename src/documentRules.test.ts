@@ -6,7 +6,8 @@ import {
   coverageFor,
   missingKeywords,
   skillCount,
-  runDocumentRuleChecks
+  runDocumentRuleChecks,
+  selectTechnicalSkills
 } from './documentRules'
 
 describe('paragraphCount', () => {
@@ -200,5 +201,62 @@ describe('runDocumentRuleChecks', () => {
     expect(clOne.detail).toMatch(/estimated/i)
     expect(cvOne.passed).toBe(true)
     expect(clOne.passed).toBe(true)
+  })
+})
+
+describe('selectTechnicalSkills', () => {
+  it('returns all values when under the cap', () => {
+    const r = selectTechnicalSkills({ values: ['React', 'TypeScript'], keywords: ['react'] })
+    expect(r.kept).toEqual(['React', 'TypeScript'])
+    expect(r.dropped).toEqual([])
+  })
+  it('returns all values when between min and max', () => {
+    const values = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    const r = selectTechnicalSkills({ values, keywords: [] })
+    expect(r.kept).toEqual(values)
+    expect(r.dropped).toEqual([])
+  })
+  it('returns all values when at the cap exactly', () => {
+    const values = Array.from({ length: 15 }, (_, i) => `s${i}`)
+    const r = selectTechnicalSkills({ values, keywords: [] })
+    expect(r.kept).toHaveLength(15)
+    expect(r.dropped).toEqual([])
+  })
+  it('keeps top 15 by keyword match when over the cap', () => {
+    const values = ['Python', 'React', 'Java', 'Go', 'Rust', 'Ruby', 'PHP', 'C++', 'Scala', 'Elixir', 'Clojure', 'Haskell', 'Swift', 'Kotlin', 'Dart', 'Lua', 'Perl', 'R', 'MATLAB', 'Groovy']
+    const keywords = ['react', 'python', 'rust', 'go', 'kotlin']
+    const r = selectTechnicalSkills({ values, keywords })
+    expect(r.kept).toHaveLength(15)
+    // All 5 keyword-matched values must be in kept (ranking check).
+    expect(r.kept).toEqual(expect.arrayContaining(['Python', 'React', 'Go', 'Rust', 'Kotlin']))
+    // 5 dropped
+    expect(r.dropped).toHaveLength(5)
+  })
+  it('deduplicates case-insensitively before scoring', () => {
+    const values = ['React', 'react', 'REACT', 'TypeScript']
+    const r = selectTechnicalSkills({ values, keywords: ['react'] })
+    expect(r.kept).toEqual(['React', 'TypeScript'])
+  })
+  it('uses stable original order for ties (empty keywords)', () => {
+    const values = ['c', 'a', 'b']
+    const r = selectTechnicalSkills({ values, keywords: [] })
+    expect(r.kept).toEqual(['c', 'a', 'b'])
+  })
+  it('respects a custom min', () => {
+    // values.length < min → keep all (sparse is correct)
+    const r = selectTechnicalSkills({ values: ['a', 'b'], keywords: [], min: 5, max: 15 })
+    expect(r.kept).toEqual(['a', 'b'])
+    expect(r.dropped).toEqual([])
+  })
+  it('respects a custom max', () => {
+    const values = ['a', 'b', 'c', 'd', 'e']
+    const r = selectTechnicalSkills({ values, keywords: [], min: 1, max: 3 })
+    expect(r.kept).toEqual(['a', 'b', 'c'])
+    expect(r.dropped).toEqual(['d', 'e'])
+  })
+  it('handles empty values', () => {
+    const r = selectTechnicalSkills({ values: [], keywords: ['react'] })
+    expect(r.kept).toEqual([])
+    expect(r.dropped).toEqual([])
   })
 })
