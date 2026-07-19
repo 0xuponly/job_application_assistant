@@ -79,8 +79,26 @@ export interface Document {
  *             skip as a verification_score, and MUST NOT feed it into the
  *             "regenerate until passed" loop.
  */
+export type RuleName = 'one_page' | 'paragraph_count' | 'skills_count' | 'keyword_coverage'
+
+export interface RuleCheck {
+  rule: RuleName
+  passed: boolean
+  detail: string
+}
+
 export type VerificationResult =
-  | { kind: 'review'; score: number; passed: boolean; feedback: string }
+  | {
+      kind: 'review'
+      score: number
+      passed: boolean
+      feedback: string
+      // Per-rule summary from runDocumentRuleChecks. Persisted as a JSON
+      // suffix inside the existing `feedback` text column so no schema
+      // change is needed; a follow-up can promote this to a dedicated
+      // column. Present on 'review' kind only.
+      rules: RuleCheck[]
+    }
   | { kind: 'skip'; reason: 'deleted' | 'parse_failed' | 'no_ai_response'; feedback: string }
 
 export interface Application {
