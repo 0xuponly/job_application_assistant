@@ -7,7 +7,8 @@ import {
   missingKeywords,
   skillCount,
   runDocumentRuleChecks,
-  selectTechnicalSkills
+  selectTechnicalSkills,
+  enforceSkillsCeilings
 } from './documentRules'
 
 describe('paragraphCount', () => {
@@ -258,5 +259,67 @@ describe('selectTechnicalSkills', () => {
     const r = selectTechnicalSkills({ values: [], keywords: ['react'] })
     expect(r.kept).toEqual([])
     expect(r.dropped).toEqual([])
+  })
+})
+
+describe('enforceSkillsCeilings', () => {
+  it('returns markdown unchanged when there is no Skills section', () => {
+    const md = 'Name\nemail@example.com\n\nEXPERIENCE\nRole A\n- bullet\n'
+    expect(enforceSkillsCeilings(md, 'React TypeScript Node')).toBe(md)
+  })
+  it('preserves the Language label verbatim', () => {
+    const md = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: a, b, c, d, e, f\nLanguage: English, French\nLaboratory: pcr, western blot\n'
+    const out = enforceSkillsCeilings(md, 'react typescript')
+    expect(out).toMatch(/Language: English, French/)
+  })
+  it('drops Laboratory, Interests, and other non-Technical/Language labels', () => {
+    const md = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: React, TypeScript\nLanguage: English\nLaboratory: pcr\nInterests: hiking\n'
+    const out = enforceSkillsCeilings(md, 'react')
+    expect(out).not.toMatch(/Laboratory/)
+    expect(out).not.toMatch(/Interests/)
+    expect(out).not.toMatch(/pcr/)
+    expect(out).not.toMatch(/hiking/)
+  })
+  it('caps Technical at 15 by keyword match', () => {
+    const tech = Array.from({ length: 20 }, (_, i) => `skill${i}`).join(', ')
+    const md = `Name\nemail\n\nSKILLS & INTERESTS\nTechnical: ${tech}\nLanguage: English\n`
+    const out = enforceSkillsCeilings(md, 'skill0 skill1 skill2')
+    const techLine = out.split('\n').find((l) => l.startsWith('Technical:'))!
+    const kept = techLine.replace('Technical:', '').split(',').map((s) => s.trim())
+    expect(kept).toHaveLength(15)
+  })
+  it('keeps all Technical values when under the cap', () => {
+    const md = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: React, TypeScript, Node\nLanguage: English\n'
+    const out = enforceSkillsCeilings(md, 'react typescript node')
+    expect(out).toMatch(/Technical: React, TypeScript, Node/)
+  })
+  it('preserves the Skills section header and its position', () => {
+    const md = 'Name\nemail\n\nEXPERIENCE\nRole A\n- bullet\n\nSKILLS & INTERESTS\nTechnical: React\nLanguage: English\n\nEDUCATION\nSchool\n'
+    const out = enforceSkillsCeilings(md, 'react')
+    const skillsIdx = out.indexOf('SKILLS & INTERESTS')
+    const expIdx = out.indexOf('EXPERIENCE')
+    const eduIdx = out.indexOf('EDUCATION')
+    expect(skillsIdx).toBeGreaterThan(expIdx)
+    expect(skillsIdx).toBeLessThan(eduIdx)
+  })
+  it('emits a log when culling occurs', () => {
+    const log = vi.fn()
+    const tech = Array.from({ length: 20 }, (_, i) => `s${i}`).join(', ')
+    const md = `Name\nemail\n\nSKILLS & INTERESTS\nTechnical: ${tech}\nLaboratory: pcr\n`
+    enforceSkillsCeilings(md, 's0 s1', { log })
+    expect(log).toHaveBeenCalled()
+    expect(log.mock.calls[0][0]).toMatch(/skills cull/)
+  })
+  it('does not log when nothing is culled', () => {
+    const log = vi.fn()
+    const md = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: React\nLanguage: English\n'
+    enforceSkillsCeilings(md, 'react', { log })
+    expect(log).not.toHaveBeenCalled()
+  })
+  it('emits no Technical line if the original had no Technical label', () => {
+    const md = 'Name\nemail\n\nSKILLS & INTERESTS\nLanguage: English\n'
+    const out = enforceSkillsCeilings(md, 'react')
+    expect(out).not.toMatch(/Technical:/)
+    expect(out).toMatch(/Language: English/)
   })
 })

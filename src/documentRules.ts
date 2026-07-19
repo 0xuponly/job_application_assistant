@@ -251,3 +251,87 @@ export function selectTechnicalSkills(args: SelectSkillsArgs): SelectSkillsResul
   const dropped = deduped.filter((v) => droppedSet.has(v))
   return { kept: top, dropped }
 }
+
+export interface EnforceSkillsOpts {
+  log?: (msg: string) => void
+}
+
+export function enforceSkillsCeilings(
+  markdown: string,
+  jobDescription: string,
+  opts: EnforceSkillsOpts = {}
+): string {
+  const log = opts.log ?? ((m: string) => console.info(`[doc] ${m}`))
+  const lines = markdown.split('\n')
+  let inSkills = false
+  const output: string[] = []
+  let skillsHeaderSeen = false
+  let technicalOriginalCount = 0
+  let technicalKeptCount = 0
+  let droppedOtherLabels = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    const t = raw.trim()
+    if (isHeaderLine(t)) {
+      if (isSkillsHeader(t)) {
+        inSkills = true
+        skillsHeaderSeen = true
+        output.push(raw)
+        continue
+      }
+      if (inSkills) {
+        inSkills = false
+      }
+      output.push(raw)
+      continue
+    }
+    if (!inSkills) {
+      output.push(raw)
+      continue
+    }
+    if (!t) {
+      output.push(raw)
+      continue
+    }
+    const colon = t.indexOf(':')
+    if (colon === -1) {
+      output.push(raw)
+      continue
+    }
+    const label = t.slice(0, colon).trim().toLowerCase()
+    const valueText = t.slice(colon + 1).trim()
+    if (label === 'technical') {
+      const values = valueText
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean)
+      technicalOriginalCount = values.length
+      const keywords = extractJobKeywords(jobDescription)
+      const { kept, dropped } = selectTechnicalSkills({ values, keywords })
+      technicalKeptCount = kept.length
+      output.push(`Technical: ${kept.join(', ')}`)
+      // dropped is logged below; values are intentionally not re-emitted.
+      void dropped
+    } else if (label === 'language') {
+      output.push(raw) // preserve verbatim
+    } else {
+      // Drop Laboratory, Interests, etc.
+      droppedOtherLabels++
+    }
+  }
+
+  const totalDropped = technicalOriginalCount - technicalKeptCount
+  if (totalDropped > 0 || droppedOtherLabels > 0) {
+    const parts: string[] = []
+    if (totalDropped > 0) {
+      parts.push(`technical ${technicalOriginalCount}→${technicalKeptCount}`)
+    }
+    if (droppedOtherLabels > 0) {
+      parts.push(`dropped ${droppedOtherLabels} other label${droppedOtherLabels === 1 ? '' : 's'}`)
+    }
+    log(`skills cull: ${parts.join(', ')}`)
+  }
+  void skillsHeaderSeen
+  return output.join('\n')
+}
