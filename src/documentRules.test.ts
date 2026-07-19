@@ -132,9 +132,13 @@ describe('skillCount', () => {
   it('returns 0 for a document with no Skills section', () => {
     expect(skillCount('Name\nemail\n\nExperience\nRole A\n')).toBe(0)
   })
-  it('counts skills across all labels in the Skills section', () => {
-    const md = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: a, b, c\nLanguage: x, y\nInterests: foo, bar\n'
-    expect(skillCount(md)).toBe(7)
+  it('counts only Technical values, ignoring other labels', () => {
+    const md = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: a, b, c, d, e\nLanguage: x, y\nInterests: foo, bar\nLaboratory: pcr\n'
+    expect(skillCount(md)).toBe(5)
+  })
+  it('returns 0 when the Skills section has no Technical label', () => {
+    const md = 'Name\nemail\n\nSKILLS & INTERESTS\nLanguage: English\nInterests: hiking\n'
+    expect(skillCount(md)).toBe(0)
   })
   it('stops counting at the next section', () => {
     const md = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: a, b\n\nEXPERIENCE\nRole A\n- bullet\n- bullet\n'

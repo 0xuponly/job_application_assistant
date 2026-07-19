@@ -139,9 +139,13 @@ export function skillCount(markdown: string): number {
     }
     if (!inSkills) continue
     if (!t) continue
-    // Skills lines are "Label: value, value, value"
+    // Skills lines are "Label: value, value, value". The rule is
+    // "5-15 Technical skills" — count only Technical, not Language,
+    // Laboratory, Interests, or any other label.
     const colon = t.indexOf(':')
     if (colon === -1) continue
+    const label = t.slice(0, colon).trim().toLowerCase()
+    if (label !== 'technical') continue
     const values = t.slice(colon + 1).split(',').map((v) => v.trim()).filter(Boolean)
     count += values.length
   }
