@@ -46,7 +46,10 @@ SECTIONS IN ORDER (do not add, remove, or rename any section):
 4. Experience — Organization (TAB) City, State, then Position Title (TAB) Month Year – Month Year
    Then: bullet points describing the role (no personal pronouns, action-verb-led, quantified)
 5. Leadership & Activities — same format as Experience
-6. Skills & Interests — Technical: / Language: / Laboratory: / Interests: (label: comma-separated values, no bullets)
+6. Skills & Interests — Technical: / Language: only.
+   - Technical: 5-15 entries, ranked by job-keyword match. Drop the lowest-match entries if over 15. Drop the section if under 5 (sparse is correct).
+   - Language: preserve verbatim. Spoken languages are not job-keyword matched.
+   - Drop Laboratory, Interests, and any other label.
 
 FORMATTING RULES (must follow exactly):
 - Section headers on their own line, centered, bold
@@ -530,7 +533,11 @@ ${await loadHarvardTemplate()}
 
 Formatting rules:
 ${NO_BULLET_SECTIONS.has(sectionNameLower)
-  ? '- Each line is a label: comma-separated values (no bullets)'
+  ? `- Each line is a label: comma-separated values (no bullets)
+- Output Technical and Language labels only
+- Technical: 5-15 entries, ranked by job-keyword match. Drop the lowest-match entries if over 15. Drop the section if under 5 (sparse is correct).
+- Language: preserve verbatim. Spoken languages are not job-keyword matched.
+- Drop Laboratory, Interests, and any other label`
   : `- Entries use TAB between organization/school name (left) and location (right)
 - Role/Title on next line with TAB between title (left) and dates (right)
 - Bullet points in XYZ format: "Accomplished [X] as measured by [Y], by doing [Z]."
