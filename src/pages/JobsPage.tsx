@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import Modal from '../components/Modal'
+import { LocationAutocomplete } from '../components/LocationAutocomplete'
 import { notify } from '../components/Notifications'
 import type { CreateJobInput, Document, Job } from '../types'
 
@@ -1766,7 +1767,11 @@ export default function JobsPage() {
         <div className="form-row">
           <div className="form-group">
             <label>Location</label>
-            <input value={form.location ?? ''} onChange={(e) => updateField('location', e.target.value)} />
+            <LocationAutocomplete
+              value={form.location ?? ''}
+              onChange={(v) => updateField('location', v)}
+              placeholder="Location"
+            />
           </div>
           <div className="form-group">
             <label>Salary range</label>
