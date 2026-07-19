@@ -1007,3 +1007,66 @@ input[type="checkbox"]:disabled {
 .model-drag-handle:hover { color: var(--text); border-color: var(--text-muted); }
 .model-card-dragging { opacity: 0.5; }
 .model-card-drop-target { border-top: 2px solid var(--accent); }
+
+/* Location autocomplete. The combobox wrapper sits in the page's
+   normal flow; the suggestion list is absolutely positioned beneath
+   the input and full-width to the input. */
+
+.location-autocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.location-autocomplete input {
+  width: 100%;
+  font-size: 16px;
+}
+
+.location-suggestion-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.location-suggestion {
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.location-suggestion:hover,
+.location-suggestion--active {
+  background: var(--bg-hover);
+}
+
+.location-suggestion-name {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.location-suggestion-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.location-suggestion-empty {
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
