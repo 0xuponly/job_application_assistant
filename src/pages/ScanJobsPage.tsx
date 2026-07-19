@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { LocationAutocomplete } from '../components/LocationAutocomplete'
 import type { ScanResult, WorkType } from '../types'
 import { BOARD_TYPES } from '../boardTypes'
 import { usePersistedState } from '../persistedState'
@@ -467,9 +468,10 @@ export default function ScanJobsPage() {
           </div>
           <div className="form-group">
             <label>Location</label>
-            <input
+            <LocationAutocomplete
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
+              onChange={setLocation}
+              multiSegment
               placeholder="e.g. London, Paris, Remote (separate with commas)"
             />
           </div>
