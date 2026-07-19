@@ -36,7 +36,7 @@ export function LocationAutocomplete({
     return { prefix: value.slice(0, idx + 2), currentSegment: value.slice(idx + 2) };
   }, [value, multiSegment]);
 
-  const [open, setOpen] = useState(currentSegment.trim().length > 0);
+  const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
 
   const matches = useMemo(() => {

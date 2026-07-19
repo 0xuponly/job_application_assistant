@@ -14,8 +14,22 @@ describe('LocationAutocomplete', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
   });
 
-  it('shows the suggestion list once the user types', () => {
+  it('does not show the suggestion list on mount, even with non-empty value', () => {
     render(<LocationAutocomplete value="van" onChange={() => {}} />);
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('opens the suggestion list when the input is focused', () => {
+    render(<LocationAutocomplete value="van" onChange={() => {}} />);
+    fireEvent.focus(screen.getByRole('combobox'));
+    expect(screen.getByRole('listbox')).toBeTruthy();
+  });
+
+  it('opens the suggestion list when the user types', () => {
+    const onChange = vi.fn();
+    render(<LocationAutocomplete value="va" onChange={onChange} />);
+    fireEvent.focus(screen.getByRole('combobox'));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'van' } });
     expect(screen.getByRole('listbox')).toBeTruthy();
   });
 
@@ -50,6 +64,7 @@ describe('LocationAutocomplete', () => {
   it('mousing down a suggestion accepts it', () => {
     const onChange = vi.fn();
     render(<LocationAutocomplete value="van" onChange={onChange} />);
+    fireEvent.focus(screen.getByRole('combobox'));
     const options = screen.getAllByRole('option');
     fireEvent.mouseDown(options[0]);
     expect(onChange).toHaveBeenCalled();
@@ -67,8 +82,9 @@ describe('LocationAutocomplete', () => {
     expect(lastCall).not.toBe('Paris, ');
   });
 
-  it('shows an empty state when no matches exist', () => {
+  it('shows an empty state when no matches exist after focus', () => {
     render(<LocationAutocomplete value="xyzzzz" onChange={() => {}} />);
+    fireEvent.focus(screen.getByRole('combobox'));
     expect(screen.getByText(/no matches/i)).toBeTruthy();
   });
 });
