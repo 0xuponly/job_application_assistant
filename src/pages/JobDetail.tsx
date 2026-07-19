@@ -283,8 +283,9 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
 
   async function handleTailor(type: 'cv' | 'cover_letter') {
     setTailoring(type)
+    const topKeywords = extractJobKeywords(job.description ?? '').slice(0, 10)
     try {
-      const result = await api.tailorDocument({ job_id: job.id, document_type: type })
+      const result = await api.tailorDocument({ job_id: job.id, document_type: type, topKeywords })
       if (result && typeof result === 'object' && 'queued' in result) {
         notify('AI is rate-limited — generation added to queue. Will retry automatically.', 'info')
         return
