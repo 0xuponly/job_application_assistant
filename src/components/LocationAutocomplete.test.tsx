@@ -1,0 +1,74 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { LocationAutocomplete } from './LocationAutocomplete';
+
+describe('LocationAutocomplete', () => {
+  it('renders an input with the supplied value', () => {
+    render(<LocationAutocomplete value="van" onChange={() => {}} />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    expect(input.value).toBe('van');
+  });
+
+  it('does not show the suggestion list when input is empty', () => {
+    render(<LocationAutocomplete value="" onChange={() => {}} />);
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('shows the suggestion list once the user types', () => {
+    render(<LocationAutocomplete value="van" onChange={() => {}} />);
+    expect(screen.getByRole('listbox')).toBeTruthy();
+  });
+
+  it('fires onChange on every keystroke', () => {
+    const onChange = vi.fn();
+    render(<LocationAutocomplete value="" onChange={onChange} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'van' } });
+    expect(onChange).toHaveBeenCalledWith('van');
+  });
+
+  it('ArrowDown highlights the first suggestion, Enter accepts it', () => {
+    const onChange = vi.fn();
+    render(<LocationAutocomplete value="van" onChange={onChange} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    // onChange should be called with a non-empty hierarchical string.
+    expect(onChange).toHaveBeenCalled();
+    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0] as string;
+    expect(lastCall.length).toBeGreaterThan(0);
+  });
+
+  it('Escape closes the dropdown but preserves the typed value', () => {
+    const onChange = vi.fn();
+    render(<LocationAutocomplete value="van" onChange={onChange} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('clicking a suggestion accepts it', () => {
+    const onChange = vi.fn();
+    render(<LocationAutocomplete value="van" onChange={onChange} />);
+    const options = screen.getAllByRole('option');
+    fireEvent.click(options[0]);
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('multiSegment mode only replaces the last comma-separated segment', () => {
+    const onChange = vi.fn();
+    render(<LocationAutocomplete value="Paris, van" onChange={onChange} multiSegment />);
+    const input = screen.getByRole('combobox');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0] as string;
+    // "Paris, " prefix preserved, segment replaced.
+    expect(lastCall.startsWith('Paris, ')).toBe(true);
+    expect(lastCall).not.toBe('Paris, ');
+  });
+
+  it('shows an empty state when no matches exist', () => {
+    render(<LocationAutocomplete value="xyzzzz" onChange={() => {}} />);
+    expect(screen.getByText(/no matches/i)).toBeTruthy();
+  });
+});
