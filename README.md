@@ -133,11 +133,25 @@ notes. The list defaults to upcoming only; toggle to show past.
   (skills overlap, years-of-experience match, education-level match)
   run when every model fails. Each call has a default 0.5-second
   timeout and a single retry.
+- **Boards** — per-board and per-category on/off toggles, Adzuna API
+  keys, free aggregator toggles, and per-ATS CRUD for boards that
+  support a custom feed. Disabled boards are filtered out of the
+  Scan page picker and skipped at scan time. Toggles auto-save on
+  change; no Save button.
 - **Encryption status** — current `sealed` (keyring) / `plaintext-fallback`
   / `uninitialized` mode.
 - **Auto-scan** — enable / disable and interval in minutes.
 - **Data** — export to JSON, clear all data, clear the dedup history
-  (re-add a job that was previously skipped).
+  (re-add a job that was previously skipped), and configure encrypted
+  backups. Backups write the full store, a passphrase-wrapped DEK, a
+  KDF parameter file, and a signed manifest to a folder of your choice
+  (the picker warns when the path is inside iCloud Drive, Dropbox,
+  Google Drive, OneDrive, Box, or pCloud). An append-only audit log
+  records backup / restore events. Auto-backup on quit is enabled
+  only after a passphrase is set; the passphrase itself is stored in
+  the encrypted store so it survives restarts. Restore previews show
+  manifest metadata (date, schema version, encryption mode, signed
+  flag) without decrypting.
 
 ## AI / LLM integration
 
@@ -164,16 +178,34 @@ plumbing.
 
 ## Job board scanning
 
-`electron/jobSearch.ts` ships with a hard-coded list of ~40 boards across
+`electron/jobSearch.ts` ships with a hard-coded list of ~50 boards across
 four buckets: general (LinkedIn, Indeed, Monster, ZipRecruiter, SimplyHired,
-Adzuna, Talent.com, Jora), remote (Remote OK, We Work Remotely, Remotive,
-Remote.co, Working Nomads, JustRemote), Canadian (Job Bank, Eluta.ca,
-Workopolis, Jobboom, WorkBC, CareerBeacon, Vancouver Jobs, Built In
-Vancouver/Toronto, UToronto), and startup / crypto / niche (Wellfound, Y
-Combinator, Built In, Selby Jennings, Braintrust, Google Careers, CareerHound,
-Idealist, CharityVillage, CVCA, Top Startups, Rocketships, plus a Crypto
-section: Crypto Careers, Cryptorecruit, Remote3, Cryptocurrency Jobs,
-CryptoJobsList, cryptojobs.com, Crypto.jobs, Web3.career, Startup.jobs).
+Adzuna, Talent.com, Jora), remote (Remote OK, We Work Remotely, Remotive
+(plus a Remotive (API) variant), Remote.co, Working Nomads, JustRemote,
+Himalayas (API), Hiring Cafe, Sprout, Contra, SkipTheDrive, Jobspresso,
+Dynamite Jobs, DailyRemote, NoDesk, Remote100k), Canadian (Job Bank,
+Eluta.ca, Workopolis, Jobboom, WorkBC, CareerBeacon, Vancouver Jobs, Built
+In Vancouver/Toronto, UToronto), and startup / crypto / niche (Wellfound,
+Y Combinator, Built In, Selby Jennings, Braintrust, Google Careers,
+CareerHound, Idealist, CharityVillage, CVCA, Top Startups, Rocketships,
+Arc, plus a Crypto section: Crypto Careers, Cryptorecruit, Remote3,
+Cryptocurrency Jobs, CryptoJobsList, cryptojobs.com, Crypto.jobs,
+Web3.career, Startup.jobs).
+
+A board can be wired through one of three listing sources:
+
+- **Search page** — the board exposes a keyword-driven results page; the
+  scraper walks paginated search hits and extracts per-job URLs.
+- **Sitemap** — the board's `robots.txt` advertises a `Sitemap:` directive
+  whose `<loc>` entries are per-job URLs. Used for SPA-rendered boards
+  whose search page returns no static HTML. Three current boards
+  (DailyRemote, NoDesk, Remote100k) use this path.
+- **API** — a few sources (Remotive, Himalayas, Adzuna) expose a stable
+  JSON feed that the scraper hits directly.
+
+Individual boards can be toggled off in **Settings → Boards**; boards
+that have produced 5 or more consecutive zero-result scans are hidden
+from the Scan page picker behind a 👁/🙈 icon toggle.
 
 Each board has a per-board scraper (`scrapeBoard`) that knows the URL
 shape, the listing-card selector, and any hash-routing quirks
@@ -255,21 +287,37 @@ electron/                 Main process + scraping + DB
   preload.ts              `window.api` surface
   database.ts             Store, migrations, CRUD
   secureStore.ts          DEK / AES-GCM helpers
+  backupCrypto.ts         Passphrase-wrapped backups + signed manifests
   ai.ts                   Multi-model LLM client + queue types
   aiQueue.ts              Rate-limit retry queue
   autoScan.ts             Background scan scheduler
+  aggregatorApis.ts       Adzuna + other free-aggregator drivers
+  atsAdapter.ts           Per-ATS scraper adapters
+  govApis.ts              Government job-board adapters (Job Bank, etc.)
+  rssFetcher.ts           RSS / Atom listing sources
   jobSearch.ts            Board definitions + per-board scrapers
   jobScraper.ts           Single-posting URL scraper
   browserScraper.ts       JS-engine fallback for hard boards
   fitHeuristic.ts         Fallback scorer (skills / experience / education)
   employmentType.ts       Normalizer for the EmploymentType enum
+  logger.ts               Per-category file loggers under <userData>/logs
   utils.ts                HTML cleanup, dedup-key, salary normalize
   types.ts                IPC + DB shared types
 
 src/                      Renderer
   pages/                  One file per sidebar page
+    Dashboard.tsx         Counts, due follow-ups, upcoming interviews
+    ScanJobsPage.tsx      One-shot + auto scan configuration
+    JobsPage.tsx          Sortable, filterable, deduplicated job table
+    JobDetail.tsx         Per-job description, fit, documents, status
+    PipelinePage.tsx      5-column Kanban
+    DocumentsPage.tsx     Base + per-job CV / cover-letter editor
+    FollowUpsPage.tsx     Per-application follow-up tracking
+    InterviewsPage.tsx    Upcoming + past interviews
+    SettingsPage.tsx      All settings tabs (profile, boards, AI, data, ...)
   components/             Sidebar, Modal, Notifications, ErrorBoundary
   styles/global.css       Design tokens + component classes
   api.ts                  Typed wrapper around `window.api`
+  persistedState.ts       localStorage-backed hook for UI state
   types.ts                Renderer-side mirror of electron/types.ts
 ```
