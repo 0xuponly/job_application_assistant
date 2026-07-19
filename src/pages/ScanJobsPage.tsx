@@ -86,6 +86,14 @@ export default function ScanJobsPage() {
   const [showFrequentErrors, setShowFrequentErrors] = usePersistedState<boolean>('scan:showFrequentErrors', false)
   const [boardHealth, setBoardHealth] = useState<Record<string, number[]>>({})
   const [scanning, setScanning] = useState(false)
+  // Optimistic flag for the Cancel button. The user clicks Cancel and
+  // we flip this immediately, even before `scan:complete` lands, so
+  // the button reads "Cancelling..." instead of staying "Cancel" while
+  // the in-flight fetches tear down. Cleared on every scan-end path
+  // (the onScanComplete listener, the catch handler, the finally
+  // block, the mount-time reattach) so it can never stick around past
+  // a real scan finish.
+  const [cancelling, setCancelling] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
   const [entries, setEntries] = useState<ProgressEntry[]>([])
   // Snapshot of the visible log lines (blue + green + latest grey) at the
@@ -121,6 +129,7 @@ export default function ScanJobsPage() {
       setResult(normalizeScanResult(result))
       setLogSnapshot(fullLogRef.current)
       setScanning(false)
+      setCancelling(false)
       setElapsed(Math.round((typeof result.durationMs === 'number' && Number.isFinite(result.durationMs) ? result.durationMs : 0) / 1000))
       // Snap the live counters to the authoritative final values. The
       // last scan:counters emit may have raced the cancel signal and
@@ -435,6 +444,7 @@ export default function ScanJobsPage() {
       unsubRef.current = null
       scanActiveRef.current = false
       if (mountedRef.current) setScanning(false)
+      if (mountedRef.current) setCancelling(false)
     }
   }
 
@@ -766,9 +776,10 @@ export default function ScanJobsPage() {
               </button>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => { api.cancelScan() }}
+                onClick={() => { setCancelling(true); api.cancelScan() }}
+                disabled={cancelling}
               >
-                Cancel
+                {cancelling ? 'Cancelling...' : 'Cancel'}
               </button>
             </div>
           </div>
