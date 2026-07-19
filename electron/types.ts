@@ -79,7 +79,7 @@ export interface Document {
  *             skip as a verification_score, and MUST NOT feed it into the
  *             "regenerate until passed" loop.
  */
-export type RuleName = 'one_page' | 'paragraph_count' | 'skills_count' | 'keyword_coverage'
+export type RuleName = 'one_page' | 'paragraph_count' | 'skills_count' | 'keyword_coverage' | 'leadership_one_line'
 
 export interface RuleCheck {
   rule: RuleName
