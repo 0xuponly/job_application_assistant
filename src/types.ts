@@ -279,6 +279,7 @@ export interface TailorRequest {
   job_id: number
   document_type: 'cv' | 'cover_letter'
   base_content?: string
+  topKeywords?: string[]
 }
 
 export interface TailorResult {
