@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { api } from '../api'
 import Modal from '../components/Modal'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
-import { extractJobKeywords } from '../documentRules'
+import RuleCheckList from '../components/RuleCheckList'
+import { extractJobKeywords, extractRulesFromFeedback } from '../documentRules'
 import { notify } from '../components/Notifications'
 import type { Application, Document, Job, JobStatus } from '../types'
 import { STATUS_COLORS, STATUS_LABELS } from '../types'
@@ -886,6 +887,9 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                         {cv.verification_feedback}
                       </p>
                     )}
+                    <RuleCheckList
+                      rules={extractRulesFromFeedback(cv.verification_feedback ?? '').rules}
+                    />
                   </div>
                 ) : (
                   <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -914,6 +918,9 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
                         {coverLetter.verification_feedback}
                       </p>
                     )}
+                    <RuleCheckList
+                      rules={extractRulesFromFeedback(coverLetter.verification_feedback ?? '').rules}
+                    />
                   </div>
                 ) : (
                   <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
