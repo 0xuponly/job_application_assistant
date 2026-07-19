@@ -8,7 +8,8 @@ const DISPLAY_NAMES: Record<RuleCheck['rule'], string> = {
   one_page: 'One page',
   paragraph_count: 'Paragraph count',
   skills_count: 'Skills count',
-  keyword_coverage: 'Keyword coverage'
+  keyword_coverage: 'Keyword coverage',
+  leadership_one_line: 'Leadership one-line'
 }
 
 export default function RuleCheckList({ rules }: Props) {

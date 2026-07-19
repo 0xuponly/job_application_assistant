@@ -10,7 +10,9 @@ import {
   selectTechnicalSkills,
   enforceSkillsCeilings,
   enforceAllCvCeilings,
-  extractRulesFromFeedback
+  extractRulesFromFeedback,
+  leadershipEntries,
+  leadershipHasContinuationLines
 } from './documentRules'
 
 describe('paragraphCount', () => {
@@ -152,8 +154,8 @@ describe('runDocumentRuleChecks', () => {
     const doc = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: a, b, c, d, e\n\nEXPERIENCE\nRole A\n- bullet\n'
     const job = 'We use React, TypeScript, Node. Our team builds React apps with TypeScript on Node. Looking for 5+ years experience with JavaScript, Python, and AWS.'
     const rules = runDocumentRuleChecks({ document: doc, jobDescription: job, docType: 'cv' })
-    expect(rules).toHaveLength(4)
-    expect(rules.map(r => r.rule).sort()).toEqual(['keyword_coverage', 'one_page', 'paragraph_count', 'skills_count'])
+    expect(rules).toHaveLength(5)
+    expect(rules.map(r => r.rule).sort()).toEqual(['keyword_coverage', 'leadership_one_line', 'one_page', 'paragraph_count', 'skills_count'])
   })
   it('marks skills_count failed when under 5', () => {
     const doc = 'Name\nemail\n\nSKILLS & INTERESTS\nTechnical: a, b\n\nEXPERIENCE\nRole A\n'
@@ -406,5 +408,112 @@ describe('extractRulesFromFeedback', () => {
     const out = extractRulesFromFeedback(feedback)
     expect(out.rules).toEqual([])
     expect(out.cleanFeedback).toBe('x')
+  })
+})
+
+describe('leadership_one_line rule', () => {
+  const header = 'LEADERSHIP & ACTIVITIES'
+
+  it('passes for 3 one-line entries', () => {
+    const doc =
+      header + '\n' +
+      '**President**, UBC Coding Club\t2023 – 2024\n' +
+      '**Volunteer**, Code for America\t2022 – Present\n' +
+      '**Mentor**, Stem Fellowship\t2021 – 2022\n'
+    const rules = runDocumentRuleChecks({ document: doc, jobDescription: 'job', docType: 'cv' })
+    const r = rules.find((x) => x.rule === 'leadership_one_line')!
+    expect(r.passed).toBe(true)
+    expect(r.detail).toMatch(/3 entries/)
+  })
+
+  it('passes for 1 one-line entry (under cap is fine)', () => {
+    const doc = header + '\n**President**, UBC\t2024\n'
+    const rules = runDocumentRuleChecks({ document: doc, jobDescription: 'job', docType: 'cv' })
+    const r = rules.find((x) => x.rule === 'leadership_one_line')!
+    expect(r.passed).toBe(true)
+  })
+
+  it('fails when an entry has a sub-bullet', () => {
+    const doc =
+      header + '\n' +
+      '**President**, UBC\t2024\n' +
+      '- A bullet\n'
+    const rules = runDocumentRuleChecks({ document: doc, jobDescription: 'job', docType: 'cv' })
+    const r = rules.find((x) => x.rule === 'leadership_one_line')!
+    expect(r.passed).toBe(false)
+    expect(r.detail).toMatch(/sub-bullet|continuation/i)
+  })
+
+  it('fails when an entry wraps to a second line', () => {
+    const doc =
+      header + '\n' +
+      '**President**, UBC\t2024\n' +
+      'A continuation that wrapped to a new line.\n'
+    const rules = runDocumentRuleChecks({ document: doc, jobDescription: 'job', docType: 'cv' })
+    const r = rules.find((x) => x.rule === 'leadership_one_line')!
+    expect(r.passed).toBe(false)
+  })
+
+  it('fails when there are more than 3 entries (cap)', () => {
+    const doc =
+      header + '\n' +
+      '**A**, OrgA\t2024\n' +
+      '**B**, OrgB\t2023\n' +
+      '**C**, OrgC\t2022\n' +
+      '**D**, OrgD\t2021\n'
+    const rules = runDocumentRuleChecks({ document: doc, jobDescription: 'job', docType: 'cv' })
+    const r = rules.find((x) => x.rule === 'leadership_one_line')!
+    expect(r.passed).toBe(false)
+    expect(r.detail).toMatch(/cap|3/)
+  })
+
+  it('passes (with 0 entries) when the document has no L&A section', () => {
+    const doc = 'Name\nemail\n\nEXPERIENCE\nRole A\n'
+    const rules = runDocumentRuleChecks({ document: doc, jobDescription: 'job', docType: 'cv' })
+    const r = rules.find((x) => x.rule === 'leadership_one_line')!
+    expect(r.passed).toBe(true)
+    expect(r.detail).toMatch(/no leadership section|0 entries/i)
+  })
+
+  it('is n/a for cover letters', () => {
+    const doc = 'A.\n\nB.\n\nC.\n\nD.'
+    const rules = runDocumentRuleChecks({ document: doc, jobDescription: 'job', docType: 'cover_letter' })
+    const r = rules.find((x) => x.rule === 'leadership_one_line')!
+    expect(r.passed).toBe(true)
+    expect(r.detail).toMatch(/n\/a/)
+  })
+})
+
+describe('leadershipEntries / leadershipHasContinuationLines', () => {
+  const header = 'LEADERSHIP & ACTIVITIES'
+
+  it('leadershipEntries counts one-line title lines under the L&A header', () => {
+    const doc =
+      header + '\n' +
+      '**A**, Org\t2024\n' +
+      '**B**, Org\t2023\n' +
+      '**C**, Org\t2022\n'
+    expect(leadershipEntries(doc)).toBe(3)
+  })
+
+  it('leadershipEntries returns 0 when there is no L&A section', () => {
+    const doc = 'Name\nemail\n\nEXPERIENCE\nRole A\n'
+    expect(leadershipEntries(doc)).toBe(0)
+  })
+
+  it('leadershipHasContinuationLines is true when an entry has a sub-bullet', () => {
+    const doc =
+      header + '\n' +
+      '**A**, Org\t2024\n' +
+      '- bullet\n'
+    expect(leadershipHasContinuationLines(doc)).toBe(true)
+  })
+
+  it('leadershipHasContinuationLines is false for clean one-line entries', () => {
+    const doc =
+      header + '\n' +
+      '**A**, Org\t2024\n' +
+      '**B**, Org\t2023\n'
+    expect(leadershipHasContinuationLines(doc)).toBe(false)
   })
 })
