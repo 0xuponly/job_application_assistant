@@ -31,7 +31,7 @@ async function loadHarvardTemplate(): Promise<string> {
   return cachedTemplate
 }
 
-function buildHarvardCvInstructions(template: string): string {
+function buildHarvardCvInstructions(template: string, topKeywords?: string[]): string {
   return `You are an expert career coach. Tailor the candidate's CV for the specific job posting using the EXACT Harvard format demonstrated by the template below. The template is the source of truth — preserve its structure, section order, spacing, capitalization, and TAB-based alignment exactly as shown.
 
 === HARVARD CV TEMPLATE (source of truth) ===
@@ -71,6 +71,16 @@ ONE-PAGE RULE (overrides verbosity):
 - If the candidate has more, prioritize the items most relevant to the target job and DROP the rest. Do not abbreviate, do not shrink, do not move to a second page.
 - Never pad with filler to "fill" the page — sparse is correct when the background is sparse.
 
+${topKeywords && topKeywords.length > 0
+  ? `KEYWORD COVERAGE (overrides verbosity):
+- Aim to mention at least 50% of the key terms from the job description.
+- High-priority keywords (include where truthful): ${topKeywords.join(', ')}
+
+`
+ : `KEYWORD COVERAGE (overrides verbosity):
+- Aim to mention at least 50% of the key terms from the job description.
+
+`}
 CRITICAL — TRUTHFULNESS (this overrides everything else):
 - Use ONLY experience, skills, education, and projects that appear in the candidate's Base CV / Background below.
 - Do NOT invent or fabricate any experience, employers, job titles, projects, technologies, degrees, courses, GPA, awards, dates, or numbers that are not in the Base CV.
