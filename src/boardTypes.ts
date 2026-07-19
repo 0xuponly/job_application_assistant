@@ -32,7 +32,10 @@ export const BOARD_TYPES: { label: string; boards: string[] }[] = [
       'Contra',
       'SkipTheDrive',
       'Jobspresso',
-      'Dynamite Jobs'
+      'Dynamite Jobs',
+      'DailyRemote',
+      'NoDesk',
+      'Remote100k'
     ]
   },
   {

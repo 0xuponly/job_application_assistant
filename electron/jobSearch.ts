@@ -102,6 +102,20 @@ interface BoardConfig {
    * responsible for adapting it to whatever the partner API expects.
    */
   apiFetcher?: (keywords: string, location: string, signal?: AbortSignal) => Promise<CreateJobInput[]>
+  /**
+   * Optional sitemap-based listing source. When present, the
+   * board's search-page HTML is skipped and the per-job URLs come
+   * straight from the function's return value. The function takes
+   * the user's keywords + location + abort signal and returns the
+   * per-job URLs. Each URL is then fed through the same per-listing
+   * scrape/score/dedup loop as the search-page branch. Use this
+   * for boards whose search results are JS-rendered but still
+   * publish a `<loc>`-style XML sitemap with the per-job URLs.
+   * The location param is the same string the scrape path uses;
+   * the function is responsible for adapting it to whatever
+   * sitemap shape the board uses.
+   */
+  sitemapListingUrls?: (keywords: string, location: string, signal?: AbortSignal) => Promise<string[]>
 }
 
 export const BOARDS: BoardConfig[] = [
@@ -535,6 +549,68 @@ export const BOARDS: BoardConfig[] = [
     // shell — listings render via the SPA — so useBrowser=true.
     searchUrl: (k) => `https://dynamitejobs.com/?s=${encodeURIComponent(k)}`,
     useBrowser: true
+  },
+  {
+    name: 'DailyRemote',
+    // DailyRemote (dailyremote.com) — the search page
+    // (?s=…) is a WordPress blog post list, not a real job search.
+    // The per-job URLs are listed in two job-specific sitemaps
+    // (sitemap-jobs-01.xml + sitemap-jobs-02.xml) under
+    // /remote-job/{slug}-{numericId}. The per-job pages have
+    // JSON-LD JobPosting blocks; the per-listing scrape fills in
+    // title + company from there. Keyword filtering is applied
+    // per-listing via the existing fit / location / score funnel
+    // (the LLM fit scorer is the keyword gate in practice).
+    searchUrl: () => 'https://dailyremote.com/',
+    useBrowser: false,
+    sitemapListingUrls: async (_k, _l, signal) => {
+      const sub = [
+        'https://www.dailyremote.com/sitemap-jobs-01.xml',
+        'https://www.dailyremote.com/sitemap-jobs-02.xml'
+      ]
+      const all: string[] = []
+      for (const u of sub) {
+        if (signal?.aborted) break
+        const xml = await fetchSitemapText(u, false)
+        for (const loc of extractSitemapUrls(xml)) {
+          if (loc.includes('/remote-job/')) all.push(loc)
+        }
+      }
+      return all
+    }
+  },
+  {
+    name: 'NoDesk',
+    // NoDesk (nodesk.co) — the search page (/remote-jobs?q=…) is
+    // JS-rendered and returns an empty static HTML. The
+    // per-job URLs are listed in /sitemap-jobs.xml under
+    // /remote-jobs/{slug}/. The per-job pages have JSON-LD; the
+    // per-listing scraper fills in title + company from there.
+    searchUrl: () => 'https://nodesk.co/remote-jobs',
+    useBrowser: false,
+    sitemapListingUrls: async (_k, _l, signal) => {
+      const xml = await fetchSitemapText('https://nodesk.co/sitemap-jobs.xml', false)
+      if (signal?.aborted) return []
+      return extractSitemapUrls(xml)
+    }
+  },
+  {
+    name: 'Remote100k',
+    // Remote100k (remote100k.com) — the search page is JS-rendered
+    // and returns an empty static HTML. The per-job URLs are
+    // listed in /sitemap.xml under /remote-job/{slug} (706 active
+    // at probe time). The per-job pages have JSON-LD; the
+    // per-listing scraper fills in title + company from there.
+    searchUrl: () => 'https://remote100k.com/',
+    useBrowser: false,
+    sitemapListingUrls: async (_k, _l, signal) => {
+      const xml = await fetchSitemapText('https://remote100k.com/sitemap.xml', false)
+      if (signal?.aborted) return []
+      // The /sitemap.xml is a single <urlset> with ~706 /remote-job/
+      // entries. extractSitemapUrls returns ALL <loc>s (including
+      // nav pages like /about, /contact); filter to the job path.
+      return extractSitemapUrls(xml).filter((u) => u.includes('/remote-job/'))
+    }
   }
 ]
 
@@ -780,7 +856,7 @@ function extractJobUrls(html: string, baseUrl: string, boardName: string): { url
     if (seen.has(lowerUrl)) continue
     seen.add(lowerUrl)
 
-    const knownBoardDomains = /linkedin\.com|indeed\.com|ca\.indeed\.com|monster\.com|ziprecruiter\.com|simplyhired\.com|adzuna\.com|talent\.com|jora\.com|remoteok\.com|weworkremotely\.com|remotive\.com|remote\.co|workingnomads\.com|justremote\.co|jobbank\.gc\.ca|eluta\.ca|workopolis\.com|jobboom\.com|workbc\.ca|careerbeacon\.com|charityvillage\.com|crypto-careers\.com|cryptorecruit\.com|remote3\.co|cryptocurrencyjobs\.co|cryptojobslist\.com|cryptojobs\.com|crypto\.jobs|web3\.career|startup\.jobs|selbyjennings\.com|idealist\.org|builtin\.com|jobs\.vancouver\.ca|google\.com\/about\/careers|careerhound\.io|usebraintrust\.com|hiring\.cafe|sproutjobs\.com|arc\.dev|contra\.com|skipthedrive\.com|jobspresso\.co|dynamitejobs\.com/
+    const knownBoardDomains = /linkedin\.com|indeed\.com|ca\.indeed\.com|monster\.com|ziprecruiter\.com|simplyhired\.com|adzuna\.com|talent\.com|jora\.com|remoteok\.com|weworkremotely\.com|remotive\.com|remote\.co|workingnomads\.com|justremote\.co|jobbank\.gc\.ca|eluta\.ca|workopolis\.com|jobboom\.com|workbc\.ca|careerbeacon\.com|charityvillage\.com|crypto-careers\.com|cryptorecruit\.com|remote3\.co|cryptocurrencyjobs\.co|cryptojobslist\.com|cryptojobs\.com|crypto\.jobs|web3\.career|startup\.jobs|selbyjennings\.com|idealist\.org|builtin\.com|jobs\.vancouver\.ca|google\.com\/about\/careers|careerhound\.io|usebraintrust\.com|hiring\.cafe|sproutjobs\.com|arc\.dev|contra\.com|skipthedrive\.com|jobspresso\.co|dynamitejobs\.com|dailyremote\.com|nodesk\.co|remote100k\.com/
     if (!knownBoardDomains.test(lowerUrl)) continue
 
     const pathname = new URL(fullUrl).pathname
@@ -895,6 +971,35 @@ async function fetchPageHtml(url: string, useBrowser: boolean): Promise<string> 
     }
   }
   return html
+}
+
+// Fetch a sitemap XML document. Uses the same HTTP-with-challenge-
+// fallback as fetchPageHtml. Sitemaps are <urlset> or <sitemapindex>
+// XML; the caller runs extractSitemapUrls on the result.
+async function fetchSitemapText(url: string, useBrowser: boolean): Promise<string> {
+  // Sitemaps are well-known XML; tell the server that's what we
+  // want so a Cloudflare-fronted origin doesn't try to serve us
+  // an HTML challenge page by default.
+  return fetchPageHtml(url, useBrowser)
+}
+
+// Pull <loc>...</loc> URLs out of a sitemap XML document. Handles
+// both <urlset> (returns the per-URL <loc>s) and <sitemapindex>
+// (returns the sub-sitemap <loc>s — the caller fetches them in
+// turn). Returns a de-duplicated list.
+function extractSitemapUrls(xml: string): string[] {
+  const locRe = /<loc>\s*([^<]+?)\s*<\/loc>/gi
+  const out: string[] = []
+  const seen = new Set<string>()
+  let m: RegExpExecArray | null
+  while ((m = locRe.exec(xml)) !== null) {
+    const u = m[1].trim()
+    if (!seen.has(u)) {
+      seen.add(u)
+      out.push(u)
+    }
+  }
+  return out
 }
 function matchesWorkType(text: string, workType: WorkType): boolean {
   if (workType === 'any') return true
@@ -1305,16 +1410,34 @@ export async function scanAllBoards(
 
       progress(`Parsing listings from ${board.name}${locTag}...`)
       const tParse0 = Date.now()
-      let listings = extractJobUrls(html, searchUrl, board.name)
+      let listings: { url: string; title?: string; company?: string }[] = []
+      if (board.sitemapListingUrls) {
+        // Sitemap-listing source. The board's search-results page
+        // is JS-rendered and useless to the static extractor, but
+        // the same site still publishes a `<loc>`-style XML sitemap
+        // with the per-job URLs. Skip the search-page extractJobUrls
+        // path; build the listings array from the sitemap function
+        // and fall into the same dedup/batch/per-listing loop as the
+        // search-page branch. The per-listing scraper fills in
+        // title + company from each per-job page's JSON-LD / HTML.
+        progress(`Fetching sitemap for ${board.name}${locTag}...`)
+        const urls = await board.sitemapListingUrls(keywords, location, signal)
+        listings = urls.map((url) => ({ url }))
+        if (process.env.FLOW_JOB_SCAN_TIMING) {
+          console.error(`[scan] stage=parse board=${board.name} listings=${listings.length} (sitemap) ms=${Date.now() - tParse0}`)
+        }
+      } else {
+        listings = extractJobUrls(html, searchUrl, board.name)
+        if (process.env.FLOW_JOB_SCAN_TIMING) {
+          console.error(`[scan] stage=parse board=${board.name} listings=${listings.length} ms=${Date.now() - tParse0}`)
+        }
+      }
       br.found = listings.length
       // Bump totalFound the moment we know the board's listing count —
       // BEFORE the listing filter and per-listing loop. Same reasoning
       // as the API path: the per-listing bumps then accumulate against
       // a correct denominator so the live counters never exceed Found.
       bumpFound(br.found)
-      if (process.env.FLOW_JOB_SCAN_TIMING) {
-        console.error(`[scan] stage=parse board=${board.name} listings=${listings.length} ms=${Date.now() - tParse0}`)
-      }
 
       // Dedup listings by normalized URL and by company+title combo
       const seenTitleCompany = new Set<string>()
