@@ -161,8 +161,8 @@ export interface RuleCheck {
 }
 
 const KEYWORD_THRESHOLDS: Record<'cv' | 'cover_letter', number> = {
-  cv: 0.5,
-  cover_letter: 0.4
+  cv: 0.9,
+  cover_letter: 0.72
 }
 
 export function runDocumentRuleChecks(args: {

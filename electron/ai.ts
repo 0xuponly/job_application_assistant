@@ -73,12 +73,12 @@ ONE-PAGE RULE (overrides verbosity):
 
 ${topKeywords && topKeywords.length > 0
   ? `KEYWORD COVERAGE (overrides verbosity):
-- Aim to mention at least 50% of the key terms from the job description.
+- Aim to mention at least 90% of the key terms from the job description.
 - High-priority keywords (include where truthful): ${topKeywords.join(', ')}
 
 `
  : `KEYWORD COVERAGE (overrides verbosity):
-- Aim to mention at least 50% of the key terms from the job description.
+- Aim to mention at least 90% of the key terms from the job description.
 
 `}
 CRITICAL — TRUTHFULNESS (this overrides everything else):
@@ -211,8 +211,8 @@ export async function tailorDocument(request: TailorRequest): Promise<TailorResu
       : (() => {
           const keywordLine =
             request.topKeywords && request.topKeywords.length > 0
-              ? `\nKEYWORD COVERAGE (overrides verbosity):\n- Aim to mention at least 40% of the key terms from the job description.\n- High-priority keywords (include where truthful): ${request.topKeywords.join(', ')}\n`
-              : `\nKEYWORD COVERAGE (overrides verbosity):\n- Aim to mention at least 40% of the key terms from the job description.\n`
+              ? `\nKEYWORD COVERAGE (overrides verbosity):\n- Aim to mention at least 72% of the key terms from the job description.\n- High-priority keywords (include where truthful): ${request.topKeywords.join(', ')}\n`
+              : `\nKEYWORD COVERAGE (overrides verbosity):\n- Aim to mention at least 72% of the key terms from the job description.\n`
           return `You are an expert career coach. Write a compelling, personalized cover letter for this job.
 Keep it concise (3-4 paragraphs), professional, and specific to the role. Output plain text only.
 
@@ -578,12 +578,12 @@ ONE-PAGE RULE (overrides verbosity):
 
 ${topKeywords && topKeywords.length > 0
   ? `KEYWORD COVERAGE (overrides verbosity):
-- Aim to mention at least 50% of the key terms from the job description.
+- Aim to mention at least 90% of the key terms from the job description.
 - High-priority keywords (include where truthful): ${topKeywords.join(', ')}
 
 `
  : `KEYWORD COVERAGE (overrides verbosity):
-- Aim to mention at least 50% of the key terms from the job description.
+- Aim to mention at least 90% of the key terms from the job description.
 
 `}
 Rewrite the section content to better match the target job. Keep only relevant entries. Output ONLY the section body — no header line, no markdown.`
