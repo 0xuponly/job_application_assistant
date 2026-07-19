@@ -1,11 +1,12 @@
 import { getSettings, listApiModels, getDocument, updateDocument, updateDocumentVerification, listApplications, updateApplication } from './database'
-import type { ApiModelConfig, FitBreakdown, Job, TailorRequest, TailorResult, VerificationResult } from './types'
+import type { ApiModelConfig, FitBreakdown, Job, RuleCheck, TailorRequest, TailorResult, VerificationResult } from './types'
 import { createDocument, getJob } from './database'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import mammoth from 'mammoth'
 import { scoreCompatibility, extractEducationLevel, extractYearsExperience } from './fitHeuristic'
+import { runDocumentRuleChecks } from '../src/documentRules'
 
 export class RateLimitError extends Error {
   constructor(message: string) {
@@ -456,11 +457,25 @@ Evaluate how well this document is tailored for this specific job.`
         return { kind: 'skip', reason: 'parse_failed', feedback: 'Reviewer response was missing a numeric score.' }
       }
       const score = Math.max(0, Math.min(100, rawScore))
+      const llmFeedback = typeof parsed.feedback === 'string' ? parsed.feedback : ''
+      // Per-rule structural checks (one_page, paragraph_count, skills_count,
+      // keyword_coverage) — run after the LLM review. Each rule reports
+      // pass/fail with a detail string; the overall `passed` flag is the
+      // AND of the LLM's own pass and every rule check, so a structural
+      // failure can veto a high LLM score.
+      const rules: RuleCheck[] = runDocumentRuleChecks({
+        document: doc.content,
+        jobDescription: job.description || '',
+        docType
+      })
+      const allRulesPassed = rules.every((r) => r.passed)
+      const ruleSuffix = `<!-- rules:${JSON.stringify(rules)} -->`
       const result: VerificationResult = {
         kind: 'review',
         score,
-        passed: !!parsed.passed,
-        feedback: typeof parsed.feedback === 'string' ? parsed.feedback : ''
+        passed: !!parsed.passed && allRulesPassed,
+        feedback: `${llmFeedback}\n\n${ruleSuffix}`,
+        rules
       }
       updateDocumentVerification(documentId, result.score, result.feedback)
       return result
