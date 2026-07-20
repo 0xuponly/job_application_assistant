@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { Page } from '../types'
 import { usePersistedState } from '../persistedState'
+import RefreshIcon from './RefreshIcon'
 
 interface Props {
   current: Page
@@ -106,7 +107,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
           onClick={() => window.dispatchEvent(new CustomEvent('app:refresh'))}
           data-tooltip="Refresh current page"
         >
-          <span aria-hidden="true">⟳</span>
+          <RefreshIcon size={16} />
         </button>
         <button
           className="sidebar-action"
