@@ -1,5 +1,5 @@
 import { getSettings, listApiModels, getDocument, updateDocument, updateDocumentVerification, listApplications, updateApplication } from './database'
-import type { ApiModelConfig, FitBreakdown, Job, RuleCheck, TailorRequest, TailorResult, VerificationResult } from './types'
+import type { ApiModelConfig, FitBreakdown, Job, KeywordEntry, KeywordResult, RuleCheck, TailorRequest, TailorResult, VerificationResult } from './types'
 import { createDocument, getJob } from './database'
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -199,6 +199,75 @@ async function callAI(
   }
 
   return { content, modelUsed, rateLimited: false, errors: [] }
+}
+
+const REFINEMENT_SYSTEM_PROMPT = `You refine job-description keyword lists for ATS and recruiter screening.
+Given the candidate keywords and the original JD, return JSON only:
+{
+  "keywords": [{ "phrase": string, "weight": 0-1, "category": "hard" | "soft" | "cert" | "seniority" }],
+  "dropped":   [string]
+}
+- Confirm or change each category.
+- Re-rank by importance to ATS + recruiter attention.
+- Drop phrases that are pure boilerplate ("we offer competitive salary", "must be a team player" with no specifics, generic verbs without object).
+- Add NO new phrases — only refine the candidate set.
+- Output JSON only, no markdown, no prose.`
+
+function refineResultFromPure(candidates: KeywordEntry[]): KeywordResult {
+  return {
+    keywords: candidates.slice(0, 30),
+    refinedByLlm: false
+  }
+}
+
+export async function refineJobKeywordsViaLlm(
+  candidates: KeywordEntry[],
+  description: string,
+  signal?: AbortSignal
+): Promise<KeywordResult> {
+  if (candidates.length === 0) return { keywords: [], refinedByLlm: false }
+  try {
+    const userPrompt = `JD:\n${description}\n\nCANDIDATE KEYWORDS:\n${JSON.stringify(candidates)}`
+    const result = await callAI(REFINEMENT_SYSTEM_PROMPT, userPrompt, 0.3, 20000, signal)
+    if (!result.content) return refineResultFromPure(candidates)
+    const match = result.content.match(/\{[\s\S]*\}/)
+    if (!match) {
+      console.warn('[ai] keyword refinement skipped: no JSON object in response')
+      return refineResultFromPure(candidates)
+    }
+    const parsed = JSON.parse(match[0]) as {
+      keywords?: unknown
+      dropped?: unknown
+    }
+    if (!Array.isArray(parsed.keywords)) {
+      console.warn('[ai] keyword refinement skipped: keywords is not an array')
+      return refineResultFromPure(candidates)
+    }
+    const allowedCat = new Set(['hard', 'soft', 'cert', 'seniority'])
+    const allowedSrc = new Set(['title', 'required', 'preferred', 'body'])
+    const refined: KeywordEntry[] = []
+    for (const e of parsed.keywords) {
+      if (typeof e !== 'object' || e === null) continue
+      const o = e as Record<string, unknown>
+      if (typeof o.phrase !== 'string') continue
+      if (typeof o.weight !== 'number' || !Number.isFinite(o.weight)) continue
+      if (typeof o.category !== 'string' || !allowedCat.has(o.category)) continue
+      // source is optional in the LLM response; if missing, infer from candidates.
+      const source = (typeof o.source === 'string' && allowedSrc.has(o.source))
+        ? o.source as KeywordEntry['source']
+        : (candidates.find((c) => c.phrase === (o.phrase as string).toLowerCase())?.source ?? 'body')
+      refined.push({
+        phrase: (o.phrase as string).toLowerCase(),
+        weight: Math.max(0, Math.min(1, o.weight)),
+        category: o.category as KeywordEntry['category'],
+        source
+      })
+    }
+    return { keywords: refined.slice(0, 30), refinedByLlm: true }
+  } catch (err) {
+    console.warn('[ai] keyword refinement skipped:', err instanceof Error ? err.message : String(err))
+    return refineResultFromPure(candidates)
+  }
 }
 
 export async function tailorDocument(request: TailorRequest): Promise<TailorResult> {
