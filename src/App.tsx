@@ -4,6 +4,7 @@ import Notifications from './components/Notifications'
 import ErrorBoundary from './components/ErrorBoundary'
 import Dashboard from './pages/Dashboard'
 import JobsPage from './pages/JobsPage'
+import { ApplyQueuePage } from './pages/ApplyQueuePage'
 import PipelinePage from './pages/PipelinePage'
 import DocumentsPage from './pages/DocumentsPage'
 import FollowUpsPage from './pages/FollowUpsPage'
@@ -35,6 +36,8 @@ export default function App() {
         return <ScanJobsPage />
       case 'jobs':
         return <JobsPage />
+      case 'queue':
+        return <ApplyQueuePage />
       case 'pipeline':
         return <PipelinePage />
       case 'documents':

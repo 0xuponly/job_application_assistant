@@ -688,9 +688,22 @@ ${htmlBody}
   ipcMain.handle('followUps:list', (_e, includeCompleted?: boolean) =>
     db.listFollowUps(includeCompleted)
   )
-  ipcMain.handle('followUps:create', (_e, appId: number, dueDate: string, type: FollowUp['type'], message?: string) =>
-    db.createFollowUp(appId, dueDate, type, message)
-  )
+  ipcMain.handle('followUps:create', (_e, appId: number, dueDate: string, type: FollowUp['type'], message?: string) => {
+    const result = db.createFollowUp(appId, dueDate, type, message)
+    // If the underlying application/job is in 'applied' state and has no
+    // response_at yet, set response_at = now. One-line hook per spec:
+    // the user creating a follow-up on an applied-but-unanswered job
+    // is the moment we first hear back. We only fire once (response_at
+    // is set; subsequent follow-ups won't re-trigger).
+    const app = db.getApplication(appId)
+    if (app) {
+      const job = db.getJob(app.job_id)
+      if (job && job.status === 'applied' && job.response_at == null) {
+        db.markResponse(job.id, Date.now())
+      }
+    }
+    return result
+  })
   ipcMain.handle('followUps:complete', (_e, id: number) => db.completeFollowUp(id))
   ipcMain.handle('followUps:generateMessage', async (_e, company: string, title: string, days: number) =>
     generateFollowUpMessage(company, title, days)

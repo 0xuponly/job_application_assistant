@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { DashboardStats, FollowUp, Interview, Job } from '../types'
+import { computeQueueFunnel } from '../queueStats'
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -72,6 +73,7 @@ export default function Dashboard() {
 
       {jobs.length > 0 && <MatchQualityTrendWidget jobs={jobs} />}
       {jobs.length > 0 && <TimeSavedWidget jobs={jobs} />}
+      <QueueFunnelWidget jobs={jobs} />
 
       <div className="section-title">Action items</div>
       {followUps.length === 0 && interviews.length === 0 ? (
@@ -239,6 +241,53 @@ function TimeSavedWidget({ jobs }: { jobs: Job[] }) {
     <div className="card">
       <div className="section-title" style={{ marginBottom: 4 }}>Time saved</div>
       <div style={{ fontSize: 22, fontWeight: 600 }}>{rounded} minutes saved this week</div>
+    </div>
+  )
+}
+
+// QueueFunnelWidget (Task 4). Five-bar horizontal funnel: jobs added
+// in the last 7 days → grade A → tailored → submitted → responded.
+// Per `feedback-terse-result-headers` the headline leads with the
+// head count (jobs added this week) and the label "Queue funnel";
+// each bar carries a small conversion % as secondary text below the
+// headline. Hides entirely when `added === 0` so the card doesn't
+// take up space before the user has run a scan.
+function QueueFunnelWidget({ jobs }: { jobs: Job[] }) {
+  const stats = computeQueueFunnel(jobs, Date.now())
+  if (stats.added === 0) return null
+  const bars: { label: string; value: number; pct: number }[] = [
+    { label: 'Added', value: stats.added, pct: 100 },
+    { label: 'Grade A', value: stats.gradeA, pct: stats.added ? (stats.gradeA / stats.added) * 100 : 0 },
+    { label: 'Tailored', value: stats.tailored, pct: stats.added ? (stats.tailored / stats.added) * 100 : 0 },
+    { label: 'Submitted', value: stats.submitted, pct: stats.added ? (stats.submitted / stats.added) * 100 : 0 },
+    { label: 'Responded', value: stats.responded, pct: stats.added ? (stats.responded / stats.added) * 100 : 0 },
+  ]
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Queue funnel</div>
+          <div style={{ fontSize: 22, fontWeight: 600 }}>{stats.added} this week</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 48 }}>
+        {bars.map((b) => (
+          <div key={b.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div
+              title={`${b.label}: ${b.value} (${Math.round(b.pct)}%)`}
+              data-tooltip={`${b.label}: ${b.value} (${Math.round(b.pct)}%)`}
+              style={{
+                width: '100%',
+                height: `${Math.max(4, (b.pct / 100) * 40)}px`,
+                background: 'var(--accent, #3b82f6)',
+                borderRadius: 2
+              }}
+            />
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{b.label}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{Math.round(b.pct)}%</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

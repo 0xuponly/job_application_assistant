@@ -199,6 +199,7 @@ export type Page =
   | 'dashboard'
   | 'scanjobs'
   | 'jobs'
+  | 'queue'
   | 'pipeline'
   | 'documents'
   | 'followups'

@@ -429,6 +429,10 @@ export function getJob(id: number): Job | undefined {
   return job
 }
 
+export function getApplication(id: number): Application | undefined {
+  return loadStore().applications.find((a) => a.id === id)
+}
+
 export function findDuplicateJob(input: CreateJobInput): Job | undefined {
   const s = loadStore()
   const urlDk = input.url ? dedupKey(input.url) : null
@@ -839,12 +843,56 @@ export function dedupeJobs(): { removedIds: number[]; remaining: number } {
   return { removedIds: idsToDelete, remaining: s.jobs.length }
 }
 
-// Apply queue stubs (Task 1) — implementations land in Task 4.
+// Apply queue (Task 4 — real implementations).
+//
+// getReadyQueue returns jobs in the `ready` status sorted by
+// match_grade asc (nulls last), score desc, tailor_generated_at desc.
+// This mirrors what the renderer wants on the Apply Queue page: best
+// matches first, with the most recently tailored on top within each
+// grade. We use listJobs() (which already supports a status filter)
+// rather than reaching into the store directly so the sort helper
+// stays single-sourced.
 export function getReadyQueue(): Job[] {
-  return []
+  return listJobs('ready').slice().sort((a, b) => {
+    // match_grade asc with nulls last: 'A' < 'B' < 'C' < null
+    const ag = a.match_grade ?? '\uFFFF'
+    const bg = b.match_grade ?? '\uFFFF'
+    if (ag !== bg) return ag.localeCompare(bg)
+    // score desc (nulls last)
+    const as = a.score ?? -Infinity
+    const bs = b.score ?? -Infinity
+    if (as !== bs) return bs - as
+    // tailor_generated_at desc (nulls last)
+    const at = a.tailor_generated_at ?? -Infinity
+    const bt = b.tailor_generated_at ?? -Infinity
+    return bt - at
+  })
 }
-export function markSubmitted(_jobId: number, _submittedAt?: number): void {}
-export function markResponse(_jobId: number, _responseAt?: number): void {}
+
+export function markSubmitted(jobId: number, submittedAt?: number): void {
+  const ts = submittedAt ?? Date.now()
+  const s = loadStore()
+  const idx = s.jobs.findIndex((j) => j.id === jobId)
+  if (idx === -1) return
+  const existing = s.jobs[idx]
+  s.jobs[idx] = {
+    ...existing,
+    status: 'applied',
+    submitted_at: ts,
+    updated_at: now()
+  }
+  persistStore()
+}
+
+export function markResponse(jobId: number, responseAt?: number): void {
+  const ts = responseAt ?? Date.now()
+  const s = loadStore()
+  const idx = s.jobs.findIndex((j) => j.id === jobId)
+  if (idx === -1) return
+  const existing = s.jobs[idx]
+  s.jobs[idx] = { ...existing, response_at: ts, updated_at: now() }
+  persistStore()
+}
 
 // Tailor queue helpers (Task 3). Used by electron/tailorJobDocs.ts to land
 // both the CV and cover letter plus the per-job timing fields in a single
