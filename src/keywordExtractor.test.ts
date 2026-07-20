@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { parseSections, extractPhases } from './keywordExtractor'
+import {
+  parseSections,
+  extractPhases,
+  extractJobKeywordsStructured,
+  extractJobKeywords
+} from './keywordExtractor'
 
 describe('parseSections', () => {
   it('returns the first non-empty line as title', () => {
@@ -144,5 +149,71 @@ describe('extractPhases', () => {
     )
     const phrases = out.map((k) => k.phrase)
     expect(phrases).toContain('foobar pipeline')
+  })
+})
+
+describe('extractJobKeywordsStructured', () => {
+  it('returns empty result for an empty description', () => {
+    const r = extractJobKeywordsStructured('')
+    expect(r.keywords).toEqual([])
+    expect(r.refinedByLlm).toBe(false)
+  })
+
+  it('returns up to 30 entries, sorted by weight desc', () => {
+    const jd = Array.from({ length: 50 }, (_, i) => `python skill${i} aws skill${i}`).join(' ')
+    const r = extractJobKeywordsStructured(jd)
+    expect(r.keywords.length).toBeLessThanOrEqual(30)
+    for (let i = 1; i < r.keywords.length; i++) {
+      expect(r.keywords[i - 1].weight).toBeGreaterThanOrEqual(r.keywords[i].weight)
+    }
+  })
+
+  it('weights title matches above body matches', () => {
+    const jd = [
+      'Staff Python Engineer',
+      '',
+      'About the role',
+      'You will use Python every day. Python Python Python.'
+    ].join('\n')
+    const r = extractJobKeywordsStructured(jd)
+    const titleHit = r.keywords.find((k) => k.phrase === 'python' && k.source === 'title')!
+    const bodyHit = r.keywords.find((k) => k.phrase === 'python' && k.source === 'body')!
+    expect(titleHit).toBeDefined()
+    expect(bodyHit).toBeDefined()
+    expect(titleHit.weight).toBeGreaterThan(bodyHit.weight)
+  })
+
+  it('down-weights soft skills relative to hard skills with the same source', () => {
+    const jd = [
+      'Senior Engineer',
+      '',
+      'About',
+      'Need leadership experience. Need python experience.'
+    ].join('\n')
+    const r = extractJobKeywordsStructured(jd)
+    const leadership = r.keywords.find((k) => k.phrase === 'leadership')!
+    const python = r.keywords.find((k) => k.phrase === 'python')!
+    expect(python.weight).toBeGreaterThan(leadership.weight)
+  })
+
+  it('assigns a category for each entry', () => {
+    const jd = [
+      'Senior AWS Engineer',
+      '',
+      'Requirements',
+      '- 5+ years Python',
+      '- PMP certification preferred'
+    ].join('\n')
+    const r = extractJobKeywordsStructured(jd)
+    const cats = new Set(r.keywords.map((k) => k.category))
+    expect(cats.has('hard')).toBe(true)
+    expect(cats.has('seniority')).toBe(true)
+  })
+
+  it('preserves the legacy extractJobKeywords flat shape: phrases, weight-desc, cap 30', () => {
+    const jd = 'Looking for a senior python engineer with AWS experience. Python is core. AWS is core.'
+    const phrases = extractJobKeywords(jd)
+    expect(phrases.length).toBeLessThanOrEqual(30)
+    expect(phrases.every((p) => typeof p === 'string')).toBe(true)
   })
 })

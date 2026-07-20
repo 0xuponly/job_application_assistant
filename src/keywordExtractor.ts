@@ -85,9 +85,74 @@ export function parseSections(description: string): {
   }
 }
 
-// Stub so the file compiles before later tasks land. Will be replaced.
-export function extractJobKeywordsStructured(_description: string): KeywordResult {
-  return { keywords: [], refinedByLlm: false }
+function sectionBoost(source: KeywordSource): number {
+  switch (source) {
+    case 'title': return 3.0
+    case 'required': return 2.0
+    case 'preferred': return 1.0
+    case 'body': return 1.5
+  }
+}
+
+function categoryBoost(cat: KeywordCategory): number {
+  switch (cat) {
+    case 'hard': return 1.0
+    case 'cert': return 1.0
+    case 'seniority': return 0.9
+    case 'soft': return 0.7
+  }
+}
+
+function phraseLengthBoost(phrase: string): number {
+  const tokens = phrase.split(' ').length
+  return Math.min(1.5, 1.0 + 0.15 * (tokens - 1))
+}
+
+const PRE_LLM_CAP = 40
+const POST_RANK_CAP = 30
+
+function computeWeight(entry: KeywordEntry): number {
+  const s = (0.5 * sectionBoost(entry.source) / 3.0)
+         + (0.3 * categoryBoost(entry.category))
+         + (0.2 * phraseLengthBoost(entry.phrase) / 1.5)
+  return Math.max(0, Math.min(1, s))
+}
+
+export function extractJobKeywordsStructured(description: string): KeywordResult {
+  const sections = parseSections(description)
+  const collected: KeywordEntry[] = []
+  // Title is one line; parseSections already extracted it. Run extractPhases on it
+  // as a single line so allowlist matches inside the title are captured.
+  if (sections.title) {
+    collected.push(...extractPhases(sections.title, 'title'))
+  }
+  if (sections.required) collected.push(...extractPhases(sections.required, 'required'))
+  if (sections.preferred) collected.push(...extractPhases(sections.preferred, 'preferred'))
+  if (sections.body) collected.push(...extractPhases(sections.body, 'body'))
+
+  // Dedupe by (phrase, source) — same phrase in title and body stays as 2 entries.
+  const seen = new Set<string>()
+  const deduped: KeywordEntry[] = []
+  for (const e of collected) {
+    const key = `${e.source}::${e.phrase}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(e)
+  }
+
+  // extractPhases prefers hard/soft/cert over seniority; "senior" can collide
+  // with the seniority allowlist. The category is set from the allowlist, not
+  // from the text, so the first match wins for a given (phrase, source).
+
+  // Compute weights.
+  const weighted = deduped.map((e) => ({ ...e, weight: computeWeight(e) }))
+
+  // Sort by weight desc, then alphabetically for stable order.
+  weighted.sort((a, b) => b.weight - a.weight || a.phrase.localeCompare(b.phrase))
+
+  // Pre-LLM cap is 40; final cap is 30.
+  const capped = weighted.slice(0, PRE_LLM_CAP)
+  return { keywords: capped.slice(0, POST_RANK_CAP), refinedByLlm: false }
 }
 
 export function extractJobKeywords(description: string): string[] {
