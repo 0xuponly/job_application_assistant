@@ -97,3 +97,13 @@ export function createLogger(category: string, logDir?: string): CategoryLogger 
     error: (...args) => writeLog(category, dir, 'error', args)
   }
 }
+
+// Shared category logger registry. New categories get added here so any
+// module can `import { log } from './logger'` and reach
+// `log.<category>.error(...)` without needing to know the
+// <userData>/logs/ path. The brief prescribes `log.tailor.*` access
+// (e.g. cv_failed, cl_failed, cap_hit, dropped_missing_job); other
+// categories keep their per-module createLogger() pattern.
+export const log = {
+  tailor: createLogger('tailor')
+}

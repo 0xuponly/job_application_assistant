@@ -96,6 +96,15 @@ export default function ScanJobsPage() {
   // a real scan finish.
   const [cancelling, setCancelling] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
+  // Auto-tailor indicator (Task 3). When the scan result has addedJobs,
+  // we count how many of those jobs already have tailor_generated_at
+  // set in the store. The render uses this to show "X/Y tailored" on
+  // the result card. We re-derive whenever a new result lands (a
+  // job's tailor_generated_at flips from null to a timestamp after
+  // the auto-tailor queue processor runs). No polling — the
+  // app:refresh event re-fetches when the user hits the sidebar
+  // refresh button, which is good enough for the indicator.
+  const [tailoredCount, setTailoredCount] = useState(0)
   const [entries, setEntries] = useState<ProgressEntry[]>([])
   // Snapshot of the visible log lines (blue + green + latest grey) at the
   // moment the most recent scan ended, so the user can copy them after the
@@ -219,6 +228,31 @@ export default function ScanJobsPage() {
       timerRef.current = null
     }
   }, [])
+
+  // Auto-tailor indicator (Task 3): when a new scan result with
+  // addedJobs lands, count how many of those jobs already have
+  // tailor_generated_at set in the store. Fires on every result
+  // change AND on the sidebar refresh event so the indicator ticks
+  // up as the auto-tailor queue drains.
+  useEffect(() => {
+    if (!result || !result.addedJobs || result.addedJobs.length === 0) {
+      setTailoredCount(0)
+      return
+    }
+    let cancelled = false
+    const compute = () => {
+      api.listJobs().then((all) => {
+        if (cancelled) return
+        const idSet = new Set(result.addedJobs.map((j) => j.id))
+        const count = all.filter((j) => idSet.has(j.id) && j.tailor_generated_at != null).length
+        setTailoredCount(count)
+      }).catch(() => { if (!cancelled) setTailoredCount(0) })
+    }
+    compute()
+    const onRefresh = () => compute()
+    window.addEventListener('app:refresh', onRefresh)
+    return () => { cancelled = true; window.removeEventListener('app:refresh', onRefresh) }
+  }, [result])
 
   // Stop the elapsed timer whenever scanning becomes false (covers both manual
   // and auto-scan completion, even if the user is on this tab when it finishes).
@@ -940,6 +974,19 @@ export default function ScanJobsPage() {
                 <p style={{ margin: 0 }}>
                   New jobs added. Go to <strong>My Jobs</strong> to view and manage them.
                 </p>
+                {/* Auto-tailor indicator (Task 3). Per `project-scan-results-lists-added-jobs`,
+                    addedJobs is the source-of-truth list of jobs the
+                    scan admitted. We cross-reference with the live
+                    store (via the tailoredCount effect above) to
+                    show how many of the admitted jobs already have
+                    tailor_generated_at set. Hides the line when
+                    auto-tailor is off (count = 0) so the card stays
+                    quiet for users who haven't enabled the feature. */}
+                {tailoredCount > 0 && result.addedJobs && result.addedJobs.length > 0 && (
+                  <p style={{ margin: '4px 0 0', fontSize: 12 }}>
+                    {tailoredCount}/{result.addedJobs.length} tailored
+                  </p>
+                )}
                 {result.addedJobs && result.addedJobs.length > 0 && (
                   <ul style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 12 }}>
                     {result.addedJobs.map((j) => (

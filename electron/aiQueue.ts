@@ -44,6 +44,16 @@ async function processItem(item: AIQueueItem): Promise<void> {
         removeAIQueueItem(item.id)
         break
       }
+      case 'tailor_job_docs': {
+        // Dynamic import keeps the processor free of the heavier
+        // tailorJobDocs dependency (which in turn pulls in ai.ts's LLM
+        // call path) until the case actually fires. Mirrors the
+        // lazy-load pattern other optional call sites already use.
+        const { tailorJobDocsForJob } = await import('./tailorJobDocs')
+        await tailorJobDocsForJob(item.jobId)
+        removeAIQueueItem(item.id)
+        break
+      }
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'

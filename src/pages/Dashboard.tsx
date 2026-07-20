@@ -71,6 +71,7 @@ export default function Dashboard() {
       )}
 
       {jobs.length > 0 && <MatchQualityTrendWidget jobs={jobs} />}
+      {jobs.length > 0 && <TimeSavedWidget jobs={jobs} />}
 
       <div className="section-title">Action items</div>
       {followUps.length === 0 && interviews.length === 0 ? (
@@ -208,5 +209,36 @@ function Sparkline({ points, labels }: { points: (number | null)[]; labels: stri
         </g>
       ))}
     </svg>
+  )
+}
+
+// TimeSavedWidget (Task 3). Sums the wall-clock ms the auto-tailor
+// spent on CV + cover letter for jobs added in the last 7 days. The
+// headline is the rounded minute count (rounded to the nearest 5 so
+// the number doesn't read as "jittery"). Per `feedback-score-formatting`
+// the headline leads with the number, no redundant label, and per
+// `feedback-terse-result-headers` there's no secondary stat below it.
+// Hides entirely when the saved time is zero so the card doesn't take
+// up space for users who haven't used auto-tailor yet.
+function TimeSavedWidget({ jobs }: { jobs: Job[] }) {
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  let totalMs = 0
+  for (const j of jobs) {
+    // Jobs without a tailor_generated_at were never auto-tailored
+    // (or the tailor failed); skip both. Jobs added before the 7-day
+    // window don't count.
+    if (j.tailor_generated_at == null) continue
+    if (j.tailor_generated_at < sevenDaysAgo) continue
+    const ms = (j.tailor_ms_cv ?? 0) + (j.tailor_ms_cl ?? 0)
+    totalMs += ms
+  }
+  if (totalMs <= 0) return null
+  const minutes = Math.round(totalMs / 60000)
+  const rounded = Math.max(5, Math.round(minutes / 5) * 5)
+  return (
+    <div className="card">
+      <div className="section-title" style={{ marginBottom: 4 }}>Time saved</div>
+      <div style={{ fontSize: 22, fontWeight: 600 }}>{rounded} minutes saved this week</div>
+    </div>
   )
 }

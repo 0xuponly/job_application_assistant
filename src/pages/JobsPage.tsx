@@ -790,6 +790,14 @@ export default function JobsPage() {
     }
   }
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  // Per-job optimistic "tailoring..." flag (Task 3 Quick Apply).
+  // Mirrors `feedback-button-optimistic-state` — a per-job Set keyed
+  // by jobId so a row that has been queued can show "Tailoring…"
+  // while the queue runs without blocking the rest of the table.
+  // Cleared when the job's `tailor_generated_at` lands in the next
+  // loadJobs sync.
+  const [tailoringIds, setTailoringIds] = useState<Set<number>>(new Set())
+  const [settings, setSettings] = useState<{ base_cv?: string } | null>(null)
   const [generating, setGenerating] = useState<'cv' | 'cover_letter' | null>(null)
   const [genCount, setGenCount] = useState(0)
   const [genTotal, setGenTotal] = useState(0)
@@ -1053,6 +1061,22 @@ export default function JobsPage() {
     const cleanedForDedup = data.map(cleanJob)
     const dedupedForDisplay = dedupeJobs(cleanedForDedup)
     setJobs(dedupedForDisplay)
+    // Quick Apply (Task 3): clear the per-job optimistic "tailoring..."
+    // flag when the next sync shows the job's tailor_generated_at has
+    // changed. The store is the source of truth for when the queued
+    // task has actually run; matching on the generated_at timestamp is
+    // safer than guessing by elapsed wall time.
+    setTailoringIds((prev) => {
+      if (prev.size === 0) return prev
+      const next = new Set<number>()
+      for (const id of prev) {
+        const fresh = dedupedForDisplay.find((j) => j.id === id)
+        if (fresh && fresh.tailor_generated_at != null) continue
+        if (fresh && fresh.tailor_last_error != null) continue
+        next.add(id)
+      }
+      return next
+    })
     // Auto-dedupe: if the just-loaded list had hidden duplicates, drop
     // them in the store and reload. Latched per mount so the follow-up
     // loadJobs() (which re-enters this code with no duplicates) does
@@ -1192,6 +1216,18 @@ export default function JobsPage() {
     return () => window.removeEventListener('app:refresh', onRefresh)
   }, [])
 
+  // Quick Apply (Task 3) needs `base_cv` to gate the row action — the
+  // button is disabled when the user hasn't pasted a base CV into
+  // Settings yet. Loaded once on mount; the value rarely changes and
+  // a stale value just means the button is enabled when it shouldn't
+  // be for one render, which the per-row handler still tolerates
+  // (the queue processor will fail the doc and surface a toast).
+  useEffect(() => {
+    let cancelled = false
+    api.getSettings().then((s) => { if (!cancelled) setSettings(s) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   // Listen for "open this job" requests fired by the fit-recompute
   // toast's onClick. Dispatched from outside this page (via the
   // Notifications component) when the user clicks the
@@ -1329,6 +1365,36 @@ export default function JobsPage() {
     await api.deleteJob(id)
     setJobs((prev) => prev.filter((j) => j.id !== id))
     if (selectedJob?.id === id) setSelectedJob(null)
+  }
+
+  // Quick Apply row action (Task 3). Enqueues a tailor_job_docs task
+  // for the given job; the per-row Set<number> `tailoringIds` is the
+  // optimistic in-progress flag (per
+  // `feedback-button-optimistic-state`). loadJobs() clears the flag
+  // when the job's tailor_generated_at or tailor_last_error lands in
+  // the next store sync.
+  async function onQuickApply(jobId: number) {
+    setTailoringIds((prev) => {
+      const next = new Set(prev)
+      next.add(jobId)
+      return next
+    })
+    try {
+      await api.tailorQuickApply(jobId)
+    } catch (err) {
+      // Queue refuses to enqueue on hard failure — surface a toast and
+      // clear the optimistic flag so the user can retry.
+      setTailoringIds((prev) => {
+        const next = new Set(prev)
+        next.delete(jobId)
+        return next
+      })
+      notify(
+        `Quick Apply failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        'error',
+        8000
+      )
+    }
   }
 
   async function handleBatchTailor(type: 'cv' | 'cover_letter') {
@@ -1644,17 +1710,48 @@ export default function JobsPage() {
                 <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatJobDate(job.date_posted)}</td>
                 <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatJobDate(job.last_updated)}</td>
                 <td>
-                  <button
-                    className="icon-btn icon-btn-danger"
-                    title="Delete job"
-                    aria-label="Delete job"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDelete(job.id)
-                    }}
-                  >
-                    <span aria-hidden="true">✕</span>
-                  </button>
+                  <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                    {/* Quick Apply (Task 3). Per-row enqueue; the queue
+                        runs the CV+CL generation in the background and
+                        flips the job to `ready` when both docs land.
+                        Disabled when no base_cv is configured, or when
+                        the job is already at `ready` / `applied` (no
+                        work to do). `tailoringIds` is the per-job
+                        optimistic flag — a spinner-style indicator
+                        shown while the queue is still processing. */}
+                    <button
+                      className="icon-btn"
+                      data-tooltip={tailoringIds.has(job.id)
+                        ? 'Tailoring…'
+                        : (job.status === 'ready' || job.status === 'applied')
+                          ? `Already ${job.status}`
+                          : !settings?.base_cv
+                            ? 'Add a base CV in Settings first'
+                            : 'Quick Apply (tailor CV + cover letter)'}
+                      aria-label="Quick Apply"
+                      disabled={tailoringIds.has(job.id)
+                        || job.status === 'ready'
+                        || job.status === 'applied'
+                        || !settings?.base_cv}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onQuickApply(job.id)
+                      }}
+                    >
+                      <span aria-hidden="true">{tailoringIds.has(job.id) ? '⏳' : '✦'}</span>
+                    </button>
+                    <button
+                      className="icon-btn icon-btn-danger"
+                      title="Delete job"
+                      aria-label="Delete job"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(job.id)
+                      }}
+                    >
+                      <span aria-hidden="true">✕</span>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

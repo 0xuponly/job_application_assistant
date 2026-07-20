@@ -2,7 +2,8 @@ import { createJob, findDuplicateJob, getSeenUrls, getSettings, listJobs, record
 import { passesMatchFilters } from './matchGrade'
 import { decodeEntities } from './utils'
 import { scrapeJobFromUrl } from './jobScraper'
-import { createLogger } from './logger'
+import { createLogger, log as categoryLog } from './logger'
+import { enqueue } from './aiQueue'
 
 // File-backed category logger. Writes to <userData>/logs/scanner.log.
 const log = createLogger('scanner')
@@ -1690,6 +1691,35 @@ export async function scanAllBoards(
   )
 
   result.durationMs = Date.now() - startedAt
+
+  // Auto-tailor on scan (Task 3). When the user has the feature on and
+  // the job's fit score clears the configured minimum, queue a
+  // tailor_job_docs task for each admitted job. The 50/25 guardrail:
+  // if more than 50 jobs pass the match filters in a single scan, only
+  // the top 25 (by fit score) get auto-tailored — the rest must be
+  // handled via the Quick Apply row action. The cap_hit log line is
+  // what surfaces the toast in the renderer.
+  if (settings.auto_tailor_on_scan && result.addedJobs.length > 0) {
+    let autoTailorEligible = result.addedJobs
+    if (result.addedJobs.length > 50) {
+      categoryLog.tailor.warn('cap_hit', { total: result.addedJobs.length, cap: 50 })
+      // Re-fetch per-job to read the live score (addedJobs only carries
+      // id/title/company per `project-scan-results-lists-added-jobs`).
+      const withScores = listJobs()
+        .filter((j) => result.addedJobs.some((a) => a.id === j.id))
+        .map((j) => ({ id: j.id, score: j.score ?? 0 }))
+      autoTailorEligible = withScores
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 25)
+    }
+    for (const j of autoTailorEligible) {
+      const live = listJobs().find((x) => x.id === j.id)
+      const score = live?.score ?? j.score ?? 0
+      if (score >= settings.auto_tailor_min_fit) {
+        enqueue({ type: 'tailor_job_docs', jobId: j.id })
+      }
+    }
+  }
 
   return result
 }

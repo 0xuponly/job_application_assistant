@@ -846,6 +846,93 @@ export function getReadyQueue(): Job[] {
 export function markSubmitted(_jobId: number, _submittedAt?: number): void {}
 export function markResponse(_jobId: number, _responseAt?: number): void {}
 
+// Tailor queue helpers (Task 3). Used by electron/tailorJobDocs.ts to land
+// both the CV and cover letter plus the per-job timing fields in a single
+// store read+write. The store is an in-memory JSON file mutated under
+// Node's single-threaded loop, so "atomic" here means: load once, mutate
+// in place, persist once. The existing `deleteJobs` (above) is the
+// canonical reference for this pattern.
+export function writeDocuments(input: {
+  jobId: number
+  cvContent: string | null
+  clContent: string | null
+}): { cvId: number; clId: number } {
+  const s = loadStore()
+  let cvId = 0
+  let clId = 0
+  if (input.cvContent != null) {
+    const doc: Document = {
+      id: s.nextId++,
+      job_id: input.jobId,
+      type: 'cv',
+      title: `Tailored CV — job ${input.jobId}`,
+      content: input.cvContent,
+      is_base: 0,
+      model_used: null,
+      created_at: now(),
+      updated_at: now()
+    }
+    s.documents.push(doc)
+    cvId = doc.id
+  }
+  if (input.clContent != null) {
+    const doc: Document = {
+      id: s.nextId++,
+      job_id: input.jobId,
+      type: 'cover_letter',
+      title: `Tailored cover letter — job ${input.jobId}`,
+      content: input.clContent,
+      is_base: 0,
+      model_used: null,
+      created_at: now(),
+      updated_at: now()
+    }
+    s.documents.push(doc)
+    clId = doc.id
+  }
+  if (cvId !== 0 || clId !== 0) persistStore()
+  return { cvId, clId }
+}
+
+export function writeTailorTimingFields(input: {
+  jobId: number
+  ms_cv: number
+  ms_cl: number
+  generatedAt: number | null
+  lastError: string | null
+}): void {
+  const s = loadStore()
+  const idx = s.jobs.findIndex((j) => j.id === input.jobId)
+  if (idx === -1) return
+  const existing = s.jobs[idx]
+  // If lastError is non-null AND differs from the existing
+  // tailor_error_toasted value, also set tailor_error_toasted to a
+  // sentinel ("pending") so the renderer can fire the toast once and
+  // clear it on a future success. Mirrors the fit_error_toasted
+  // dedupe pattern from the doc-comment on Job.fit_error_toasted.
+  const newToasted = input.lastError
+    ? (existing.tailor_error_toasted === input.lastError ? existing.tailor_error_toasted : 'pending')
+    : null
+  s.jobs[idx] = {
+    ...existing,
+    tailor_ms_cv: input.ms_cv,
+    tailor_ms_cl: input.ms_cl,
+    tailor_generated_at: input.generatedAt,
+    tailor_last_error: input.lastError,
+    tailor_error_toasted: newToasted,
+    updated_at: now()
+  }
+  persistStore()
+}
+
+export function setJobStatus(jobId: number, status: JobStatus): void {
+  const s = loadStore()
+  const idx = s.jobs.findIndex((j) => j.id === jobId)
+  if (idx === -1) return
+  s.jobs[idx] = { ...s.jobs[idx], status, updated_at: now() }
+  persistStore()
+}
+
 // Documents
 
 export function getDocument(id: number): Document | undefined {
