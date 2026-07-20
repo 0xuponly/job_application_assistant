@@ -12,9 +12,12 @@ export interface MatchFilterInput {
 
 export function matchGradeFor(fitScore: number | null): MatchGrade {
   if (fitScore == null) return null
-  if (fitScore >= 0.7) return 'A'
-  if (fitScore >= 0.45) return 'B'
-  return 'C'
+  if (fitScore >= 0.9) return 'S'
+  if (fitScore >= 0.75) return 'A'
+  if (fitScore >= 0.6) return 'B'
+  if (fitScore >= 0.45) return 'C'
+  if (fitScore >= 0.3) return 'D'
+  return 'F'
 }
 
 export function passesMatchFilters(job: MatchFilterInput, filters: MatchFilters): boolean {

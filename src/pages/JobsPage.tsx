@@ -1689,7 +1689,7 @@ export default function JobsPage() {
                         style={{
                           display: 'inline-block',
                           borderRadius: '50%',
-                          background: job.score >= 0.9 ? '#3b82f6' : job.score >= 0.6 ? '#22c55e' : job.score >= 0.3 ? '#eab308' : '#ef4444'
+                          background: job.score >= 0.9 ? '#3b82f6' : job.score >= 0.75 ? '#22c55e' : job.score >= 0.6 ? '#eab308' : '#ef4444'
                         }}
                       />
                     </FitTooltip>

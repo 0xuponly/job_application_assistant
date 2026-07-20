@@ -866,8 +866,8 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
                         style={{
                           background:
                             score >= 0.9 ? '#3b82f6' :
-                            score >= 0.6 ? 'var(--success)' :
-                            score >= 0.3 ? 'var(--warning)' :
+                            score >= 0.75 ? 'var(--success)' :
+                            score >= 0.6 ? 'var(--warning)' :
                             'var(--danger)',
                         }}
                       />

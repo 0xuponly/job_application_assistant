@@ -257,7 +257,7 @@ function QueueFunnelWidget({ jobs }: { jobs: Job[] }) {
   if (stats.added === 0) return null
   const bars: { label: string; value: number; pct: number }[] = [
     { label: 'Added', value: stats.added, pct: 100 },
-    { label: 'Grade A', value: stats.gradeA, pct: stats.added ? (stats.gradeA / stats.added) * 100 : 0 },
+    { label: 'Grade ≥A', value: stats.gradeA, pct: stats.added ? (stats.gradeA / stats.added) * 100 : 0 },
     { label: 'Tailored', value: stats.tailored, pct: stats.added ? (stats.tailored / stats.added) * 100 : 0 },
     { label: 'Submitted', value: stats.submitted, pct: stats.added ? (stats.submitted / stats.added) * 100 : 0 },
     { label: 'Responded', value: stats.responded, pct: stats.added ? (stats.responded / stats.added) * 100 : 0 },

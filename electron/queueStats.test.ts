@@ -37,4 +37,12 @@ describe('computeQueueFunnel', () => {
     const stats = computeQueueFunnel([j], NOW)
     expect(stats).toEqual({ added: 1, gradeA: 1, tailored: 1, submitted: 1, responded: 1 })
   })
+  it('counts both S and A toward the gradeA bar (Grade ≥A semantics)', () => {
+    const s = job({ id: 1, created_at: new Date(NOW - 1000).toISOString(), match_grade: 'S' })
+    const a = job({ id: 2, created_at: new Date(NOW - 2000).toISOString(), match_grade: 'A' })
+    const b = job({ id: 3, created_at: new Date(NOW - 3000).toISOString(), match_grade: 'B' })
+    const stats = computeQueueFunnel([s, a, b], NOW)
+    expect(stats.added).toBe(3)
+    expect(stats.gradeA).toBe(2)
+  })
 })

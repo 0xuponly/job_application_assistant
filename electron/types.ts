@@ -209,7 +209,7 @@ export interface Settings {
   quick_apply_shortcut: string | null
 }
 
-export type MatchGrade = 'A' | 'B' | 'C' | null
+export type MatchGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F' | null
 
 export interface MatchFilters {
   min_salary: number | null

@@ -28,7 +28,7 @@ export function computeQueueFunnel(jobs: Job[], now: number): QueueFunnelStats {
   })
   return {
     added: recent.length,
-    gradeA: recent.filter((j) => j.match_grade === 'A').length,
+    gradeA: recent.filter((j) => j.match_grade === 'S' || j.match_grade === 'A').length,
     tailored: recent.filter((j) => j.tailor_generated_at != null).length,
     submitted: recent.filter((j) => j.submitted_at != null).length,
     responded: recent.filter((j) => j.response_at != null).length,
