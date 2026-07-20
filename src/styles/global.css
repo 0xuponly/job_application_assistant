@@ -165,13 +165,21 @@ textarea {
 
 /* Fix the icon slot to a consistent square so glyphs with larger
    font metrics (e.g. ⟐, ◎) don't push the row taller than simpler
-   shapes (◉, ▤, ⚙). The line-height and text-align keep the
-   glyph centered in the box regardless of its own bounding box. */
+   shapes (◉, ▤, ⚙). font-size matches the box; line-height is
+   tight so the glyph sits at the box's optical center without
+   overflow. overflow: hidden guarantees no glyph can push the
+   row height past the slot. display: flex + place-items: center
+   is the most reliable way to center a single inline child in a
+   fixed box. */
 .nav-item > span:first-child {
   width: 16px;
   height: 16px;
-  line-height: 16px;
-  text-align: center;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   flex-shrink: 0;
 }
 
