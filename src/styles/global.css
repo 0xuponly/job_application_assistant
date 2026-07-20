@@ -76,7 +76,8 @@ textarea {
   flex-direction: column;
   padding: 16px 12px;
   flex-shrink: 0;
-  transition: width 0.15s ease;
+  transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              padding 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar--collapsed {
@@ -85,6 +86,20 @@ textarea {
 
 .sidebar--collapsed .sidebar-logo {
   text-align: center;
+}
+
+/* During the width transition, gently dip the opacity of the
+   wordmark and the bottom-action cluster so they cross-fade in
+   sync with the rail resizing. The same curve matches the parent's
+   transition so the timing stays in lockstep. */
+.sidebar-logo,
+.sidebar-bottom-actions {
+  transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar--collapsed .sidebar-logo,
+.sidebar--collapsed .sidebar-bottom-actions {
+  opacity: 0.85;
 }
 
 .sidebar--collapsed .nav-item {
