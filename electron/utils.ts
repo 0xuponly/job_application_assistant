@@ -133,7 +133,13 @@ const COUNTRIES: Record<string, string> = {
 
 const REGION_MAP: Record<string, string> = { ...US_STATES, ...CA_PROVINCES }
 
-const REMOTE_TOKENS = new Set([
+// Pre-computed sets of known 2-letter codes. Used to disambiguate a bare
+// 2-letter token (e.g. "CA", "BC", "MH") as a known region/country vs.
+// an unknown token that should fall back to the default country.
+const KNOWN_REGION_CODES = new Set(Object.values(REGION_MAP))
+const KNOWN_COUNTRY_CODES = new Set(Object.values(COUNTRIES))
+
+export const REMOTE_TOKENS = new Set([
   'remote', 'anywhere', 'worldwide', 'global', 'wfh', 'work from home',
   'distributed', 'fully remote', '100% remote'
 ])
@@ -179,47 +185,71 @@ function formatSingleLocation(raw: string, defaultCountry: string): string {
   // If the city half is a remote token (e.g. "Remote, CA, US"), drop the
   // location suffix — remote is country-agnostic.
   if (REMOTE_TOKENS.has(parts[0].toLowerCase())) return parts[0]
+
+  // Resolve the default country once so all branches can fall back to it.
+  const defaultCC = canonicalizeCountry(defaultCountry)
+
   if (parts.length === 1) {
     const city = parts[0]
-    const cc = canonicalizeCountry(defaultCountry)
-    return cc ? `${city}, ${cc}` : city
+    if (!defaultCC) return ''  // Unknown — no country can be determined.
+    return `${city}, ${defaultCC}`
   }
 
   if (parts.length === 2) {
     const [city, regionOrCountry] = parts
 
-    // 2-part inputs NEVER get the default country appended — the user has
-    // already specified a second piece (region OR country), so respect it.
-    // 2-letter tokens are disambiguated against US_STATES + CA_PROVINCES +
-    // COUNTRIES; the "CA" collision (California vs Canada) prefers country.
+    // 2-letter tokens: known region or country → use as-is. Unknown → fall
+    // back to the default country so the result still carries a country code.
+    // Use the precomputed code sets — COUNTRIES/REGION_MAP only key on full
+    // names, so a raw 2-letter token like "CA" wouldn't match by lookup.
     const upper = regionOrCountry.toUpperCase()
     if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) {
-      const isCountryCode = !!COUNTRIES[regionOrCountry.toLowerCase()]
-      const isRegionCode = !!REGION_MAP[regionOrCountry.toLowerCase()]
+      const isCountryCode = KNOWN_COUNTRY_CODES.has(upper)
+      const isRegionCode = KNOWN_REGION_CODES.has(upper)
       if (isCountryCode || isRegionCode) {
         return `${city}, ${upper}`
       }
-      // Unknown 2-letter token: pass through unchanged.
-      return `${city}, ${regionOrCountry}`
+      if (defaultCC) return `${city}, ${defaultCC}`
+      return ''  // Unknown 2-letter token, no default country.
     }
 
-    // Full-name second token: region or country, never append default.
+    // Full-name second token: try region, then country. If neither resolves
+    // and the default country is set, use it. Otherwise the result would
+    // carry an unresolvable token and the decider would drop it.
     const region = canonicalizeRegion(regionOrCountry)
     if (region) return `${city}, ${region}`
     const country = canonicalizeCountry(regionOrCountry)
     if (country) return `${city}, ${country}`
-    return `${city}, ${regionOrCountry}`
+    if (defaultCC) return `${city}, ${defaultCC}`
+    return ''
   }
 
-
   // 3+ parts: City, Region, Country[, extras...]
+  // Region policy:
+  //   - known 2-letter code or full-name region → keep canonicalized
+  //   - otherwise, preserve verbatim ONLY when the country is unresolvable
+  //     and we'll fall back to the default country (the region string is
+  //     then useful context); when the country resolves on its own, drop
+  //     unrecognizable region tokens to keep the output clean.
   const [city, regionTok, countryTok] = parts
-  const region = canonicalizeRegion(regionTok)
-  const country = canonicalizeCountry(countryTok) || canonicalizeCountry(defaultCountry)
+  const upperRegion = regionTok.toUpperCase()
+  let region: string | null = null
+  if (KNOWN_REGION_CODES.has(upperRegion)) {
+    region = upperRegion
+  } else {
+    region = canonicalizeRegion(regionTok)
+  }
+  const resolvedCountry = canonicalizeCountry(countryTok)
+  const country = resolvedCountry || defaultCC
+  if (!region && !resolvedCountry && countryTok !== regionTok) {
+    // Region token is unknown and country is unresolvable; preserve the
+    // region verbatim only when we'll use the default country as a fallback.
+    region = regionTok
+  }
   if (region && country) return `${city}, ${region}, ${country}`
   if (country) return `${city}, ${country}`
-  if (region) return `${city}, ${region}`
-  return cleaned
+  // Region-only or neither: no country determinable, give up.
+  return ''
 }
 
 /**
