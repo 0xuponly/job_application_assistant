@@ -163,6 +163,18 @@ textarea {
   text-align: left;
 }
 
+/* Fix the icon slot to a consistent square so glyphs with larger
+   font metrics (e.g. ⟐, ◎) don't push the row taller than simpler
+   shapes (◉, ▤, ⚙). The line-height and text-align keep the
+   glyph centered in the box regardless of its own bounding box. */
+.nav-item > span:first-child {
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 .nav-item:hover {
   background: var(--bg-hover);
   color: var(--text);
