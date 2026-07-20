@@ -276,7 +276,7 @@ function DateFilterSelect({ filter, onChange }: {
               </label>
             )
           })}
-          <div style={{ borderTop: '1px solid var(--border)', marginTop: 4, padding: '8px 4px 4px' }}>
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 4, padding: '8px 12px 4px' }}>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Custom range</div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 4 }}>
               From
