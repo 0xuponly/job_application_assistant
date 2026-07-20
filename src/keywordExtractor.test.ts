@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseSections } from './keywordExtractor'
+import { parseSections, extractPhases } from './keywordExtractor'
 
 describe('parseSections', () => {
   it('returns the first non-empty line as title', () => {
@@ -95,5 +95,54 @@ describe('parseSections', () => {
     expect(s.required).toMatch(/go/)
     expect(s.required).toMatch(/rust/)
     expect(s.preferred).toMatch(/haskell/)
+  })
+})
+
+describe('extractPhases', () => {
+  it('finds exact allowlist hits in the section text', () => {
+    const out = extractPhases('We use Python and AWS daily.', 'required')
+    const phrases = out.map((k) => k.phrase).sort()
+    expect(phrases).toContain('python')
+    expect(phrases).toContain('aws')
+    out.forEach((k) => expect(k.weight).toBe(0))
+  })
+
+  it('finds phrase_boost entries as multi-word units', () => {
+    const out = extractPhases('You will work on machine learning and distributed systems.', 'required')
+    const phrases = out.map((k) => k.phrase).sort()
+    expect(phrases).toContain('machine learning')
+    expect(phrases).toContain('distributed systems')
+  })
+
+  it('finds seniority cues', () => {
+    const out = extractPhases('Looking for a senior engineer with staff-level scope.', 'required')
+    const phrases = out.map((k) => k.phrase)
+    expect(phrases).toContain('senior')
+    expect(phrases).toContain('staff')
+  })
+
+  it('classifies a phase_boost overlap with hard as hard, not soft', () => {
+    const out = extractPhases('Need experience with product management and stakeholder management.', 'required')
+    const product = out.find((k) => k.phrase === 'product management')!
+    expect(product.category).toBe('hard')
+    const stake = out.find((k) => k.phrase === 'stakeholder management')!
+    expect(stake.category).toBe('soft')
+  })
+
+  it('drops duplicates case-insensitively; longer phrase wins on overlap', () => {
+    const out = extractPhases('We use AWS and need machine learning experience.', 'required')
+    const phrases = out.map((k) => k.phrase)
+    expect(phrases.filter((p) => p === 'aws')).toHaveLength(1)
+    expect(phrases).toContain('machine learning')
+    expect(phrases).not.toContain('learning')
+  })
+
+  it('captures n-gram PMI phrases that occur more than once and are not in any list', () => {
+    const out = extractPhases(
+      'We use foobar pipeline for foobar pipeline tasks. Foobar pipeline is critical.',
+      'required'
+    )
+    const phrases = out.map((k) => k.phrase)
+    expect(phrases).toContain('foobar pipeline')
   })
 })

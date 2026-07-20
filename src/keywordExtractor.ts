@@ -93,3 +93,123 @@ export function extractJobKeywordsStructured(_description: string): KeywordResul
 export function extractJobKeywords(description: string): string[] {
   return extractJobKeywordsStructured(description).keywords.map((k) => k.phrase)
 }
+
+function tokenize(section: string): string[] {
+  return section
+    .toLowerCase()
+    .replace(/[^a-z0-9+#\s]/g, ' ')
+    .split(/\s+/)
+    .map((t) => t.replace(/\.+$/, ''))
+    .filter((t) => t.length > 0)
+}
+
+function bigrams(tokens: string[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < tokens.length - 1; i++) {
+    out.push(`${tokens[i]} ${tokens[i + 1]}`)
+  }
+  return out
+}
+
+function trigrams(tokens: string[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < tokens.length - 2; i++) {
+    out.push(`${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`)
+  }
+  return out
+}
+
+function pmiFor(phrase: string, tokens: string[]): number {
+  const words = phrase.split(' ')
+  if (words.length < 2) return 0
+  const total = tokens.length
+  const wordCounts = new Map<string, number>()
+  for (const t of tokens) wordCounts.set(t, (wordCounts.get(t) ?? 0) + 1)
+  let phraseCount = 0
+  for (let i = 0; i <= tokens.length - words.length; i++) {
+    let match = true
+    for (let j = 0; j < words.length; j++) {
+      if (tokens[i + j] !== words[j]) { match = false; break }
+    }
+    if (match) phraseCount++
+  }
+  if (phraseCount < 2) return 0
+  const phraseProb = phraseCount / Math.max(total - words.length + 1, 1)
+  let denom = 1
+  for (const w of words) {
+    const p = (wordCounts.get(w) ?? 0) / total
+    if (p === 0) return 0
+    denom *= p
+  }
+  if (denom === 0) return 0
+  return Math.log2(phraseProb / denom)
+}
+
+const PMI_THRESHOLD = 2.0
+
+export function extractPhases(section: string, source: KeywordSource): KeywordEntry[] {
+  const allowlists = loadKeywordAllowlists()
+  const tokens = tokenize(section)
+  const phrases = new Set<string>()
+  const phraseCategory = new Map<string, KeywordCategory>()
+
+  // 1. Unigram allowlist matches (hard, soft, cert, seniority).
+  for (const t of tokens) {
+    if (allowlists.hard.has(t) && !phraseCategory.has(t)) {
+      phrases.add(t); phraseCategory.set(t, 'hard')
+    } else if (allowlists.soft.has(t) && !phraseCategory.has(t)) {
+      phrases.add(t); phraseCategory.set(t, 'soft')
+    } else if (allowlists.cert.has(t) && !phraseCategory.has(t)) {
+      phrases.add(t); phraseCategory.set(t, 'cert')
+    } else if (allowlists.seniority.has(t) && !phraseCategory.has(t)) {
+      phrases.add(t); phraseCategory.set(t, 'seniority')
+    }
+  }
+
+  // 2. Bigram + trigram allowlist matches (hard, soft, cert — skip seniority for phrases).
+  for (const bg of [...bigrams(tokens), ...trigrams(tokens)]) {
+    if (allowlists.hard.has(bg) && !phraseCategory.has(bg)) {
+      phrases.add(bg); phraseCategory.set(bg, 'hard')
+    } else if (allowlists.soft.has(bg) && !phraseCategory.has(bg)) {
+      phrases.add(bg); phraseCategory.set(bg, 'soft')
+    } else if (allowlists.cert.has(bg) && !phraseCategory.has(bg)) {
+      phrases.add(bg); phraseCategory.set(bg, 'cert')
+    } else if (allowlists.phraseBoost.has(bg)) {
+      const cat = allowlists.phraseBoostByCategory.get(bg) ?? 'hard'
+      if (!phraseCategory.has(bg)) {
+        phrases.add(bg); phraseCategory.set(bg, cat)
+      }
+    }
+  }
+
+  // 3. PMI n-gram discovery for bigrams not in any list, count >= 2, PMI >= threshold.
+  for (const bg of bigrams(tokens)) {
+    if (phrases.has(bg)) continue
+    if (bg.split(' ').some((w) => w.length < 3)) continue
+    const pmi = pmiFor(bg, tokens)
+    if (pmi >= PMI_THRESHOLD) {
+      phrases.add(bg); phraseCategory.set(bg, 'hard')
+    }
+  }
+
+  // 4. Longer phrase wins over sub-phrase: drop "aws" if "aws solutions architect" exists.
+  const phraseList = [...phrases]
+  phraseList.sort((a, b) => b.length - a.length)
+  const kept: string[] = []
+  for (const p of phraseList) {
+    if (kept.some((k) => k.includes(p) || p.includes(k))) {
+      // longer already kept; skip the shorter
+      const longerFirst = kept.find((k) => k.includes(p))
+      if (longerFirst && longerFirst !== p) continue
+      if (kept.includes(p)) continue
+    }
+    kept.push(p)
+  }
+
+  return kept.map((p) => ({
+    phrase: p,
+    weight: 0,
+    category: phraseCategory.get(p) ?? 'hard',
+    source
+  }))
+}
