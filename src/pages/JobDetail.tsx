@@ -15,6 +15,11 @@ interface Props {
   onBack: () => void
   onUpdate: (job: Job) => void
   onDelete: (id: number) => void
+  // Sibling navigation: step through the jobs in the My Jobs
+  // filtered list. JobsPage owns the list and the fetch; this page
+  // just decides which ids are prev/next relative to the open job.
+  filteredJobIds: number[]
+  onNavigateSibling: (id: number) => void
 }
 
 // Format an ISO date string as MM/DD/YY for the Application deadline
@@ -28,7 +33,7 @@ function formatJobDate(iso: string | null | undefined): string {
   return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${String(d.getFullYear()).slice(-2)}`
 }
 
-export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
+export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJobIds, onNavigateSibling }: Props) {
   const [application, setApplication] = useState<Application | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
   const [tailoring, setTailoring] = useState<'cv' | 'cover_letter' | null>(null)
@@ -475,6 +480,57 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
   const cv = documents.find((d) => d.type === 'cv')
   const coverLetter = documents.find((d) => d.type === 'cover_letter')
 
+  // Index of the currently-open job in the My Jobs filtered list.
+  // -1 means the current job isn't in the list (e.g. status changed
+  // mid-view, or the filter now excludes it). In that case both
+  // buttons are disabled — we don't try to auto-heal the view.
+  const currentIndex = filteredJobIds.indexOf(job.id)
+  const prevId = currentIndex > 0 ? filteredJobIds[currentIndex - 1] : null
+  const nextId =
+    currentIndex >= 0 && currentIndex < filteredJobIds.length - 1
+      ? filteredJobIds[currentIndex + 1]
+      : null
+  const positionLabel =
+    currentIndex >= 0
+      ? ` (${currentIndex + 1} of ${filteredJobIds.length})`
+      : ''
+
+  // Step to a sibling job. If the user is in edit mode, confirm
+  // before discarding their unsaved changes — matches the keyboard
+  // path below. The existing Back button discards silently because
+  // it's a one-click explicit exit; prev/next are an extra hop away
+  // from the table, so the surprise of losing edits is higher.
+  const handleNavigate = (id: number | null) => {
+    if (id == null) return
+    if (editing && !confirm('Discard unsaved edits?')) return
+    onNavigateSibling(id)
+  }
+
+  // Arrow-key navigation. Bound at the document level because the
+  // page-level focus is rarely on the buttons themselves. Skip when
+  // an editable element has focus so users can use ←/→ inside text
+  // inputs (date pickers, the URL/title fields, etc.) as normal.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      const target = e.target as HTMLElement | null
+      if (target) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        if (target.isContentEditable) return
+      }
+      // Don't hijack keys when a modifier is held — let the user
+      // use ⌘← / ⌘→ (jump to start/end of line in inputs that
+      // somehow got past the focus check above) and browser
+      // shortcuts untouched.
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      e.preventDefault()
+      handleNavigate(e.key === 'ArrowLeft' ? prevId : nextId)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [prevId, nextId, editing])
+
   return (
     <div className="page">
       <div className="toolbar">
@@ -584,6 +640,24 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete }: Props) {
             Open posting
           </button>
         )}
+        <button
+          className="btn btn-secondary"
+          onClick={() => handleNavigate(prevId)}
+          disabled={prevId == null}
+          title={prevId != null ? `Previous job${positionLabel}` : 'No previous job in filter'}
+          aria-label="Previous job"
+        >
+          ‹
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => handleNavigate(nextId)}
+          disabled={nextId == null}
+          title={nextId != null ? `Next job${positionLabel}` : 'No next job in filter'}
+          aria-label="Next job"
+        >
+          ›
+        </button>
       </div>
 
       <div className="page-header" style={{ marginBottom: 8 }}>
