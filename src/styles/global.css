@@ -76,8 +76,8 @@ textarea {
   flex-direction: column;
   padding: 16px 12px;
   flex-shrink: 0;
-  transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1),
-              padding 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+              padding 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar--collapsed {
@@ -88,18 +88,32 @@ textarea {
   text-align: center;
 }
 
-/* During the width transition, gently dip the opacity of the
-   wordmark and the bottom-action cluster so they cross-fade in
-   sync with the rail resizing. The same curve matches the parent's
+/* Slide + fade the nav labels off as the rail narrows. The label
+   keeps its layout slot (display: none would skip the transform);
+   the parent nav-item's overflow: hidden hides the trailing edge
+   cleanly so the text doesn't bleed past the icon. */
+.nav-item .nav-label {
+  display: inline-block;
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav-item {
+  overflow: hidden;
+}
+
+/* During the width transition, dip the opacity of the wordmark
+   and the bottom-action cluster so they cross-fade in sync with
+   the rail resizing. The same curve matches the parent's
    transition so the timing stays in lockstep. */
 .sidebar-logo,
 .sidebar-bottom-actions {
-  transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar--collapsed .sidebar-logo,
 .sidebar--collapsed .sidebar-bottom-actions {
-  opacity: 0.85;
+  opacity: 0.7;
 }
 
 .sidebar--collapsed .nav-item {
@@ -107,7 +121,9 @@ textarea {
 }
 
 .sidebar--collapsed .nav-item .nav-label {
-  display: none;
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
 }
 
 .sidebar--collapsed .sidebar-scan-indicator {
