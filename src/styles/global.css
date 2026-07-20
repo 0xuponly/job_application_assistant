@@ -110,6 +110,7 @@ textarea {
   letter-spacing: -0.02em;
   padding: 4px 8px 20px;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .sidebar-logo span {

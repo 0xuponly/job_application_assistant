@@ -58,9 +58,9 @@ export default function Sidebar({ current, onNavigate }: Props) {
     <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
       <div className="sidebar-logo">
         {collapsed ? (
-          <span style={{ whiteSpace: 'nowrap' }}>
+          <>
             F<span>J</span>
-          </span>
+          </>
         ) : (
           <>
             Flow<span>Job</span>
