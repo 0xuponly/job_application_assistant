@@ -1036,11 +1036,15 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
                     <span style={{ color: cv.verification_score >= 70 ? '#22c55e' : '#f59e0b', fontWeight: 600 }}>
                       {cv.verification_score}/100 {cv.verification_score >= 70 ? '✓' : '⚠'}
                     </span>
-                    {cv.verification_feedback && (
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, whiteSpace: 'pre-wrap' }}>
-                        {cv.verification_feedback}
-                      </p>
-                    )}
+                    {cv.verification_feedback && (() => {
+                      const { cleanFeedback } = extractRulesFromFeedback(cv.verification_feedback)
+                      if (!cleanFeedback) return null
+                      return (
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, whiteSpace: 'pre-wrap' }}>
+                          {cleanFeedback}
+                        </p>
+                      )
+                    })()}
                     <RuleCheckList
                       rules={extractRulesFromFeedback(cv.verification_feedback ?? '').rules}
                     />
