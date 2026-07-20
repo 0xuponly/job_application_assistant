@@ -3,7 +3,8 @@ import { api } from '../api'
 import Modal from '../components/Modal'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
 import { notify } from '../components/Notifications'
-import { condenseLocation } from '../locations'
+import { COUNTRY_TO_CURRENCY } from '../currency'
+import { condenseLocation, REMOTE_TOKEN_RE } from '../locations'
 import type { CreateJobInput, Document, Job } from '../types'
 
 // Lives at module scope so a single ResizeObserver can measure the
@@ -363,27 +364,6 @@ function formatJobDate(iso: string | null | undefined): string {
  * the end, and is hidden by an active salary filter. parseAmount
  * would parse "0" to 0; we explicitly collapse that to null.
  */
-/**
- * Map a 2-letter ISO country code (the last segment of a normalized
- * Job.location, e.g. "CA", "US", "GB") to a currency code. We only
- * enumerate the countries we actually see in scraped postings — the
- * rest fall back to USD rather than guess. CAD for Canada, USD for
- * the US, GBP for the UK, EUR for the Eurozone members we encounter
- * most often, AUD/NZD for Aus/NZ, JPY for Japan. Anything not on the
- * list returns null so the cell can render without a code rather than
- * show a wrong one.
- */
-const COUNTRY_TO_CURRENCY: Record<string, string> = {
-  US: 'USD',
-  CA: 'CAD',
-  GB: 'GBP',
-  UK: 'GBP',
-  AU: 'AUD',
-  NZ: 'NZD',
-  JP: 'JPY',
-  DE: 'EUR', FR: 'EUR', NL: 'EUR', ES: 'EUR', IT: 'EUR', IE: 'EUR',
-  PT: 'EUR', BE: 'EUR', AT: 'EUR', FI: 'EUR', GR: 'EUR'
-}
 
 const ISO_CURRENCY_RE = /\b(USD|CAD|EUR|GBP|AUD|NZD|JPY)\b/i
 const SYMBOL_TO_CURRENCY: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY' }
@@ -466,19 +446,19 @@ function isoCurrencyFromSalary(s: string | null | undefined): string | null {
 }
 
 /**
- * Pull a currency code out of a job's normalized location string
- * (e.g. "Vancouver, BC, CA" → "CA" → "CAD"). The location format is
- * "City, REGION, CC" — see electron/utils.ts formatLocation. We only
- * trust the LAST comma-separated segment as the country code, since
- * city names can contain commas in some locales and the third segment
- * is what formatLocation writes for the country.
+ * Pull a currency code out of a job's stored location string. The
+ * location contract is: every non-null stored value either is a
+ * remote token, or ends in a 2-letter country code (written by
+ * electron/utils.ts formatLocation). The last comma-segment is the
+ * country code; we look it up in the shared COUNTRY_TO_CURRENCY
+ * table from src/currency.ts.
  */
 function currencyFromLocation(location: string | null | undefined): string | null {
   if (!location) return null
-  const parts = location.split(',').map((p) => p.trim().toUpperCase())
-  if (parts.length < 3) return null
-  const cc = parts[parts.length - 1]
-  return COUNTRY_TO_CURRENCY[cc] ?? null
+  if (REMOTE_TOKEN_RE.test(location.trim())) return null
+  const last = location.split(',').pop()?.trim().toUpperCase()
+  if (!last || !/^[A-Z]{2}$/.test(last)) return null
+  return COUNTRY_TO_CURRENCY[last] ?? null
 }
 
 /**
@@ -486,9 +466,11 @@ function currencyFromLocation(location: string | null | undefined): string | nul
  * three sources in order:
  *   1. The salary string itself, looking for an unambiguous 3-letter
  *      ISO code (CAD 90,000 - 129,000). If present, use it directly.
- *   2. The job's location country code (Vancouver, BC, CA → CA →
- *      CAD). This handles symbol-only values like "$100,000" posted
- *      from Canada, which would otherwise be mis-labelled USD.
+ *   2. The job's location country code (Vancouver, CA → CA → CAD).
+ *      The location's last comma-segment is always a 2-letter country
+ *      code (per the formatLocation contract). This handles symbol-only
+ *      values like "$100,000" posted from Canada, which would otherwise
+ *      be mis-labelled USD.
  *   3. The salary's own currency symbol ($/€/£/¥) as a last resort.
  *      This is the case the location table doesn't cover (a $ salary
  *      from a country not in COUNTRY_TO_CURRENCY, or no location
