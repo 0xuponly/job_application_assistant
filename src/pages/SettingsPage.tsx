@@ -573,7 +573,7 @@ export default function SettingsPage() {
 
       {tab === 'scan' && (
         <>
-          <div className="section-title">Job Scan</div>
+          <div className="section-title">Scan</div>
           <div className="card">
             <div className="form-group">
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -609,7 +609,9 @@ export default function SettingsPage() {
                 Auto-scans use all job boards, all work types, and your saved Preferred location. The scan runs while the app is open; you'll see progress in the Scan Jobs tab.
               </p>
             </div>
-            <div className="form-group" style={{ marginTop: 12 }}>
+          </div>
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="form-group">
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input
                   type="checkbox"
