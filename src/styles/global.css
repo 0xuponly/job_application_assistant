@@ -161,6 +161,12 @@ textarea {
   margin-bottom: 2px;
   width: 100%;
   text-align: left;
+  /* Fixed row height keeps the icon buttons the same size in
+     expanded and collapsed modes. The expanded mode naturally
+     measures to ~40px (label line-box 21px + padding 18px) so we
+     lock that in here so the icon doesn't shift when the label
+     collapses to max-width: 0 in collapsed mode. */
+  height: 40px;
 }
 
 /* Fix the icon slot to a consistent square so glyphs with larger
