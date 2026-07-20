@@ -1245,9 +1245,12 @@ app.whenReady().then(() => {
   startQueueProcessor()
   scheduleNextAutoScan()
 
-  // One-shot: normalize legacy locations to "City, REGION, CC" the first time
-  // the app loads with a populated store. Idempotent — gated by a flag.
-  if (!db.hasLocationsNormalized() && db.listJobs().length > 0) {
+  // One-shot: re-canonicalize legacy locations to honor the country-last
+  // contract (every stored value ends in a 2-letter country code or is
+  // remote/unknown). Gated by the v3 flag — v2 ran the previous, looser
+  // writer; v3 covers the stricter formatSingleLocation that ships with
+  // the currency-decider fix. Idempotent.
+  if (!db.hasLocationsNormalizedV3() && db.listJobs().length > 0) {
     try {
       const result = db.retrofitLocations()
       if (result.updated > 0) {

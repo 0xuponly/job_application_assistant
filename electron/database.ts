@@ -98,6 +98,7 @@ function defaultStore(): Store {
       auto_scan_interval_minutes: 120,
       locations_normalized: '',
       locations_normalized_v2: '',
+      locations_normalized_v3: '',
       employment_type_normalized: '',
       work_mode_normalized: '',
       statuses_recomputed: '',
@@ -1287,6 +1288,23 @@ export function markLocationsNormalized(): void {
   persistStore()
 }
 
+// v3 gate: introduced 2026-07-20 after the country-last contract was
+// tightened in formatSingleLocation. The v2 retrofit ran the previous
+// (more permissive) writer; rows that survived it may still be in a
+// pre-contract shape (e.g. full country name in the last segment) that
+// the new decider cannot read. Re-running the retrofit against the
+// current writer canonicalizes those rows. Idempotent — gated on a
+// distinct flag so it runs once per store.
+export function hasLocationsNormalizedV3(): boolean {
+  return loadStore().settings.locations_normalized_v3 === '1'
+}
+
+export function markLocationsNormalizedV3(): void {
+  const s = loadStore()
+  s.settings.locations_normalized_v3 = '1'
+  persistStore()
+}
+
 export function hasSalaryNormalized(): boolean {
   return loadStore().settings.salary_normalized === '1'
 }
@@ -1447,8 +1465,10 @@ export function retrofitLocations(): { updated: number; total: number } {
       updated++
     }
   }
-  // Set the flag whether or not anything changed, so we don't re-scan every launch.
-  s.settings.locations_normalized_v2 = '1'
+  // Set the v3 flag whether or not anything changed, so we don't re-scan
+  // every launch. (The v2 gate covers an earlier, looser writer; v3
+  // covers the country-last contract.)
+  s.settings.locations_normalized_v3 = '1'
   persistStore()
   return { updated, total: s.jobs.length }
 }

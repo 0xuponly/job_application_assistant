@@ -180,6 +180,7 @@ export interface Settings {
   auto_scan_interval_minutes: number
   locations_normalized: string
   locations_normalized_v2: string
+  locations_normalized_v3: string
   employment_type_normalized: string
   work_mode_normalized: string
   backup_path: string
