@@ -28,16 +28,15 @@ export function KeywordGapsPanel({ result, documentText }: Props) {
   const categories = Array.from(byCategory.keys())
   if (categories.length === 0) return null
   return (
-    <div className="keyword-gaps-panel">
-      <h3>Keyword Gaps</h3>
+    <>
       {categories.map((cat) => {
         const entries = (byCategory.get(cat) ?? []).slice().sort((a, b) => b.weight - a.weight)
         return (
-          <section key={cat}>
-            <h4>{CATEGORY_LABELS[cat]}</h4>
-            <ul>
+          <section key={cat} style={{ marginBottom: 12 }}>
+            <h4 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: 6 }}>{CATEGORY_LABELS[cat]}</h4>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {entries.map((e) => (
-                <li key={`${e.phrase}-${e.source}`} data-weight={e.weight}>
+                <li key={`${e.phrase}-${e.source}`} data-weight={e.weight} style={{ fontSize: 12, color: 'var(--text-muted)', padding: '2px 0' }}>
                   {e.phrase}
                 </li>
               ))}
@@ -45,6 +44,6 @@ export function KeywordGapsPanel({ result, documentText }: Props) {
           </section>
         )
       })}
-    </div>
+    </>
   )
 }

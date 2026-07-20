@@ -972,6 +972,13 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
                   )
                 })}
               </div>
+              <div className="section-title">Keyword gaps</div>
+              <div className="card">
+                <KeywordGapsPanel
+                  result={structuredResult}
+                  documentText={cv?.content ?? coverLetter?.content ?? docContent}
+                />
+              </div>
             </>
           )}
         </div>
@@ -1092,15 +1099,6 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
               <p style={{ fontSize: 13, color: '#22c55e', marginTop: 8 }}>✓ Verified and ready to apply</p>
             )}
           </div>
-
-          {structuredResult && (
-            <div className="card">
-              <KeywordGapsPanel
-                result={structuredResult}
-                documentText={cv?.content ?? coverLetter?.content ?? docContent}
-              />
-            </div>
-          )}
 
           <div className="card">
             <h4 style={{ marginBottom: 8 }}>3. Submit application</h4>
