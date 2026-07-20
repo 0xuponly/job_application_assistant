@@ -49,6 +49,14 @@ export interface Job {
   // is cleared and re-appears). NULL = never toasted, or error was
   // cleared since the last toast (a future re-occurrence re-arms).
   fit_error_toasted: string | null
+  match_grade: MatchGrade
+  tailor_ms_cv: number | null
+  tailor_ms_cl: number | null
+  tailor_generated_at: number | null
+  tailor_last_error: string | null
+  tailor_error_toasted: string | null
+  submitted_at: number | null
+  response_at: number | null
   notes: string | null
   date_posted: string | null
   application_deadline: string | null
@@ -195,6 +203,17 @@ export interface Settings {
   aggregator_himalayas_enabled: boolean
   ats_boards: AtsBoard[]
   disabled_boards: string[]
+  auto_tailor_on_scan: boolean
+  auto_tailor_min_fit: number
+  match_filters: MatchFilters
+  quick_apply_shortcut: string | null
+}
+
+export type MatchGrade = 'A' | 'B' | 'C' | null
+
+export interface MatchFilters {
+  min_salary: number | null
+  min_years: number | null
 }
 
 export type AtsPlatform = 'greenhouse' | 'lever' | 'ashby' | 'workday' | 'smartrecruiters'
@@ -298,7 +317,7 @@ export interface ScanStatus {
   startedAt: number | null
 }
 
-export type AIQueueItemType = 'generate_cv' | 'generate_cover_letter' | 'regenerate_section' | 'verify'
+export type AIQueueItemType = 'generate_cv' | 'generate_cover_letter' | 'regenerate_section' | 'verify' | 'tailor_job_docs'
 export type AIQueueItemStatus = 'pending' | 'processing' | 'failed'
 
 export interface AIQueueItem {

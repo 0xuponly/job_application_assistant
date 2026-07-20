@@ -104,7 +104,11 @@ function defaultStore(): Store {
       statuses_recomputed: '',
       backup_path: '',      backup_last_success_at: '',
       backup_last_error: '',
-      passphrase: ''
+      passphrase: '',
+      auto_tailor_on_scan: false,
+      auto_tailor_min_fit: 0.6,
+      match_filters: { min_salary: null, min_years: null },
+      quick_apply_shortcut: null
     },
     api_models: [],
     nextId: 1,
@@ -249,6 +253,18 @@ function loadStore(): Store {
     }
     if (typeof store.settings.auto_scan_interval_minutes !== 'number' || store.settings.auto_scan_interval_minutes <= 0) {
       store.settings.auto_scan_interval_minutes = 120
+    }
+    if (typeof store.settings.auto_tailor_on_scan !== 'boolean') {
+      store.settings.auto_tailor_on_scan = false
+    }
+    if (typeof store.settings.auto_tailor_min_fit !== 'number') {
+      store.settings.auto_tailor_min_fit = 0.6
+    }
+    if (!store.settings.match_filters) {
+      store.settings.match_filters = { min_salary: null, min_years: null }
+    }
+    if (typeof store.settings.quick_apply_shortcut !== 'string' && store.settings.quick_apply_shortcut !== null) {
+      store.settings.quick_apply_shortcut = null
     }
     if (!Array.isArray(store.settings.disabled_boards)) {
       // Per-board on/off list, populated by the Settings > Boards tab.
@@ -815,6 +831,13 @@ export function dedupeJobs(): { removedIds: number[]; remaining: number } {
   persistStore()
   return { removedIds: idsToDelete, remaining: s.jobs.length }
 }
+
+// Apply queue stubs (Task 1) — implementations land in Task 4.
+export function getReadyQueue(): Job[] {
+  return []
+}
+export function markSubmitted(_jobId: number, _submittedAt?: number): void {}
+export function markResponse(_jobId: number, _responseAt?: number): void {}
 
 // Documents
 

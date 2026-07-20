@@ -742,6 +742,16 @@ ${htmlBody}
     }
   })
 
+  ipcMain.handle('queue:list', () => db.getReadyQueue())
+  ipcMain.handle('queue:markSubmitted', (_e, jobId: number, submittedAt?: number) =>
+    db.markSubmitted(jobId, submittedAt))
+  ipcMain.handle('queue:markResponse', (_e, jobId: number, responseAt?: number) =>
+    db.markResponse(jobId, responseAt))
+  ipcMain.handle('tailor:quickApply', (_e, jobId: number) => {
+    enqueue({ type: 'tailor_job_docs', jobId })
+    return { queued: true }
+  })
+
   ipcMain.handle('db:clearSeenUrls', () => db.clearSeenUrls())
   ipcMain.handle('db:clearAllData', () => db.clearAllData())
 

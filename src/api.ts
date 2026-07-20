@@ -72,6 +72,10 @@ export interface Api {
   tailorDocument: (request: TailorRequest) => Promise<TailorResult | { queued: true }>
   verifyDocument: (jobId: number, documentId: number, docType: 'cv' | 'cover_letter') => Promise<VerificationResult | { queued: true }>
   regenerateSection: (documentId: number, sectionName: string, jobId: number, extraContext?: string) => Promise<string | { queued: true }>
+  queueList: () => Promise<Job[]>
+  queueMarkSubmitted: (jobId: number, submittedAt?: number) => Promise<void>
+  queueMarkResponse: (jobId: number, responseAt?: number) => Promise<void>
+  tailorQuickApply: (jobId: number) => Promise<{ queued: true }>
   getScanStatus: () => Promise<ScanStatus>
   clearScanResult: () => Promise<void>
   onScanProgress: (cb: (msg: string) => void) => () => void

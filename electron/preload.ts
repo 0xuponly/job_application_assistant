@@ -70,6 +70,10 @@ export interface Api {
   tailorDocument: (request: TailorRequest) => Promise<TailorResult | { queued: true }>
   verifyDocument: (jobId: number, documentId: number, docType: 'cv' | 'cover_letter') => Promise<VerificationResult | { queued: true }>
   regenerateSection: (documentId: number, sectionName: string, jobId: number, extraContext?: string) => Promise<string | { queued: true }>
+  queueList: () => Promise<Job[]>
+  queueMarkSubmitted: (jobId: number, submittedAt?: number) => Promise<void>
+  queueMarkResponse: (jobId: number, responseAt?: number) => Promise<void>
+  tailorQuickApply: (jobId: number) => Promise<{ queued: true }>
   getScanStatus: () => Promise<ScanStatus>
   clearScanResult: () => Promise<void>
   cancelScan: () => Promise<void>
@@ -184,6 +188,10 @@ const api: Api = {
   verifyDocument: (jobId, documentId, docType) => ipcRenderer.invoke('documents:verify', jobId, documentId, docType),
   regenerateSection: (documentId, sectionName, jobId, extraContext) =>
     ipcRenderer.invoke('documents:regenerateSection', documentId, sectionName, jobId, extraContext),
+  queueList: () => ipcRenderer.invoke('queue:list'),
+  queueMarkSubmitted: (jobId, submittedAt) => ipcRenderer.invoke('queue:markSubmitted', jobId, submittedAt),
+  queueMarkResponse: (jobId, responseAt) => ipcRenderer.invoke('queue:markResponse', jobId, responseAt),
+  tailorQuickApply: (jobId) => ipcRenderer.invoke('tailor:quickApply', jobId),
   clearSeenUrls: () => ipcRenderer.invoke('db:clearSeenUrls'),
   clearAllData: () => ipcRenderer.invoke('db:clearAllData'),
   retrofitLocations: () => ipcRenderer.invoke('db:retrofitLocations'),

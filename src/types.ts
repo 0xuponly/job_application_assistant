@@ -37,6 +37,14 @@ export interface Job {
   fit_score_version: number | null
   fit_last_error: string | null
   fit_error_toasted: string | null
+  match_grade: MatchGrade
+  tailor_ms_cv: number | null
+  tailor_ms_cl: number | null
+  tailor_generated_at: number | null
+  tailor_last_error: string | null
+  tailor_error_toasted: string | null
+  submitted_at: number | null
+  response_at: number | null
   notes: string | null
   date_posted: string | null
   application_deadline: string | null
@@ -136,6 +144,17 @@ export interface Settings {
   // are hidden from the scan page picker AND skipped by the main-
   // process scan loop. Empty array = all boards enabled.
   disabled_boards: string[]
+  auto_tailor_on_scan: boolean
+  auto_tailor_min_fit: number
+  match_filters: MatchFilters
+  quick_apply_shortcut: string | null
+}
+
+export type MatchGrade = 'A' | 'B' | 'C' | null
+
+export interface MatchFilters {
+  min_salary: number | null
+  min_years: number | null
 }
 
 export type AtsPlatform = 'greenhouse' | 'lever' | 'ashby' | 'workday' | 'smartrecruiters'
