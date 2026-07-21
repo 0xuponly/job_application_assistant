@@ -41,6 +41,7 @@ export interface Api {
   deleteDocument: (id: number) => Promise<void>
   exportDocumentPdf: (title: string, content: string, docType: string, documentId: number | null, company?: string, position?: string) => Promise<string | null>
   extractJobKeywords: (jobId: number) => Promise<KeywordResult>
+  refineJobKeywords: (jobId: number) => Promise<KeywordResult>
   listApplications: () => Promise<(Application & { job_title: string; company: string })[]>
   getOrCreateApplication: (jobId: number) => Promise<Application>
   updateApplication: (id: number, fields: Partial<Application>) => Promise<Application>
@@ -162,6 +163,7 @@ const api: Api = {
   deleteDocument: (id) => ipcRenderer.invoke('documents:delete', id),
   exportDocumentPdf: (title, content, docType, documentId, company, position) => ipcRenderer.invoke('documents:exportPdf', title, content, docType, documentId, company, position),
   extractJobKeywords: (jobId) => ipcRenderer.invoke('keywords:extract', jobId),
+  refineJobKeywords: (jobId) => ipcRenderer.invoke('keywords:refine', jobId),
   listApplications: () => ipcRenderer.invoke('applications:list'),
   getOrCreateApplication: (jobId) => ipcRenderer.invoke('applications:getOrCreate', jobId),
   updateApplication: (id, fields) => ipcRenderer.invoke('applications:update', id, fields),

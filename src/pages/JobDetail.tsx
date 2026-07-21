@@ -167,12 +167,20 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
   }, [job, editing])
 
   // Structured keyword extraction result for the "all keywords by
-  // category" grouped chip block and the KeywordGapsPanel. Re-fetches
-  // whenever the underlying job description changes (description edit
-  // is the only path that can shift category/weight). The IPC is a
-  // pure function (no LLM) so this is cheap to recompute; we still
-  // gate it on [job.id, currentJob.description] to avoid refetching
-  // on unrelated re-renders.
+  // category" grouped chip block and the KeywordGapsPanel.
+  //
+  // Two-stage IPC (v3):
+  //   1. `extractJobKeywords` returns the rule-only result synchronously
+  //      (~5ms) so the chips and gaps panel render immediately. This is
+  //      always the v2 behavior — the keyword panel is part of the page
+  //      and must not depend on an LLM being available.
+  //   2. `refineJobKeywords` runs the v3 LLM orchestrator in the
+  //      background. On success, the result replaces the rule-only one
+  //      (LLM's recall + unknown-phrase list). On failure, the rule-only
+  //      result stands.
+  //
+  // Re-fetches whenever the underlying job description changes (the only
+  // path that can shift category/weight).
   const [structuredResult, setStructuredResult] = useState<KeywordResult | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -185,6 +193,20 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
       // gaps panel. Surface as a toast so the user knows the UI is
       // missing one of its affordances rather than failing silently.
       notify(`Keyword extraction failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error')
+    })
+    return () => { cancelled = true }
+  }, [job.id, currentJob.description])
+
+  // Fire-and-forget LLM refinement. If the LLM is unavailable, slow, or
+  // rate-limited, the rule-only result from `extractJobKeywords` stands.
+  // The unknown-phrase list surfaces when the LLM call completes.
+  useEffect(() => {
+    let cancelled = false
+    api.refineJobKeywords(job.id).then((r) => {
+      if (cancelled) return
+      setStructuredResult(r)
+    }).catch(() => {
+      // Silent: the rule-only result is already rendered.
     })
     return () => { cancelled = true }
   }, [job.id, currentJob.description])

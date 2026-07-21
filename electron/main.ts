@@ -14,6 +14,7 @@ import {
 import { tailorDocument, generateFollowUpMessage, regenerateSection, verifyDocumentContent, scoreJobFit, extractJobKeywordsV3, RateLimitError } from './ai'
 import { countPdfPages } from '../src/cvOnePage'
 import { enforceAllCvCeilings, enforceParagraphCeilings } from '../src/documentRules'
+import { extractJobKeywordsStructured } from '../src/keywordExtractor'
 import { scrapeJobFromUrl } from './jobScraper'
 import { scanAllBoards, BOARDS } from './jobSearch'
 import { createLogger } from './logger'
@@ -348,10 +349,20 @@ function registerIpc(): void {
   ipcMain.handle('keywords:extract', async (_e, jobId: number) => {
     const job = db.getJob(jobId)
     if (!job) return { keywords: [], refinedByLlm: false, unknownPhrases: [] }
-    // v3: LLM-first with rule-pipeline safety net. On LLM failure, the
-    // orchestrator falls back to the rule-only result with
-    // refinedByLlm=false. The unknown-phrase list is surfaced in JobDetail
-    // so the user can review and decide whether to add to the allowlist.
+    // v3: return the rule-only result synchronously so JobDetail's chip
+    // block + gaps panel render immediately (was the v2 behavior, ~5ms).
+    // The LLM-first enhancement runs in a separate IPC (`keywords:refine`)
+    // in the background; if it succeeds, the renderer replaces the rule-
+    // only result with the merged one (LLM candidates + unknown-phrase
+    // list). If the LLM call fails, the rule-only result stands.
+    return extractJobKeywordsStructured(job.description ?? '')
+  })
+
+  ipcMain.handle('keywords:refine', async (_e, jobId: number) => {
+    const job = db.getJob(jobId)
+    if (!job) return { keywords: [], refinedByLlm: false, unknownPhrases: [] }
+    // Runs the LLM-first v3 orchestrator. The renderer fires-and-forgets
+    // this on top of the rule-only `keywords:extract` result.
     return extractJobKeywordsV3(job.description ?? '')
   })
 
