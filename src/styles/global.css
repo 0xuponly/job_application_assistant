@@ -942,8 +942,8 @@ input[type="checkbox"]:disabled {
 }
 
 @keyframes fit-tooltip-in {
-  from { opacity: 0; transform: translate(-50%, calc(-100% + 4px)); }
-  to   { opacity: 1; transform: translate(-50%, -100%); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .sidebar {

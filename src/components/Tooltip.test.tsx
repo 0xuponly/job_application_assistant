@@ -209,4 +209,32 @@ describe('Tooltip', () => {
     restore()
     unmount()
   })
+
+  it('entry animation keyframe does not animate transform (would override positioning)', () => {
+    // Regression: the fit-tooltip-in keyframe used to set `transform` in
+    // its `from`/`to` states, which overrode the inline transform that
+    // positions the tooltip at its resolved spot. During the 0.12s
+    // animation the tooltip rendered at the keyframe's transform then
+    // snapped to the resolved position. The animation should animate
+    // opacity only.
+    //
+    // Vitest's jsdom env doesn't load global.css, so we read it directly
+    // and inject a single <style> with the keyframe rule under test.
+    const fs = require('node:fs') as typeof import('node:fs')
+    const path = require('node:path') as typeof import('node:path')
+    const css = fs.readFileSync(
+      path.resolve(__dirname, '../styles/global.css'),
+      'utf8'
+    )
+    const match = css.match(/@keyframes\s+fit-tooltip-in\s*\{[^}]*\}[^}]*\}/)
+    expect(match, 'fit-tooltip-in keyframe must be defined in global.css').not.toBeNull()
+    const block = match![0]
+    // The keyframe rule must not declare a `transform` property. Any
+    // `transform` in a keyframe overrides the inline transform during the
+    // animation, which is what caused the wrong-position flash.
+    expect(block).not.toMatch(/transform\s*:/)
+    // Sanity: opacity should still be animated for the fade-in feel.
+    expect(block).toMatch(/opacity\s*:\s*0/)
+    expect(block).toMatch(/opacity\s*:\s*1/)
+  })
 })
