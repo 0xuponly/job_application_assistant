@@ -322,17 +322,25 @@ const ACRONYMS = new Set([
   'GIS', 'CAD', 'CAM', 'CNC', 'PLC', 'SCADA', 'HVAC', 'MEP', 'BIM',
   'R&D', 'F&A', 'OEM', 'ODM', 'EDI', 'POS', 'ATM', 'EHS', 'OSHA', 'FDA',
   'EPA', 'FTC', 'SEC', 'GDPR', 'CCPA', 'K–12', 'B2B', 'B2C', 'B2B2C',
-  'D2C', 'DTC'
+  'D2C', 'DTC',
+  // Company-name acronyms not in the title-flavored list above.
+  'IBM', 'EY', 'SAP', 'KPMG', 'HPE', 'BCG', 'PWC'
 ])
 
 // Tokens that should be preserved regardless of source case. Covers
 // acronyms whose canonical spelling is mixed-case but where scrapers
 // commonly send a degraded form. `iOS`, `eBay`, `PhD` are the realistic
 // cases; the rest are duplicated by the mixed-case rule but listed for
-// clarity.
-const MIXED_CASE_ACRONYMS = new Set([
-  'PhD', 'iOS', 'eBay', 'McKinsey', 'McDonalds', "McDonald's"
-])
+// clarity. Maps lowercased input → canonical mixed-case output, so
+// `PhD`, `phd`, `PHD`, `Phd` all canonicalize to `PhD`.
+const MIXED_CASE_ACRONYMS: Record<string, string> = {
+  'phd': 'PhD',
+  'ios': 'iOS',
+  'ebay': 'eBay',
+  'mckinsey': 'McKinsey',
+  'mcdonalds': 'McDonalds',
+  "mcdonald's": "McDonald's"
+}
 
 // Quick shape test: a token is "all-uppercase" when it has at least one
 // letter and no lowercase letters. Empty / symbol-only tokens fail.
@@ -365,24 +373,63 @@ const SMALL_WORDS = new Set([
  * `word` for case-sensitivity) and the token's position (so the Roman
  * rule can fire only at end-of-title).
  */
-function shouldPreserveToken(
+/**
+ * Returns the canonical form of the token if it should be passed
+ * through unchanged, or null if the token should fall through to the
+ * title-casing path. The distinction between "preserve" and
+ * "canonicalize" matters for the mixed-case acronym rule: rule 3
+ * rewrites `Phd` → `PhD` (canonical mixed-case), not just preserves
+ * the input.
+ *
+ * Rules (first match wins):
+ *   1. Mixed-case acronym (rule 3) — token's lowercased form is in
+ *      MIXED_CASE_ACRONYMS. Returns the canonical form, NOT the input.
+ *      Covers `Phd` → `PhD`, `Ios` → `iOS`, `Ebay` → `eBay`.
+ *   2. Mixed case (rule 1) — token has upper AND lower letters. Covers
+ *      iOS, GitHub, McDonalds. Returns the input as-is.
+ *   3. No letters (rule 2) — token is digits and/or symbols only.
+ *      Returns the input as-is.
+ *   4. Trailing Roman numeral (rule 4) — the upper-cased form is in
+ *      ROMAN_NUMERALS and the token is last in the title. Source may
+ *      be all-lower (`ii`) or all-upper (`II`); mixed-case already
+ *      caught by rule 2. Returns the upper-cased form (canonical).
+ *   5. Curated acronym (rule 5) — source is all-uppercase and the
+ *      upper form is in ACRONYMS. Returns the upper form (canonical).
+ *
+ * The `ctx` argument carries the source form (so we can compare to
+ * `word` for case-sensitivity) and the token's position (so the Roman
+ * rule can fire only at end-of-title).
+ */
+function preserveOrCanonicalize(
   word: string,
   ctx: { isLast: boolean; source: string }
-): boolean {
-  if (!word) return false
+): string | null {
+  if (!word) return null
   const hasLower = /[a-z]/.test(word)
   const hasUpper = /[A-Z]/.test(word)
-  if (hasLower && hasUpper) return true   // rule 1
-  if (!hasLower && !hasUpper) return true // rule 2
-  if (MIXED_CASE_ACRONYMS.has(word)) return true // rule 3
-  const upper = ctx.source.toUpperCase()
-  if (ctx.isLast && ROMAN_NUMERALS.has(upper) && isAllUpper(ctx.source)) {
-    return true                          // rule 4
+  // Rule 3: mixed-case acronym. Fires for any case variant of a known
+  // mixed-case acronym (PhD, iOS, eBay). Returns the canonical form.
+  const canonical = MIXED_CASE_ACRONYMS[word.toLowerCase()]
+  if (canonical !== undefined) return canonical
+  // Rule 4: trailing Roman numeral. The upper-cased form is in
+  // ROMAN_NUMERALS and the token is last in the title. Source may be
+  // any case (all-lower `ii`, all-upper `II`, or mixed `Ii`).
+  if (ctx.isLast && ROMAN_NUMERALS.has(word.toUpperCase())) {
+    return word.toUpperCase()
   }
-  if (ACRONYMS.has(upper) && isAllUpper(ctx.source)) {
-    return true                          // rule 5
+  // Rule 5: curated acronym. The upper-cased form is in ACRONYMS
+  // regardless of how the user wrote it. This is the central fix:
+  // `It` → `IT`, `Sre` → `SRE`, `Senior Ai` → `Senior AI`. Source
+  // case is ignored for the lookup; output is always the canonical
+  // upper-cased form. Tokens whose upper form is NOT in ACRONYMS
+  // (e.g. `iOS`, `GitHub`, `McDonalds`) skip this rule and fall
+  // through to rule 1 (preserve mixed case) or the title-case path.
+  if (ACRONYMS.has(word.toUpperCase())) {
+    return word.toUpperCase()
   }
-  return false
+  if (hasLower && hasUpper) return word   // rule 1: preserve mixed case
+  if (!hasLower && !hasUpper) return word // rule 2: preserve no-letter tokens
+  return null
 }
 
 function titleCaseWord(word: string, isFirst: boolean): string {
@@ -413,11 +460,10 @@ export function normalizeTitle(raw: string | null | undefined): string | null {
   const tokens = trimmed.split(' ')
   const lastIndex = tokens.length - 1
   return tokens
-    .map((t, i) =>
-      shouldPreserveToken(t, { isLast: i === lastIndex, source: t })
-        ? t
-        : titleCaseWord(t, i === 0)
-    )
+    .map((t, i) => {
+      const preserved = preserveOrCanonicalize(t, { isLast: i === lastIndex, source: t })
+      return preserved !== null ? preserved : titleCaseWord(t, i === 0)
+    })
     .join(' ')
 }
 
@@ -442,11 +488,10 @@ export function normalizeCompany(raw: string | null | undefined): string | null 
   const tokens = cleaned.split(' ')
   const lastIndex = tokens.length - 1
   return tokens
-    .map((t, i) =>
-      shouldPreserveToken(t, { isLast: i === lastIndex, source: t })
-        ? t
-        : titleCaseWord(t, i === 0)
-    )
+    .map((t, i) => {
+      const preserved = preserveOrCanonicalize(t, { isLast: i === lastIndex, source: t })
+      return preserved !== null ? preserved : titleCaseWord(t, i === 0)
+    })
     .join(' ')
 }
 

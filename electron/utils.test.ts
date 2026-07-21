@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatLocation } from './utils'
+import { formatLocation, normalizeTitle, normalizeCompany } from './utils'
 
 describe('formatLocation — country-last contract', () => {
   it('1-part input with defaultCountry produces City, CC', () => {
@@ -68,5 +68,95 @@ describe('formatLocation — country-last contract', () => {
 
   it('multi-location joined by semicolon normalizes each piece', () => {
     expect(formatLocation('Vancouver, BC; Toronto, ON', 'US')).toBe('Vancouver, BC; Toronto, ON')
+  })
+})
+
+describe('normalizeTitle — Roman numerals', () => {
+  it('preserves trailing "II" when source is all-caps', () => {
+    expect(normalizeTitle('Recreation Assistant Ii')).toBe('Recreation Assistant II')
+  })
+  it('preserves trailing "III" when source is all-caps', () => {
+    expect(normalizeTitle('Analyst Iii')).toBe('Analyst III')
+  })
+  it('preserves trailing "IV" when source is all-caps', () => {
+    expect(normalizeTitle('Engineer Iv')).toBe('Engineer IV')
+  })
+  it('preserves trailing single-letter "I" when source is all-caps', () => {
+    expect(normalizeTitle('Data Analyst I')).toBe('Data Analyst I')
+  })
+  it('does NOT preserve Roman numeral mid-title', () => {
+    expect(normalizeTitle('Iii Consultant')).toBe('Iii Consultant')
+  })
+})
+
+describe('normalizeTitle — acronyms', () => {
+  it('preserves "IT" anywhere in the title', () => {
+    expect(normalizeTitle('It Director')).toBe('IT Director')
+  })
+  it('preserves "AI" anywhere in the title', () => {
+    expect(normalizeTitle('Senior Ai Analytics')).toBe('Senior AI Analytics')
+  })
+  it('preserves mid-title acronyms like "QA"', () => {
+    expect(normalizeTitle('Senior Qa Engineer')).toBe('Senior QA Engineer')
+  })
+  it('preserves 3-letter acronyms like "SRE"', () => {
+    expect(normalizeTitle('Sre Engineer')).toBe('SRE Engineer')
+  })
+})
+
+describe('normalizeTitle — intentionally-mixed-case acronyms', () => {
+  it('normalizes "Phd" to "PhD"', () => {
+    expect(normalizeTitle('Phd Student')).toBe('PhD Student')
+  })
+  it('normalizes "Ios" to "iOS"', () => {
+    expect(normalizeTitle('Ios Engineer')).toBe('iOS Engineer')
+  })
+  it('normalizes "Ebay" to "eBay"', () => {
+    expect(normalizeTitle('Ebay Seller')).toBe('eBay Seller')
+  })
+})
+
+describe('normalizeTitle — regressions', () => {
+  it('basic title case still works', () => {
+    expect(normalizeTitle('software developer')).toBe('Software Developer')
+  })
+  it('lowercases all-caps then title-cases', () => {
+    expect(normalizeTitle('SENIOR SOFTWARE DEVELOPER')).toBe('Senior Software Developer')
+  })
+  it('keeps small words lowercase mid-title', () => {
+    expect(normalizeTitle('manager of engineering')).toBe('Manager of Engineering')
+  })
+  it('preserves mixed-case tokens like "iOS"', () => {
+    expect(normalizeTitle('iOS engineer')).toBe('iOS Engineer')
+  })
+  it('returns null for null input', () => {
+    expect(normalizeTitle(null)).toBeNull()
+  })
+  it('returns null for empty input', () => {
+    expect(normalizeTitle('   ')).toBeNull()
+  })
+})
+
+describe('normalizeCompany — acronyms', () => {
+  it('preserves "IBM" all-caps', () => {
+    expect(normalizeCompany('IBM')).toBe('IBM')
+  })
+  it('canonicalizes lowercase acronyms to upper-case', () => {
+    expect(normalizeCompany('ibm')).toBe('IBM')
+  })
+  it('canonicalizes mixed-case acronyms to upper-case', () => {
+    expect(normalizeCompany('Ibm')).toBe('IBM')
+  })
+  it('preserves "EY"', () => {
+    expect(normalizeCompany('EY')).toBe('EY')
+  })
+  it('preserves "SAP"', () => {
+    expect(normalizeCompany('SAP')).toBe('SAP')
+  })
+  it('preserves "GitHub" via mixed-case rule', () => {
+    expect(normalizeCompany('GitHub')).toBe('GitHub')
+  })
+  it('strips trailing punctuation', () => {
+    expect(normalizeCompany('IBM Corp.')).toBe('IBM Corp')
   })
 })
