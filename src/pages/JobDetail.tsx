@@ -3,6 +3,7 @@ import { api } from '../api'
 import Modal from '../components/Modal'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
 import { KeywordGapsPanel } from '../components/KeywordGapsPanel'
+import { KeywordUnknownList } from '../components/KeywordUnknownList'
 import RuleCheckList from '../components/RuleCheckList'
 import { extractJobKeywords, extractRulesFromFeedback } from '../documentRules'
 import { notify } from '../components/Notifications'
@@ -987,6 +988,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
                   result={structuredResult}
                   documentText={cv?.content ?? coverLetter?.content ?? docContent}
                 />
+                <KeywordUnknownList unknownPhrases={structuredResult?.unknownPhrases ?? []} />
               </div>
             </>
           )}
