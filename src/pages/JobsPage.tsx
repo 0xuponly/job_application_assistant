@@ -3,6 +3,7 @@ import { api } from '../api'
 import Modal from '../components/Modal'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
 import { notify } from '../components/Notifications'
+import Tooltip from '../components/Tooltip'
 import { COUNTRY_TO_CURRENCY } from '../currency'
 import { condenseLocation, REMOTE_TOKEN_RE } from '../locations'
 import type { CreateJobInput, Document, Job } from '../types'
@@ -1719,27 +1720,30 @@ export default function JobsPage() {
                         work to do). `tailoringIds` is the per-job
                         optimistic flag — a spinner-style indicator
                         shown while the queue is still processing. */}
-                    <button
-                      className="icon-btn"
-                      data-tooltip={tailoringIds.has(job.id)
+                    <Tooltip
+                      label={tailoringIds.has(job.id)
                         ? 'Tailoring…'
                         : (job.status === 'ready' || job.status === 'applied')
                           ? `Already ${job.status}`
                           : !settings?.base_cv
                             ? 'Add a base CV in Settings first'
                             : 'Quick Apply (tailor CV + cover letter)'}
-                      aria-label="Quick Apply"
-                      disabled={tailoringIds.has(job.id)
-                        || job.status === 'ready'
-                        || job.status === 'applied'
-                        || !settings?.base_cv}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onQuickApply(job.id)
-                      }}
                     >
-                      <span aria-hidden="true">{tailoringIds.has(job.id) ? '⏳' : '✦'}</span>
-                    </button>
+                      <button
+                        className="icon-btn"
+                        aria-label="Quick Apply"
+                        disabled={tailoringIds.has(job.id)
+                          || job.status === 'ready'
+                          || job.status === 'applied'
+                          || !settings?.base_cv}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onQuickApply(job.id)
+                        }}
+                      >
+                        <span aria-hidden="true">{tailoringIds.has(job.id) ? '⏳' : '✦'}</span>
+                      </button>
+                    </Tooltip>
                     <button
                       className="icon-btn icon-btn-danger"
                       title="Delete job"
