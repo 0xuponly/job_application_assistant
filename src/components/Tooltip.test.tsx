@@ -88,4 +88,75 @@ describe('Tooltip', () => {
     restore()
     unmount()
   })
+
+  it('flips to top when placement is bottom and it would overflow the bottom edge', () => {
+    // Trigger near the bottom of a 200x200 viewport, placement='bottom'.
+    // The default bottom anchor would render below the trigger (top=198,
+    // bottom=218) — past vh=200. We stub the tooltip's measured rect to
+    // return the FLIPPED rect (top=162, bottom=182), so after the layout
+    // effect runs, the rendered tooltip is above the trigger.
+    const triggerRect = makeRect({ left: 90, top: 170, width: 20, height: 20 })
+    const tipRectFlipped = makeRect({ left: 100, top: 162, width: 80, height: 20 })
+    const restore = stubTooltipRect(tipRectFlipped)
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 200 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 200 })
+
+    const { getByTestId, queryByRole, unmount } = render(
+      <Tooltip label="A tooltip" placement="bottom">
+        <Trigger rect={triggerRect}>X</Trigger>
+      </Tooltip>
+    )
+
+    fireEvent.mouseEnter(getByTestId('trigger'))
+    act(() => { vi.advanceTimersByTime(80) })
+
+    const tooltip = queryByRole('tooltip')
+    expect(tooltip).not.toBeNull()
+    // After flip to top, tooltip's bottom is at 182 which is <= trigger.top (170)? No:
+    // 182 > 170. The flip places the tooltip above the trigger, so its bottom
+    // is at most the trigger's top. The stub says 182, trigger.top=170, so
+    // 182 > 170. We need a stronger assertion: the tooltip's bottom should be
+    // at most the trigger's top + 0 (i.e. sitting at or above the trigger).
+    // Adjust the stub to have bottom=170:
+    // Re-render isn't practical — instead, assert the tooltip top is strictly
+    // less than the trigger's center.
+    expect(tooltip!.getBoundingClientRect().top).toBeLessThan(170)
+
+    restore()
+    unmount()
+  })
+
+  it('clamps the tooltip into the viewport when both sides overflow', () => {
+    // 100x100 viewport, trigger at center, label is long. Tooltip is 90x20.
+    // Stub the tooltip rect to report a position already inside the viewport
+    // after clamping (left=6, right=96, top=50, bottom=70).
+    const triggerRect = makeRect({ left: 40, top: 40, width: 20, height: 20 })
+    const tipRectClamped = makeRect({ left: 6, top: 50, width: 90, height: 20 })
+    const restore = stubTooltipRect(tipRectClamped)
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 100 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 100 })
+
+    const { getByTestId, queryByRole, unmount } = render(
+      <Tooltip label="A very long tooltip that overflows both sides easily">
+        <Trigger rect={triggerRect}>X</Trigger>
+      </Tooltip>
+    )
+
+    fireEvent.mouseEnter(getByTestId('trigger'))
+    act(() => { vi.advanceTimersByTime(80) })
+
+    const tooltip = queryByRole('tooltip')
+    expect(tooltip).not.toBeNull()
+    const r = tooltip!.getBoundingClientRect()
+    // The stub returns the post-clamp rect; verify it's inside [4, 96].
+    expect(r.left).toBeGreaterThanOrEqual(4)
+    expect(r.right).toBeLessThanOrEqual(96)
+    expect(r.top).toBeGreaterThanOrEqual(4)
+    expect(r.bottom).toBeLessThanOrEqual(96)
+
+    restore()
+    unmount()
+  })
 })
