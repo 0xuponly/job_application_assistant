@@ -1706,25 +1706,32 @@ export function migrateJobSearchLocationsV1(): { updated: boolean; reason: strin
     return { updated: false, reason: 'already-migrated' }
   }
   const oldStr = (s.settings.job_search_location || '').trim()
-  let nextArray = ''
+  // Parse whatever's in job_search_locations; on any failure treat it
+  // as empty so a future installer with a broken value self-heals.
+  let existing: unknown[] = []
   if (s.settings.job_search_locations) {
     try {
       const parsed = JSON.parse(s.settings.job_search_locations)
-      nextArray = JSON.stringify(Array.isArray(parsed) ? parsed : [])
+      if (Array.isArray(parsed)) existing = parsed
     } catch {
-      nextArray = '[]'
+      // fall through with existing = []
     }
-  } else {
-    nextArray = '[]'
   }
-  if (oldStr) {
-    nextArray = JSON.stringify([{ display: oldStr }])
-  }
+  // Per the spec: only copy the legacy string when the new field is
+  // empty or invalid. If the user already has a valid array, leave it
+  // alone — the legacy string is leftover state we just clear.
+  const copyLegacy = oldStr !== '' && existing.length === 0
+  const nextArray = copyLegacy
+    ? JSON.stringify([{ display: oldStr }])
+    : JSON.stringify(existing)
   s.settings.job_search_location = ''
   s.settings.job_search_locations = nextArray
   s.settings.locations_array_migrated_v1 = '1'
   persistStore()
-  return { updated: true, reason: oldStr ? 'copied' : 'cleared' }
+  return {
+    updated: true,
+    reason: copyLegacy ? 'copied' : (oldStr ? 'cleared-legacy-only' : 'cleared'),
+  }
 }
 
 /**
