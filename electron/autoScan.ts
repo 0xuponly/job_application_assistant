@@ -63,8 +63,9 @@ async function runAutoScan() {
   if (running) return
   running = true
   try {
-    // Run a scan with no filters — all boards, all work types, all locations
-    // (locations default to the user's saved Preferred location).
+    // Run a scan with no per-run filters — all boards, all work types, all
+    // locations (the user's saved preferred locations list is the
+    // implicit filter; scanAllBoards reads it from settings).
     const result: ScanResult = await scanAllBoards(
       { workType: 'any' },
       (msg) => {

@@ -1,8 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { LocationAutocomplete } from '../components/LocationAutocomplete'
+import { LocationPicker } from '../components/LocationPicker'
+import type { LocationPick } from '../locations'
 import type { ScanResult, WorkType } from '../types'
 import { BOARD_TYPES } from '../boardTypes'
+
+function parseLocationPicks(raw: string): LocationPick[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (p): p is LocationPick => !!p && typeof p === 'object' && typeof (p as LocationPick).display === 'string'
+    )
+  } catch {
+    return []
+  }
+}
 import { usePersistedState } from '../persistedState'
 
 // Backfill fields that may be missing on results cached from older
@@ -57,7 +71,7 @@ let _showAllScanColumns = false
 
 export default function ScanJobsPage() {
   const [keywords, setKeywords] = usePersistedState<string>('scan:keywords', '')
-  const [location, setLocation] = usePersistedState<string>('scan:location', '')
+  const [locationPicks, setLocationPicks] = usePersistedState<LocationPick[]>('scan:locations', [])
   const [workType, setWorkType] = usePersistedState<WorkType>('scan:workType', 'any')
   // All boards + their enabled flag from the main process. `enabled`
   // reflects the Settings > Boards toggle — disabled boards are
@@ -339,13 +353,14 @@ export default function ScanJobsPage() {
     return () => window.removeEventListener('app:refresh', onRefresh)
   }, [scanning])
 
-  // Default the location to the user's preferred location from settings
+  // Default the location to the user's preferred locations from settings
   useEffect(() => {
     let cancelled = false
     api.getSettings().then((s) => {
       if (cancelled) return
-      if (s.job_search_location && !location) {
-        setLocation(s.job_search_location)
+      if (locationPicks.length === 0) {
+        const fromSettings = parseLocationPicks(s.job_search_locations)
+        if (fromSettings.length > 0) setLocationPicks(fromSettings)
       }
       if (s.job_search_keywords && !keywords) {
         setKeywords(s.job_search_keywords)
@@ -457,7 +472,7 @@ export default function ScanJobsPage() {
     try {
       const r = await api.scanBoards({
         keywords: keywords || undefined,
-        location: location || undefined,
+        locations: locationPicks.length > 0 ? locationPicks : undefined,
         workType,
         boards: selectedBoards.size < enabledBoards.length ? Array.from(selectedBoards) : undefined
       })
@@ -501,12 +516,11 @@ export default function ScanJobsPage() {
             />
           </div>
           <div className="form-group">
-            <label>Location</label>
-            <LocationAutocomplete
-              value={location}
-              onChange={setLocation}
-              multiSegment
-              placeholder="e.g. London, Paris, Remote (separate with commas)"
+            <label>Locations</label>
+            <LocationPicker
+              value={locationPicks}
+              onChange={setLocationPicks}
+              placeholder="Add a location (e.g. Vancouver, BC, CA)"
             />
           </div>
         </div>

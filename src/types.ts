@@ -1,3 +1,5 @@
+import type { LocationPick } from './locations'
+
 export type JobStatus =
   | 'sourced'
   | 'reviewing'
@@ -218,7 +220,7 @@ export type WorkType = 'any' | 'remote' | 'hybrid' | 'in_office'
 
 export interface ScanFilters {
   keywords?: string
-  location?: string
+  locations?: LocationPick[]
   workType?: WorkType
   boards?: string[]
 }
