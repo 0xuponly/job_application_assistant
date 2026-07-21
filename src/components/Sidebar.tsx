@@ -83,7 +83,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
         ))}
       </nav>
       {scanning && (
-        <Tooltip label="A job scan is currently running">
+        <Tooltip label="A job scan is currently running" disabled={!collapsed}>
           <div
             className="sidebar-scan-indicator"
             onClick={() => onNavigate('scanjobs')}
@@ -94,7 +94,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
         </Tooltip>
       )}
       {fitPending > 0 && (
-        <Tooltip label={`${fitPending} fit recompute${fitPending === 1 ? '' : 's'} in progress`}>
+        <Tooltip label={`${fitPending} fit recompute${fitPending === 1 ? '' : 's'} in progress`} disabled={!collapsed}>
           <div
             className="sidebar-scan-indicator"
             onClick={() => onNavigate('jobs')}
