@@ -305,7 +305,7 @@ function QueueFunnelWidget({ jobs }: { jobs: Job[] }) {
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Funnel</div>
-          <div style={{ fontSize: 22, fontWeight: 600 }}>{stats.added} this {window === 'all' ? 'all time' : `last ${WINDOW_DAYS[window] === 'all' ? '' : WINDOW_DAYS[window]}d`}</div>
+          <div style={{ fontSize: 22, fontWeight: 600 }}>{stats.added} {window === 'all' ? 'all time' : `last ${WINDOW_DAYS[window]}d`}</div>
         </div>
         <WindowSelector value={window} onChange={setWindow} />
       </div>
