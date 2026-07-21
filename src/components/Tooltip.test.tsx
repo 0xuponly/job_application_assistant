@@ -159,4 +159,54 @@ describe('Tooltip', () => {
     restore()
     unmount()
   })
+
+  it('never renders the tooltip at the un-flipped default anchor before the resolved position', () => {
+    // Trigger near the right edge so the default right anchor would
+    // overflow and require a flip to the left. We track every committed
+    // inline `left` style on the tooltip span. The first committed left
+    // should already be the FLIPPED position, not the default right anchor
+    // (which would be trigger.right + GAP = 168 + 8 = 176).
+    const triggerRect = makeRect({ left: 160, top: 90, width: 20, height: 20 })
+    const tipRectFlipped = makeRect({ left: 72, top: 100, width: 80, height: 20 })
+    const restore = stubTooltipRect(tipRectFlipped)
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 200 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 200 })
+
+    // Spy on getBoundingClientRect for the trigger so we can record every
+    // call's left value over the lifetime of the test, and check none of
+    // them land at the wrong anchor before the layout effect runs.
+    const seenLefts: number[] = []
+    const orig = Element.prototype.getBoundingClientRect
+    Element.prototype.getBoundingClientRect = function () {
+      const r = orig.call(this)
+      if (this.getAttribute && this.getAttribute('role') === 'tooltip') {
+        seenLefts.push(r.left)
+      }
+      return r
+    }
+
+    const { getByTestId, queryByRole, unmount } = render(
+      <Tooltip label="A tooltip">
+        <Trigger rect={triggerRect}>X</Trigger>
+      </Tooltip>
+    )
+
+    fireEvent.mouseEnter(getByTestId('trigger'))
+    act(() => { vi.advanceTimersByTime(80) })
+
+    const tooltip = queryByRole('tooltip')
+    expect(tooltip).not.toBeNull()
+    // The tooltip should only ever have been measured at the flipped
+    // position. The default right anchor (left=176) is wrong and would
+    // indicate a flash at the un-flipped position.
+    expect(seenLefts.length).toBeGreaterThan(0)
+    for (const left of seenLefts) {
+      expect(left).toBe(72)
+    }
+
+    Element.prototype.getBoundingClientRect = orig
+    restore()
+    unmount()
+  })
 })

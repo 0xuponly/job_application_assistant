@@ -118,8 +118,12 @@ export default function Tooltip({
   delayMs = 80,
   disabled = false,
 }: TooltipProps) {
+  // `visible` is true only once the tooltip's final position has been
+  // resolved. Until then, the tooltip span is rendered with visibility
+  // hidden so it can be measured without flashing at the wrong position.
   const [visible, setVisible] = useState(false)
   const [pos, setPos] = useState<ResolvedPos | null>(null)
+  const [armed, setArmed] = useState(false)
   const wrapRef = useRef<HTMLSpanElement>(null)
   const tipRef = useRef<HTMLSpanElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -128,36 +132,33 @@ export default function Tooltip({
     if (disabled) return
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
-      const trigger = wrapRef.current
-      if (!trigger) return
-      const tr = trigger.getBoundingClientRect()
-      // Render at the default anchor first; the layout effect below will
-      // re-measure and apply the final resolved position (flip + clamp).
-      setPos(anchorFor(placement, tr))
-      setVisible(true)
+      setArmed(true)
     }, delayMs)
-  }, [disabled, delayMs, placement])
+  }, [disabled, delayMs])
 
   const hide = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
+    setArmed(false)
     setVisible(false)
   }, [])
 
-  // After the tooltip mounts (or placement changes), measure it and resolve
-  // the final position. Runs synchronously before paint so the user never
-  // sees the tooltip at the wrong spot.
+  // After `armed` flips, the tooltip span renders (visibility: hidden) so
+  // it can be measured. The effect then computes the resolved position and
+  // flips `visible` to true — both state updates commit together before
+  // paint, so the user only ever sees the tooltip at its final spot.
   useLayoutEffect(() => {
-    if (!visible) return
+    if (!armed) return
     const trigger = wrapRef.current
     const tip = tipRef.current
     if (!trigger || !tip) return
     const tr = trigger.getBoundingClientRect()
     const mr = tip.getBoundingClientRect()
     setPos(resolvePosition(tr, mr, placement, window.innerWidth, window.innerHeight))
-  }, [visible, placement])
+    setVisible(true)
+  }, [armed, placement])
 
   // Re-measure on window resize while visible.
   useEffect(() => {
@@ -193,7 +194,7 @@ export default function Tooltip({
       style={{ display: 'inline-block' }}
     >
       {children}
-      {visible && (
+      {armed && (
         <span
           ref={tipRef}
           role="tooltip"
@@ -217,6 +218,7 @@ export default function Tooltip({
             zIndex: 9999,
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
             animation: 'fit-tooltip-in 0.12s ease-out',
+            visibility: visible ? 'visible' : 'hidden',
           }}
         >
           {label}
