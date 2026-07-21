@@ -94,6 +94,7 @@ function defaultStore(): Store {
       base_cv: '',
       job_search_keywords: '',
       job_search_location: '',
+      job_search_locations: '',
       deleted_jobs_cap: 50000,
       auto_scan_enabled: true,
       auto_scan_interval_minutes: 120,

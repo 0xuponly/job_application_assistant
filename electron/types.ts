@@ -172,6 +172,14 @@ export interface ApiModelConfig {
   enabled?: boolean
 }
 
+export interface LocationPick {
+  // LocationNode.id when picked from the autocomplete; undefined for
+  // free-text entries like "Remote" that don't correspond to a node.
+  id?: string
+  // Canonical display() for picks; raw text for free-text entries.
+  display: string
+}
+
 export interface Settings {
   openai_api_key: string
   openai_base_url: string
@@ -183,6 +191,8 @@ export interface Settings {
   base_cv: string
   job_search_keywords: string
   job_search_location: string
+  // JSON-encoded LocationPick[]; '' or '[]' = no saved locations.
+  job_search_locations: string
   deleted_jobs_cap: number
   auto_scan_enabled: boolean
   auto_scan_interval_minutes: number
@@ -267,7 +277,7 @@ export type WorkType = 'any' | 'remote' | 'hybrid' | 'in_office'
 
 export interface ScanFilters {
   keywords?: string
-  location?: string
+  locations?: LocationPick[]
   workType?: WorkType
   boards?: string[] // names of boards to scan; undefined = scan all
 }
