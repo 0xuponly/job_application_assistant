@@ -1301,6 +1301,16 @@ app.whenReady().then(() => {
     }
   }
 
+  // One-shot: copy the legacy job_search_location string into the
+  // job_search_locations array, then clear the old field. Gated by a
+  // flag, idempotent, runs once per store.
+  try {
+    const arrayMig = db.migrateJobSearchLocationsV1()
+    if (arrayMig.updated) log.startup.info(`Migrated job_search_location → job_search_locations: ${arrayMig.reason}`)
+  } catch (err) {
+    log.startup.error('Location array migration failed:', err)
+  }
+
   // One-shot: annualize legacy salary strings ("$43/hour" → "$86,000",
   // "CAD Monthly" → annual equivalent, etc.) on first load with a
   // populated store. Idempotent — gated by a flag. New jobs added

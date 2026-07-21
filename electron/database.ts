@@ -101,6 +101,7 @@ function defaultStore(): Store {
       locations_normalized: '',
       locations_normalized_v2: '',
       locations_normalized_v3: '',
+      locations_array_migrated_v1: '',
       employment_type_normalized: '',
       work_mode_normalized: '',
       statuses_recomputed: '',
@@ -1687,6 +1688,43 @@ export function retrofitLocations(): { updated: number; total: number } {
   s.settings.locations_normalized_v3 = '1'
   persistStore()
   return { updated, total: s.jobs.length }
+}
+
+/**
+ * One-shot: copy the legacy job_search_location string into
+ * job_search_locations (a JSON-encoded LocationPick[]) and clear the
+ * old field. Introduced 2026-07-20 when the scan location filter moved
+ * from a single string to a structured array (see jobSearch.ts and
+ * the multi-location scan spec). Gated by the v1 flag so it runs at
+ * most once per store. Idempotent: re-running with the flag set is a
+ * no-op. Treats corrupt job_search_locations as `[]` so a future
+ * installer that ships with a broken value self-heals.
+ */
+export function migrateJobSearchLocationsV1(): { updated: boolean; reason: string } {
+  const s = loadStore()
+  if (s.settings.locations_array_migrated_v1 === '1') {
+    return { updated: false, reason: 'already-migrated' }
+  }
+  const oldStr = (s.settings.job_search_location || '').trim()
+  let nextArray = ''
+  if (s.settings.job_search_locations) {
+    try {
+      const parsed = JSON.parse(s.settings.job_search_locations)
+      nextArray = JSON.stringify(Array.isArray(parsed) ? parsed : [])
+    } catch {
+      nextArray = '[]'
+    }
+  } else {
+    nextArray = '[]'
+  }
+  if (oldStr) {
+    nextArray = JSON.stringify([{ display: oldStr }])
+  }
+  s.settings.job_search_location = ''
+  s.settings.job_search_locations = nextArray
+  s.settings.locations_array_migrated_v1 = '1'
+  persistStore()
+  return { updated: true, reason: oldStr ? 'copied' : 'cleared' }
 }
 
 /**
