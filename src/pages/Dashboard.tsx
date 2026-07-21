@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { DashboardStats, FollowUp, Interview, Job } from '../types'
-import { computeQueueFunnel } from '../queueStats'
+import { computeQueueFunnel, type FunnelWindow } from '../queueStats'
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -72,7 +72,6 @@ export default function Dashboard() {
       )}
 
       {jobs.length > 0 && <MatchQualityTrendWidget jobs={jobs} />}
-      {jobs.length > 0 && <TimeSavedWidget jobs={jobs} />}
       <QueueFunnelWidget jobs={jobs} />
 
       <div className="section-title">Action items</div>
@@ -106,22 +105,52 @@ export default function Dashboard() {
   )
 }
 
-// Daily average fit score over the last 7 days. Renders a 7-point
-// line; bails to an empty state until at least 3 days of data exist
-// (per the brief — a 1- or 2-day sample is noise, not a trend). Per
-// the project's "terse result headers" rule, the headline carries the
-// latest-day average and the label "Match quality"; no secondary
-// stats.
+// Daily average fit score over a user-selectable window. Renders a
+// line + dots, one per day. The headline leads with the latest-day
+// average; no secondary stats. The user can switch between Week (7d,
+// default), 30 days, and 90 days. Bails only when there are zero
+// days with data in the window. Null days are visual gaps; the line
+// connects through them so the trend stays readable.
+type WindowKey = FunnelWindow
+const WINDOW_DAYS: Record<WindowKey, number | 'all'> = { week: 7, '30d': 30, '90d': 90, all: 'all' }
+const WINDOW_LABELS: Record<WindowKey, string> = { week: '7d', '30d': '30d', '90d': '90d', all: 'All' }
+
 function MatchQualityTrendWidget({ jobs }: { jobs: Job[] }) {
-  // Build the 7-day window (today and 6 days back, local-time buckets).
+  const [window, setWindow] = useState<WindowKey>('week')
+  // Build the day-key list for the selected window. Fixed windows
+  // use today and N-1 days back. "All" walks from the earliest
+  // scored job to today so the user sees the full history.
   const dayKeys: string[] = []
   const dayLabels: string[] = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() - i)
-    dayKeys.push(toDayKey(d))
-    dayLabels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+  const range = WINDOW_DAYS[window]
+  if (range === 'all') {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    let earliest: Date | null = null
+    for (const j of jobs) {
+      if (j.score == null) continue
+      const d = new Date(j.date_posted || j.created_at)
+      if (isNaN(d.getTime())) continue
+      d.setHours(0, 0, 0, 0)
+      if (earliest == null || d < earliest) earliest = d
+    }
+    if (earliest != null) {
+      const cursor = new Date(earliest)
+      while (cursor <= today) {
+        dayKeys.push(toDayKey(cursor))
+        dayLabels.push(cursor.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+        cursor.setDate(cursor.getDate() + 1)
+      }
+    }
+  } else {
+    const days = range
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      d.setDate(d.getDate() - i)
+      dayKeys.push(toDayKey(d))
+      dayLabels.push(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+    }
   }
   const bucketScores: Record<string, number[]> = {}
   for (const k of dayKeys) bucketScores[k] = []
@@ -130,12 +159,14 @@ function MatchQualityTrendWidget({ jobs }: { jobs: Job[] }) {
     const day = jobDayKey(j)
     if (day in bucketScores) bucketScores[day].push(j.score)
   }
-  const daysWithData = dayKeys.filter((k) => bucketScores[k].length > 0)
-  if (daysWithData.length < 3) {
+  if (dayKeys.every((k) => bucketScores[k].length === 0)) {
     return (
       <div className="card">
-        <div className="section-title" style={{ marginBottom: 4 }}>Match quality</div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Need 3+ days of data</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div className="section-title">Match quality</div>
+          <WindowSelector value={window} onChange={setWindow} />
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No scored jobs in this window</div>
       </div>
     )
   }
@@ -160,8 +191,33 @@ function MatchQualityTrendWidget({ jobs }: { jobs: Job[] }) {
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Match quality</div>
           <div style={{ fontSize: 22, fontWeight: 600 }}>{headline}</div>
         </div>
+        <WindowSelector value={window} onChange={setWindow} />
       </div>
       <Sparkline points={averages} labels={dayLabels} />
+    </div>
+  )
+}
+
+function WindowSelector({ value, onChange }: { value: WindowKey; onChange: (w: WindowKey) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {(Object.keys(WINDOW_LABELS) as WindowKey[]).map((w) => (
+        <button
+          key={w}
+          onClick={() => onChange(w)}
+          style={{
+            fontSize: 11,
+            padding: '2px 8px',
+            border: '1px solid var(--border, #2a2a2a)',
+            borderRadius: 4,
+            background: w === value ? 'var(--accent, #3b82f6)' : 'transparent',
+            color: w === value ? '#fff' : 'var(--text-muted)',
+            cursor: 'pointer'
+          }}
+        >
+          {WINDOW_LABELS[w]}
+        </button>
+      ))}
     </div>
   )
 }
@@ -180,7 +236,9 @@ function jobDayKey(j: Job): string {
 }
 
 // Minimal SVG sparkline. Inputs: parallel arrays of (value | null)
-// and labels. Renders dots + a polyline; null points are gaps.
+// and labels. Renders dots + a single polyline. Null points are
+// treated as visual gaps (no dot), but the line connects through
+// them so a contiguous trend stays readable across missing days.
 function Sparkline({ points, labels }: { points: (number | null)[]; labels: string[] }) {
   const W = 320
   const H = 60
@@ -191,18 +249,22 @@ function Sparkline({ points, labels }: { points: (number | null)[]; labels: stri
   const x = (i: number) => PAD_X + (i * (W - PAD_X * 2)) / (n - 1)
   const y = (v: number) => PAD_Y + (1 - v) * (H - PAD_Y * 2)
   const present = points.map((p, i) => (p == null ? null : { i, v: p, x: x(i), y: y(p) }))
+  // Build a single contiguous path that connects present points in
+  // order, even across null gaps. Each segment is "L prev → next";
+  // null entries are skipped (no M restart) so the line stays
+  // unbroken.
   const pathD = (() => {
     let d = ''
-    let started = false
+    let first = true
     for (const p of present) {
-      if (!p) { started = false; continue }
-      d += `${started ? ' L' : 'M'} ${p.x} ${p.y}`
-      started = true
+      if (!p) continue
+      d += `${first ? 'M' : 'L'} ${p.x} ${p.y} `
+      first = false
     }
-    return d
+    return d.trim()
   })()
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="Match quality trend, last 7 days">
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="Match quality trend, all time">
       {pathD && <path d={pathD} fill="none" stroke="var(--accent, #3b82f6)" strokeWidth={1.5} />}
       {present.map((p) => p && (
         <g key={p.i}>
@@ -214,37 +276,6 @@ function Sparkline({ points, labels }: { points: (number | null)[]; labels: stri
   )
 }
 
-// TimeSavedWidget (Task 3). Sums the wall-clock ms the auto-tailor
-// spent on CV + cover letter for jobs added in the last 7 days. The
-// headline is the rounded minute count (rounded to the nearest 5 so
-// the number doesn't read as "jittery"). Per `feedback-score-formatting`
-// the headline leads with the number, no redundant label, and per
-// `feedback-terse-result-headers` there's no secondary stat below it.
-// Hides entirely when the saved time is zero so the card doesn't take
-// up space for users who haven't used auto-tailor yet.
-function TimeSavedWidget({ jobs }: { jobs: Job[] }) {
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  let totalMs = 0
-  for (const j of jobs) {
-    // Jobs without a tailor_generated_at were never auto-tailored
-    // (or the tailor failed); skip both. Jobs added before the 7-day
-    // window don't count.
-    if (j.tailor_generated_at == null) continue
-    if (j.tailor_generated_at < sevenDaysAgo) continue
-    const ms = (j.tailor_ms_cv ?? 0) + (j.tailor_ms_cl ?? 0)
-    totalMs += ms
-  }
-  if (totalMs <= 0) return null
-  const minutes = Math.round(totalMs / 60000)
-  const rounded = Math.round(minutes / 5) * 5
-  return (
-    <div className="card">
-      <div className="section-title" style={{ marginBottom: 4 }}>Time saved</div>
-      <div style={{ fontSize: 22, fontWeight: 600 }}>{rounded} minutes saved this week</div>
-    </div>
-  )
-}
-
 // QueueFunnelWidget (Task 4). Five-bar horizontal funnel: jobs added
 // in the last 7 days → grade A → tailored → submitted → responded.
 // Per `feedback-terse-result-headers` the headline leads with the
@@ -253,24 +284,32 @@ function TimeSavedWidget({ jobs }: { jobs: Job[] }) {
 // headline. Hides entirely when `added === 0` so the card doesn't
 // take up space before the user has run a scan.
 function QueueFunnelWidget({ jobs }: { jobs: Job[] }) {
-  const stats = computeQueueFunnel(jobs, Date.now())
-  if (stats.added === 0) return null
+  const [window, setWindow] = useState<WindowKey>('week')
+  const stats = computeQueueFunnel(jobs, Date.now(), window)
+  if (stats.added === 0 && window !== 'all') {
+    // Fall through and render — selector lets the user widen the
+    // window. (If 'all' is also zero there really is nothing.)
+  }
+  if (stats.added === 0 && window === 'all') return null
   const bars: { label: string; value: number; pct: number }[] = [
     { label: 'Added', value: stats.added, pct: 100 },
     { label: 'Grade ≥A', value: stats.gradeA, pct: stats.added ? (stats.gradeA / stats.added) * 100 : 0 },
     { label: 'Tailored', value: stats.tailored, pct: stats.added ? (stats.tailored / stats.added) * 100 : 0 },
-    { label: 'Submitted', value: stats.submitted, pct: stats.added ? (stats.submitted / stats.added) * 100 : 0 },
+    // Applied is all-time relative to the cohort; clamp pct at 100 so
+    // the bar height stays bounded when applied > added.
+    { label: 'Applied', value: stats.submitted, pct: stats.added ? Math.min(100, (stats.submitted / stats.added) * 100) : 0 },
     { label: 'Responded', value: stats.responded, pct: stats.added ? (stats.responded / stats.added) * 100 : 0 },
   ]
   return (
     <div className="card">
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
         <div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Queue funnel</div>
-          <div style={{ fontSize: 22, fontWeight: 600 }}>{stats.added} this week</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Funnel</div>
+          <div style={{ fontSize: 22, fontWeight: 600 }}>{stats.added} this {window === 'all' ? 'all time' : `last ${WINDOW_DAYS[window] === 'all' ? '' : WINDOW_DAYS[window]}d`}</div>
         </div>
+        <WindowSelector value={window} onChange={setWindow} />
       </div>
-      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 48 }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 88, marginTop: 12 }}>
         {bars.map((b) => (
           <div key={b.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div
@@ -283,7 +322,7 @@ function QueueFunnelWidget({ jobs }: { jobs: Job[] }) {
                 borderRadius: 2
               }}
             />
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{b.label}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>{b.label}</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{Math.round(b.pct)}%</div>
           </div>
         ))}
