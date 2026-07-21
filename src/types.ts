@@ -305,6 +305,10 @@ export interface KeywordEntry {
 export interface KeywordResult {
   keywords: KeywordEntry[]
   refinedByLlm: boolean
+  // LLM-accepted phrases not in any allowlist. Surfaced in JobDetail so the
+  // user can review them and decide whether to add to keywordAllowlists.json
+  // in a follow-up PR. Populated only when refinedByLlm is true.
+  unknownPhrases: string[]
 }
 
 export interface TailorRequest {

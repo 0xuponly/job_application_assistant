@@ -122,6 +122,7 @@ export interface KeywordEntry {
 export interface KeywordResult {
   keywords: KeywordEntry[]
   refinedByLlm: boolean
+  unknownPhrases: string[]
 }
 
 export interface Application {
