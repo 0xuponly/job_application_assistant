@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import Tooltip from '../components/Tooltip'
 import type { DashboardStats, FollowUp, Interview, Job } from '../types'
 import { computeQueueFunnel, type FunnelWindow } from '../queueStats'
 
@@ -312,16 +313,17 @@ function QueueFunnelWidget({ jobs }: { jobs: Job[] }) {
       <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 88, marginTop: 12 }}>
         {bars.map((b) => (
           <div key={b.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div
-              title={`${b.label}: ${b.value} (${Math.round(b.pct)}%)`}
-              data-tooltip={`${b.label}: ${b.value} (${Math.round(b.pct)}%)`}
-              style={{
-                width: '100%',
-                height: `${Math.max(4, (b.pct / 100) * 40)}px`,
-                background: 'var(--accent, #3b82f6)',
-                borderRadius: 2
-              }}
-            />
+            <Tooltip label={`${b.label}: ${b.value} (${Math.round(b.pct)}%)`}>
+              <div
+                title={`${b.label}: ${b.value} (${Math.round(b.pct)}%)`}
+                style={{
+                  width: '100%',
+                  height: `${Math.max(4, (b.pct / 100) * 40)}px`,
+                  background: 'var(--accent, #3b82f6)',
+                  borderRadius: 2
+                }}
+              />
+            </Tooltip>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>{b.label}</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{Math.round(b.pct)}%</div>
           </div>
