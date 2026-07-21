@@ -292,9 +292,10 @@ export function formatLocation(raw: string | null | undefined, defaultCountry?: 
 //   normalizeCompany — Sentence case. The first letter of every word is
 //     capitalized; everything else is lowercase. Trailing punctuation is
 //     stripped. Tokens with internal uppercase are preserved. Acronyms
-//     in the company name (IBM, KPMG, etc.) are NOT special-cased — they
-//     become "Ibm", "Kpmg". If a user wants the display form to keep
-//     acronyms, that's a future ask.
+//     in the company name (IBM, KPMG, EY, SAP, etc.) ARE special-cased —
+//     any case variant canonicalizes to the all-upper form (e.g. `ibm`
+//     → `IBM`, `Ibm` → `IBM`). Tokens in MIXED_CASE_ACRONYMS canonicalize
+//     to their mixed-case form regardless of source case (`Phd` → `PhD`).
 
 // Trailing Roman numerals that may appear as the last token of a job title
 // (e.g. "Recreation Assistant II", "Analyst III"). Single-letter "I" is
@@ -342,37 +343,11 @@ const MIXED_CASE_ACRONYMS: Record<string, string> = {
   "mcdonald's": "McDonald's"
 }
 
-// Quick shape test: a token is "all-uppercase" when it has at least one
-// letter and no lowercase letters. Empty / symbol-only tokens fail.
-function isAllUpper(word: string): boolean {
-  return /[A-Z]/.test(word) && !/[a-z]/.test(word)
-}
-
 const SMALL_WORDS = new Set([
   'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of',
   'on', 'or', 'so', 'the', 'to', 'up', 'yet', 'with'
 ])
 
-/**
- * Returns true when the token should be passed through unchanged.
- *
- * Five rules (first match wins):
- *   1. Mixed case (has upper AND lower letters) — covers iOS, GitHub,
- *      McDonalds. Existing behavior.
- *   2. No letters (digits / symbols only) — covers 3M, v2, SQL2008.
- *      Existing behavior.
- *   3. Intentionally-mixed-case acronym — token is in MIXED_CASE_ACRONYMS
- *      regardless of source case. Covers PhD, iOS, eBay.
- *   4. Trailing Roman numeral — token is in ROMAN_NUMERALS, the source
- *      is all-uppercase, and the token is the last in the title. Covers
- *      "Recreation Assistant II", "Analyst III".
- *   5. Curated acronym — upper-cased source token is in ACRONYMS and the
- *      source is all-uppercase. Covers "IT Director", "Senior AI", "SRE".
- *
- * The `ctx` argument carries the source form (so we can compare to
- * `word` for case-sensitivity) and the token's position (so the Roman
- * rule can fire only at end-of-title).
- */
 /**
  * Returns the canonical form of the token if it should be passed
  * through unchanged, or null if the token should fall through to the
@@ -385,16 +360,18 @@ const SMALL_WORDS = new Set([
  *   1. Mixed-case acronym (rule 3) — token's lowercased form is in
  *      MIXED_CASE_ACRONYMS. Returns the canonical form, NOT the input.
  *      Covers `Phd` → `PhD`, `Ios` → `iOS`, `Ebay` → `eBay`.
- *   2. Mixed case (rule 1) — token has upper AND lower letters. Covers
- *      iOS, GitHub, McDonalds. Returns the input as-is.
- *   3. No letters (rule 2) — token is digits and/or symbols only.
- *      Returns the input as-is.
- *   4. Trailing Roman numeral (rule 4) — the upper-cased form is in
+ *   2. Trailing Roman numeral (rule 4) — the upper-cased form is in
  *      ROMAN_NUMERALS and the token is last in the title. Source may
- *      be all-lower (`ii`) or all-upper (`II`); mixed-case already
- *      caught by rule 2. Returns the upper-cased form (canonical).
- *   5. Curated acronym (rule 5) — source is all-uppercase and the
- *      upper form is in ACRONYMS. Returns the upper form (canonical).
+ *      be all-lower (`ii`), all-upper (`II`), or mixed (`Ii`).
+ *      Returns the upper-cased form (canonical).
+ *   3. Curated acronym (rule 5) — the upper-cased form is in ACRONYMS.
+ *      Case-insensitive on input: `It`, `IT`, `it` all canonicalize
+ *      to `IT`. Returns the upper form (canonical).
+ *   4. Mixed case (rule 1) — token has upper AND lower letters but is
+ *      NOT in any of the above sets. Covers iOS, GitHub, McDonalds.
+ *      Returns the input as-is.
+ *   5. No letters (rule 2) — token is digits and/or symbols only.
+ *      Returns the input as-is.
  *
  * The `ctx` argument carries the source form (so we can compare to
  * `word` for case-sensitivity) and the token's position (so the Roman
@@ -444,7 +421,9 @@ function titleCaseWord(word: string, isFirst: boolean): string {
  * Normalize a job title to Title Case. Lowercases the whole string, then
  * capitalizes the first letter of every word except small prepositions /
  * articles / conjunctions ("of", "and", "the", etc.). Preserves
- * mixed-case tokens (iOS, GitHub, McDonalds) verbatim. Collapses internal
+ * mixed-case tokens (iOS, GitHub, McDonalds) verbatim and canonicalizes
+ * trailing Roman numerals ("II", "III") and curated all-caps acronyms
+ * ("IT", "AI", "PhD") regardless of source case. Collapses internal
  * whitespace and trims. Returns null for empty input.
  *
  * Examples:
@@ -452,6 +431,11 @@ function titleCaseWord(word: string, isFirst: boolean): string {
  *   "SENIOR SOFTWARE DEVELOPER"   -> "Senior Software Developer"
  *   "manager of engineering"      -> "Manager of Engineering"
  *   "iOS engineer"                -> "iOS Engineer"
+ *   "Recreation Assistant Ii"     -> "Recreation Assistant II"
+ *   "It Director"                 -> "IT Director"
+ *   "Analyst Iii"                 -> "Analyst III"
+ *   "Senior Ai Analytics"         -> "Senior AI Analytics"
+ *   "Phd Student"                 -> "PhD Student"
  */
 export function normalizeTitle(raw: string | null | undefined): string | null {
   if (raw == null) return null
@@ -471,13 +455,18 @@ export function normalizeTitle(raw: string | null | undefined): string | null {
  * Normalize a company name to Sentence case. The first letter of every
  * word is capitalized; everything else is lowercase. Trailing punctuation
  * is stripped. Mixed-case tokens (GitHub, McDonalds) are preserved.
- * Returns null for empty input.
+ * Curated all-caps acronyms (IBM, EY, SAP, etc.) are canonicalized
+ * regardless of source case (`ibm` → `IBM`). Mixed-case acronyms in
+ * MIXED_CASE_ACRONYMS canonicalize to their canonical form (`Phd` →
+ * `PhD`). Returns null for empty input.
  *
  * Examples:
  *   "SUM'S GROCERY CHECK OUT LTD." -> "Sum's Grocery Check Out Ltd"
  *   "ACME corp"                    -> "Acme Corp"
- *   "github"                       -> "Github"
- *   "GitHub"                       -> "GitHub"  (already mixed-case)
+ *   "github"                       -> "Github"     (not in ACRONYMS, falls through)
+ *   "GitHub"                       -> "GitHub"     (mixed-case, preserved)
+ *   "ibm"                          -> "IBM"        (acronym, canonicalized)
+ *   "Ibm"                          -> "IBM"        (acronym, canonicalized)
  */
 export function normalizeCompany(raw: string | null | undefined): string | null {
   if (raw == null) return null
