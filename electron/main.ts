@@ -89,6 +89,14 @@ import { scheduleNextAutoScan, cancelAutoScan, markScanStarted, markScanComplete
 // app.getPath('userData') (database.ts::getStorePath, etc.).
 app.setName('apply-assistant')
 
+// Silence noisy Chromium internal logs in the dev terminal — most
+// notably WebRTC STUN DNS lookups (stun.l.google.com,
+// stun.cloudflare.com) which fail and spam
+// `socket_manager.cc(147)` errors every time a BrowserWindow is
+// created. Level 3 = LOG_FATAL only; app-level console.log/console.error
+// are unaffected.
+app.commandLine.appendSwitch('log-level', '3')
+
 // File-backed category loggers. Each category writes to
 // <userData>/logs/<category>.log so the per-import scraper trace
 // and other category logs don't spam the dev terminal. The default
