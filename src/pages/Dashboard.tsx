@@ -241,7 +241,7 @@ function jobDayKey(j: Job): string {
 // them so a contiguous trend stays readable across missing days.
 function Sparkline({ points, labels }: { points: (number | null)[]; labels: string[] }) {
   const W = 320
-  const H = 60
+  const H = 30
   const PAD_X = 4
   const PAD_Y = 6
   const n = points.length
