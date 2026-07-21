@@ -296,33 +296,97 @@ export function formatLocation(raw: string | null | undefined, defaultCountry?: 
 //     become "Ibm", "Kpmg". If a user wants the display form to keep
 //     acronyms, that's a future ask.
 
+// Trailing Roman numerals that may appear as the last token of a job title
+// (e.g. "Recreation Assistant II", "Analyst III"). Single-letter "I" is
+// included; "A" is not. Capped at XV — higher numerals don't appear in
+// real job titles.
+const ROMAN_NUMERALS = new Set([
+  'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+  'XI', 'XII', 'XIII', 'XIV', 'XV'
+])
+
+// Curated set of all-caps acronyms to preserve in job titles and company
+// names. Lookup is uppercase-only: "IT" matches, "It" does not. Editable
+// without code changes elsewhere. Full list mirrors Appendix A of the
+// design spec — see that doc for category breakdown.
+const ACRONYMS = new Set([
+  'IT', 'AI', 'ML', 'BI', 'UX', 'UI', 'API', 'SAAS', 'PAAS', 'IAAS',
+  'ETL', 'CRM', 'ERP', 'SEO', 'SEM', 'AWS', 'GCP', 'IOT', 'DEVOPS', 'SRE',
+  'QA', 'BA', 'PM', 'DBA', 'SDLC', 'STEM', 'CDN', 'VP', 'SVP', 'EVP',
+  'AVP', 'CEO', 'CFO', 'CTO', 'CIO', 'CMO', 'COO', 'CHRO', 'CRO', 'CSO',
+  'CDO', 'CISO', 'HR', 'PR', 'ER', 'L&D', 'M&A', 'P&L', 'KPI', 'OKR',
+  'PTO', 'RFP', 'RFQ', 'RFI', 'SLA', 'NDA', 'SOW', 'SKU', 'RN', 'MD',
+  'DO', 'PA', 'NP', 'DNP', 'PHARMD', 'PHD', 'JD', 'LLM', 'MBA', 'MS',
+  'MA', 'BS', 'BBA', 'BSC', 'MSC', 'CPA', 'CFA', 'CFP', 'FRM', 'CA',
+  'CISA', 'CISM', 'CISSP', 'PMP', 'PGMP', 'CAPM', 'SHRM', 'PHR', 'SPHR',
+  'GIS', 'CAD', 'CAM', 'CNC', 'PLC', 'SCADA', 'HVAC', 'MEP', 'BIM',
+  'R&D', 'F&A', 'OEM', 'ODM', 'EDI', 'POS', 'ATM', 'EHS', 'OSHA', 'FDA',
+  'EPA', 'FTC', 'SEC', 'GDPR', 'CCPA', 'K–12', 'B2B', 'B2C', 'B2B2C',
+  'D2C', 'DTC'
+])
+
+// Tokens that should be preserved regardless of source case. Covers
+// acronyms whose canonical spelling is mixed-case but where scrapers
+// commonly send a degraded form. `iOS`, `eBay`, `PhD` are the realistic
+// cases; the rest are duplicated by the mixed-case rule but listed for
+// clarity.
+const MIXED_CASE_ACRONYMS = new Set([
+  'PhD', 'iOS', 'eBay', 'McKinsey', 'McDonalds', "McDonald's"
+])
+
+// Quick shape test: a token is "all-uppercase" when it has at least one
+// letter and no lowercase letters. Empty / symbol-only tokens fail.
+function isAllUpper(word: string): boolean {
+  return /[A-Z]/.test(word) && !/[a-z]/.test(word)
+}
+
 const SMALL_WORDS = new Set([
   'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of',
   'on', 'or', 'so', 'the', 'to', 'up', 'yet', 'with'
 ])
 
 /**
- * Returns true for tokens that should be passed through unchanged because
- * they have intentional casing or non-letter content. Catches:
- *   - genuine mixed case: "iOS", "GitHub", "McDonalds" (has both upper
- *     and lower letters)
- *   - tokens without any letters: "3M", "v2", "SQL2008" (digits, symbols)
+ * Returns true when the token should be passed through unchanged.
  *
- * All-caps tokens ("SENIOR", "ACME") and all-lower tokens ("senior",
- * "acme") are NOT preserved — they go through the case path so they get
- * normalized.
+ * Five rules (first match wins):
+ *   1. Mixed case (has upper AND lower letters) — covers iOS, GitHub,
+ *      McDonalds. Existing behavior.
+ *   2. No letters (digits / symbols only) — covers 3M, v2, SQL2008.
+ *      Existing behavior.
+ *   3. Intentionally-mixed-case acronym — token is in MIXED_CASE_ACRONYMS
+ *      regardless of source case. Covers PhD, iOS, eBay.
+ *   4. Trailing Roman numeral — token is in ROMAN_NUMERALS, the source
+ *      is all-uppercase, and the token is the last in the title. Covers
+ *      "Recreation Assistant II", "Analyst III".
+ *   5. Curated acronym — upper-cased source token is in ACRONYMS and the
+ *      source is all-uppercase. Covers "IT Director", "Senior AI", "SRE".
+ *
+ * The `ctx` argument carries the source form (so we can compare to
+ * `word` for case-sensitivity) and the token's position (so the Roman
+ * rule can fire only at end-of-title).
  */
-function shouldPreserveToken(word: string): boolean {
+function shouldPreserveToken(
+  word: string,
+  ctx: { isLast: boolean; source: string }
+): boolean {
+  if (!word) return false
   const hasLower = /[a-z]/.test(word)
   const hasUpper = /[A-Z]/.test(word)
-  if (hasLower && hasUpper) return true
-  if (!hasLower && !hasUpper) return true
+  if (hasLower && hasUpper) return true   // rule 1
+  if (!hasLower && !hasUpper) return true // rule 2
+  if (MIXED_CASE_ACRONYMS.has(word)) return true // rule 3
+  const upper = ctx.source.toUpperCase()
+  if (ctx.isLast && ROMAN_NUMERALS.has(upper) && isAllUpper(ctx.source)) {
+    return true                          // rule 4
+  }
+  if (ACRONYMS.has(upper) && isAllUpper(ctx.source)) {
+    return true                          // rule 5
+  }
   return false
 }
 
 function titleCaseWord(word: string, isFirst: boolean): string {
   if (!word) return word
-  if (shouldPreserveToken(word)) return word
   const lower = word.toLowerCase()
   if (isFirst) return lower.charAt(0).toUpperCase() + lower.slice(1)
   if (SMALL_WORDS.has(lower)) return lower
@@ -347,8 +411,13 @@ export function normalizeTitle(raw: string | null | undefined): string | null {
   const trimmed = raw.trim().replace(/\s+/g, ' ')
   if (!trimmed) return null
   const tokens = trimmed.split(' ')
+  const lastIndex = tokens.length - 1
   return tokens
-    .map((t, i) => titleCaseWord(t, i === 0))
+    .map((t, i) =>
+      shouldPreserveToken(t, { isLast: i === lastIndex, source: t })
+        ? t
+        : titleCaseWord(t, i === 0)
+    )
     .join(' ')
 }
 
@@ -371,8 +440,13 @@ export function normalizeCompany(raw: string | null | undefined): string | null 
   const cleaned = trimmed.replace(/[.,;:]+$/g, '').trim()
   if (!cleaned) return null
   const tokens = cleaned.split(' ')
+  const lastIndex = tokens.length - 1
   return tokens
-    .map((t, i) => titleCaseWord(t, i === 0))
+    .map((t, i) =>
+      shouldPreserveToken(t, { isLast: i === lastIndex, source: t })
+        ? t
+        : titleCaseWord(t, i === 0)
+    )
     .join(' ')
 }
 
