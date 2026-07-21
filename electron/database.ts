@@ -1490,6 +1490,56 @@ export function markEmploymentTypeNormalized(): void {
   persistStore()
 }
 
+// ---------------------------------------------------------------------------
+// Title & company casing migration
+// ---------------------------------------------------------------------------
+// normalizeTitle / normalizeCompany were extended to preserve trailing
+// Roman numerals ("Recreation Assistant II") and a curated set of
+// all-caps acronyms ("IT Director", "Senior AI"). Existing rows
+// captured the old (degraded) casing because they were normalized
+// before the new rules shipped. This migration re-runs the normalizer
+// over every stored title and company once, so the persisted form
+// matches the new contract. Gated by a flag so it runs at most once
+// per install; idempotent — re-running finds no diffs and does
+// nothing.
+
+export function hasTitleCasingNormalized(): boolean {
+  return loadStore().settings.title_casing_normalized === '1'
+}
+
+export function markTitleCasingNormalized(): void {
+  const s = loadStore()
+  s.settings.title_casing_normalized = '1'
+  persistStore()
+}
+
+export function retrofitTitleCasing(): { updated: number; total: number } {
+  const s = loadStore()
+  let updated = 0
+  for (const j of s.jobs) {
+    const newTitle = normalizeTitle(j.title)
+    const newCompany = normalizeCompany(j.company)
+    let changed = false
+    if (newTitle !== null && newTitle !== j.title) {
+      j.title = newTitle
+      changed = true
+    }
+    if (newCompany !== null && newCompany !== j.company) {
+      j.company = newCompany
+      changed = true
+    }
+    if (changed) {
+      j.updated_at = now()
+      updated++
+    }
+  }
+  // Set the flag whether or not anything changed, so we don't re-scan
+  // every launch. Mirrors the retrofitLocations pattern.
+  s.settings.title_casing_normalized = '1'
+  persistStore()
+  return { updated, total: s.jobs.length }
+}
+
 export function hasWorkModeNormalized(): boolean {
   return loadStore().settings.work_mode_normalized === '1'
 }
