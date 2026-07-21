@@ -1319,6 +1319,22 @@ app.whenReady().then(() => {
     }
   }
 
+  // One-shot: re-canonicalize legacy title/company strings to honor
+  // the extended casing contract (Roman numerals + curated acronyms).
+  // Gated by the title_casing_normalized flag — runs at most once
+  // per install. Idempotent. New rows added after this point are
+  // normalized at the persistence boundary (createJob / updateJob).
+  if (!db.hasTitleCasingNormalized() && db.listJobs().length > 0) {
+    try {
+      const result = db.retrofitTitleCasing()
+      if (result.updated > 0) {
+        log.startup.info(`Re-cased ${result.updated}/${result.total} job title/company fields.`)
+      }
+    } catch (err) {
+      log.startup.error('Title casing retrofit failed:', err)
+    }
+  }
+
   // One-shot: collapse legacy employment_type strings to the 8 canonical
   // tokens that the Edit dropdown is constrained to. Unmappable values
   // are nulled so the user can pick the right token. New jobs added
