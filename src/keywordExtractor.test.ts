@@ -219,6 +219,14 @@ describe('extractJobKeywordsStructured', () => {
     expect(phrases.length).toBeLessThanOrEqual(30)
     expect(phrases.every((p) => typeof p === 'string')).toBe(true)
   })
+
+  it('extractJobKeywords flat shape is consistent with the structured result', () => {
+    const jd = 'Senior Python Engineer\n\nRequirements\n- 5+ years Python\n- AWS\n- Distributed systems'
+    const structured = extractJobKeywordsStructured(jd)
+    const flat = extractJobKeywords(jd)
+    expect(flat).toEqual(structured.keywords.map((k) => k.phrase))
+    expect(flat.length).toBeLessThanOrEqual(30)
+  })
 })
 
 describe('mergeKeywordResults', () => {
