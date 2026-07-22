@@ -10,6 +10,7 @@ import { runDocumentRuleChecks } from '../src/documentRules'
 import { extractJobKeywordsStructured, extractJobKeywords, mergeKeywordResults } from '../src/keywordExtractor'
 import { loadKeywordAllowlists } from '../src/keywordAllowlists'
 import { log } from './logger'
+import { fingerprintKey, hostOf, redactBody } from './aiDebug'
 
 export class KeywordExtractionError extends Error {
   constructor(message: string) {
@@ -138,6 +139,14 @@ export async function callAI(
   const errors: string[] = []
 
   for (const model of models) {
+    // Opt-in per-request trace. Set FLOW_JOB_DEBUG_AI=1 in the shell before
+    // launching the app to enable; the env read is cached by V8 so the cost
+    // when disabled is one string compare per request.
+    if (process.env.FLOW_JOB_DEBUG_AI === '1') {
+      log.ai.info(
+        `[ai] req name="${model.name}" host=${hostOf(model.base_url)} key=${fingerprintKey(model.api_key)} modelId=${model.model} body=${redactBody('')}`
+      )
+    }
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (model.api_key) headers['Authorization'] = `Bearer ${model.api_key}`
