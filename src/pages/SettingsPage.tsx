@@ -643,18 +643,19 @@ export default function SettingsPage() {
                 <input
                   type="number"
                   min={0}
-                  max={1}
-                  step={0.05}
+                  max={100}
+                  step={1}
                   style={{ width: 80 }}
                   value={settings.auto_tailor_min_fit}
                   onChange={(e) => {
                     const n = parseFloat(e.target.value)
-                    if (!isNaN(n) && n >= 0 && n <= 1) update('auto_tailor_min_fit', n)
+                    if (!isNaN(n) && n >= 0 && n <= 100) update('auto_tailor_min_fit', n)
                   }}
                   onBlur={() => {
                     if (settings) api.updateSettings({ auto_tailor_min_fit: settings.auto_tailor_min_fit })
                   }}
                 />
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>%</span>
               </div>
             </div>
           </div>

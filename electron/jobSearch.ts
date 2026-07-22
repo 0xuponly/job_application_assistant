@@ -1755,7 +1755,7 @@ export async function scanAllBoards(
       // `listJobs().find(...)` would re-parse the encrypted file on every
       // iteration. Use the score that was just looked up.
       const score = j.score
-      if (score >= settings.auto_tailor_min_fit) {
+      if (score >= settings.auto_tailor_min_fit / 100) {
         enqueue({ type: 'tailor_job_docs', jobId: j.id })
       }
     }

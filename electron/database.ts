@@ -109,7 +109,7 @@ function defaultStore(): Store {
       backup_last_error: '',
       passphrase: '',
       auto_tailor_on_scan: false,
-      auto_tailor_min_fit: 0.6,
+      auto_tailor_min_fit: 90,
       quick_apply_shortcut: null
     },
     api_models: [],
@@ -260,7 +260,12 @@ function loadStore(): Store {
       store.settings.auto_tailor_on_scan = false
     }
     if (typeof store.settings.auto_tailor_min_fit !== 'number') {
-      store.settings.auto_tailor_min_fit = 0.6
+      store.settings.auto_tailor_min_fit = 90
+    } else if (store.settings.auto_tailor_min_fit > 0 && store.settings.auto_tailor_min_fit <= 1) {
+      // Migrate from the pre-2026-07-22 0-1 scale to the 0-100 percent
+      // scale. The threshold is "<= 1" so the new defaults (90) and any
+      // user-set value in 0-100 are untouched.
+      store.settings.auto_tailor_min_fit = Math.round(store.settings.auto_tailor_min_fit * 100)
     }
     if (typeof store.settings.quick_apply_shortcut !== 'string' && store.settings.quick_apply_shortcut !== null) {
       store.settings.quick_apply_shortcut = null
