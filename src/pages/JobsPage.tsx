@@ -409,17 +409,25 @@ function condenseSalaryForDisplay(
   code: string | null
 ): string {
   const prefix = code ? `${code} ` : ''
+  // Strip the prefix currency from the token if it's already there.
+  // Stored shape for non-USD/EUR/GBP/JPY (per normalizeSalary) is
+  // "CAD 163,000" — the code sits in front of the amount. Without
+  // this, condenseAmount sees "CAD 163,000", parseFloat returns NaN
+  // (leading letters), the function falls back to the raw token, and
+  // we render "CAD CAD 163,000".
+  const stripCode = (t: string) =>
+    code ? t.replace(new RegExp(`^${code}\\s+`, 'i'), '').trim() : t
   // Already a single amount (no range separator). The stored shape
   // for an annual amount after normalizeSalary is e.g. "$100,000" or
   // "CAD 100,000".
   if (!RANGE_SEP_RE.test(s)) {
-    return `${prefix}${condenseAmount(s)}`
+    return `${prefix}${condenseAmount(stripCode(s))}`
   }
   // Range: split into the two amounts and the original separator.
   // We split on the first range marker only — ranges in stored data
   // are always two-sided, not three+.
   const m = s.match(RANGE_SEP_RE)
-  if (!m) return `${prefix}${condenseAmount(s)}`
+  if (!m) return `${prefix}${condenseAmount(stripCode(s))}`
   const sep = m[1]
   const idx = s.indexOf(m[0])
   const lo = s.slice(0, idx).trim()
@@ -429,7 +437,7 @@ function condenseSalaryForDisplay(
   // high's leading symbol so the rendered shape is "$80k - 120k"
   // (not "$80k - $120k") once the prefix is added at the front.
   const hiNoSymbol = hi.replace(/^[$€£¥]\s*/, '').trim()
-  return `${prefix}${condenseAmount(lo)} ${sep} ${condenseAmount(hiNoSymbol)}`
+  return `${prefix}${condenseAmount(stripCode(lo))} ${sep} ${condenseAmount(hiNoSymbol)}`
 }
 
 /**
