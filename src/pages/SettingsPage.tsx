@@ -43,6 +43,7 @@ export default function SettingsPage() {
   // Both reset on load and on save.
   const [profileDirty, setProfileDirty] = useState(false)
   const [modelsDirty, setModelsDirty] = useState(false)
+  const [scanDirty, setScanDirty] = useState(false)
   const [encryptionMode, setEncryptionMode] = useState<'sealed' | 'plaintext-fallback' | 'uninitialized' | null>(null)
   const [blacklist, setBlacklist] = useState<string[]>([])
   const [newBlacklistCompany, setNewBlacklistCompany] = useState('')
@@ -193,6 +194,7 @@ export default function SettingsPage() {
       setBackupLastError(bkp.lastError)
       setProfileDirty(false)
       setModelsDirty(false)
+      setScanDirty(false)
     })
   }
 
@@ -405,6 +407,7 @@ export default function SettingsPage() {
       await api.saveApiModels(models)
       setProfileDirty(false)
       setModelsDirty(false)
+      setScanDirty(false)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally {
@@ -415,6 +418,7 @@ export default function SettingsPage() {
   function update(field: keyof Settings, value: string | number | boolean) {
     setSettings((prev) => (prev ? { ...prev, [field]: value as never } : prev))
     setProfileDirty(true)
+    setScanDirty(true)
   }
 
   function updateModel(i: number, field: keyof ApiModelConfig, value: string | boolean) {
@@ -485,11 +489,11 @@ export default function SettingsPage() {
             <h1>Settings</h1>
             <p>Configure your profile, AI integration, and data</p>
           </div>
-          {(tab === 'profile' || tab === 'models') && (
+          {(tab === 'profile' || tab === 'models' || tab === 'scan') && (
             <button
               className="btn btn-primary"
               onClick={handleSave}
-              disabled={saving || (tab === 'profile' ? !profileDirty : !modelsDirty)}
+              disabled={saving || (tab === 'profile' ? !profileDirty : tab === 'models' ? !modelsDirty : !scanDirty)}
             >
               {saving ? 'Saving...' : saved ? 'Saved!' : 'Save settings'}
             </button>
@@ -596,7 +600,6 @@ export default function SettingsPage() {
                   checked={settings.auto_scan_enabled}
                   onChange={(e) => {
                     update('auto_scan_enabled', e.target.checked)
-                    api.updateSettings({ auto_scan_enabled: e.target.checked })
                   }}
                 />
                 Run job scan automatically in the background
@@ -612,9 +615,6 @@ export default function SettingsPage() {
                   onChange={(e) => {
                     const n = parseInt(e.target.value, 10)
                     if (!isNaN(n) && n > 0) update('auto_scan_interval_minutes', n)
-                  }}
-                  onBlur={() => {
-                    if (settings) api.updateSettings({ auto_scan_interval_minutes: settings.auto_scan_interval_minutes })
                   }}
                 />
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>minutes after the last scan completes</span>
@@ -633,7 +633,6 @@ export default function SettingsPage() {
                   checked={settings.auto_tailor_on_scan}
                   onChange={(e) => {
                     update('auto_tailor_on_scan', e.target.checked)
-                    api.updateSettings({ auto_tailor_on_scan: e.target.checked })
                   }}
                 />
                 Queue CV + cover letter tailoring when a new job is added
@@ -650,9 +649,6 @@ export default function SettingsPage() {
                   onChange={(e) => {
                     const n = parseFloat(e.target.value)
                     if (!isNaN(n) && n >= 0 && n <= 100) update('auto_tailor_min_fit', n)
-                  }}
-                  onBlur={() => {
-                    if (settings) api.updateSettings({ auto_tailor_min_fit: settings.auto_tailor_min_fit })
                   }}
                 />
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>%</span>
