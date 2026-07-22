@@ -18,6 +18,14 @@ import type { CreateJobInput, Job, LocationPick, ScanFilters, WorkType } from '.
 
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
+// Heuristic pre-filter floor for the scan pipeline. Listings with a keyword-
+// overlap score below this threshold are persisted with score=null and a
+// "low keyword overlap" note instead of being LLM-scored. Two sites use it:
+// `processJob` (single-listing import) and `scanAllBoards` (bulk scan).
+// Raised from 0.15 → 0.25 on 2026-07-22 to drop marginal leads before they
+// hit the queue.
+const HEURISTIC_FLOOR = 0.25
+
 // Returns a promise that resolves true as soon as the signal aborts. Used to
 // race long-running in-flight work so the cancel button feels immediate
 // rather than waiting for the current batch (up to 6 listings) to finish.
@@ -1128,7 +1136,6 @@ async function fetchAndScore(url: string, baseCv: string, seenUrlsSet: Set<strin
   // persisted with score=null + a note. The user can re-score any
   // listing via the per-job "Recompute Fit" button, which uses the
   // same scoreJobFit under the hood.
-  const HEURISTIC_FLOOR = 0.15
   const heuristicScore = scoreCompatibility(input.title, desc, baseCv)
   if (baseCv && heuristicScore < HEURISTIC_FLOOR) {
     try {
@@ -1451,7 +1458,7 @@ export async function scanAllBoards(
             const heuristicScore = scoreCompatibility(input.title, input.description ?? '', baseCv)
             const { job } = createJob({
               ...input,
-              ...(baseCv && heuristicScore < 0.15
+              ...(baseCv && heuristicScore < HEURISTIC_FLOOR
                 ? { score: null, fit_rationale: 'Pre-filtered by heuristic (low keyword overlap)', fit_breakdown: null, fit_score_version: null, fit_last_error: null }
                 : { score: null, fit_rationale: null, fit_breakdown: null, fit_score_version: null, fit_last_error: null })
             })
