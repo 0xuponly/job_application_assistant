@@ -1049,7 +1049,7 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
                 )}
                 {coverLetter && (
                   <button className="btn btn-secondary btn-sm" onClick={() => handleViewDoc(coverLetter)}>
-                    View cover letter
+                    View Cover Letter
                   </button>
                 )}
               </div>
