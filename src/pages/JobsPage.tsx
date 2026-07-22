@@ -719,11 +719,18 @@ export default function JobsPage() {
   const [settings, setSettings] = useState<{ base_cv?: string } | null>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
 
-  const fitLabel = (s: number | null) => {
+  // Six-bucket fit grade that mirrors the main-process matchGradeFor
+  // thresholds in electron/matchGrade.ts. Unscored jobs (score == null)
+  // collapse to the em-dash bucket so the user can filter them in/out
+  // alongside the letter grades.
+  const fitLabel = (s: number | null): string => {
     if (s == null) return '—'
-    if (s >= 0.6) return 'High'
-    if (s >= 0.3) return 'Medium'
-    return 'Low'
+    if (s >= 0.9) return 'S'
+    if (s >= 0.75) return 'A'
+    if (s >= 0.6) return 'B'
+    if (s >= 0.45) return 'C'
+    if (s >= 0.3) return 'D'
+    return 'F'
   }
 
   const filterOptions = useMemo(() => {
@@ -741,12 +748,23 @@ export default function JobsPage() {
       statuses.add(j.status)
       fits.add(fitLabel(j.score))
     }
+    // Canonical order for the Fit filter menu. Always shown as
+    // S → A → B → C → D → F → — regardless of which buckets are
+    // populated by the current job list, so the user gets a stable
+    // mental model and can predict which checkboxes to click. The
+    // order is a true constant — declared inside the memo so the
+    // dep array stays honest (no new identity per render).
+    const FIT_GRADE_ORDER = ['S', 'A', 'B', 'C', 'D', 'F', '—'] as const
     return {
       companies: [...companies].sort(),
       titles: [...titles].sort(),
       locations: [...locations].sort(),
       statuses: [...statuses].sort(),
-      fits: [...fits].sort()
+      // Keep the canonical S A B C D F — order so the menu is stable.
+      // If a bucket has zero rows, the option is still shown — leaving
+      // it absent would make the filter feel broken when the user
+      // scrolled the grade boundaries.
+      fits: FIT_GRADE_ORDER.filter((g) => fits.has(g))
     }
   }, [jobs])
 
