@@ -801,10 +801,19 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
                           // and only set fit_last_error. The toast surfaces
                           // the reason; the card continues to show the
                           // previously generated explanation.
-                          notify(`Recompute failed: ${result.job.fit_last_error}`, 'error', 12000)
+                          //
+                          // fit_last_error is a multi-line dump (one line
+                          // per attempted model with full provider JSON).
+                          // Take the first line for the toast; the full
+                          // text remains on the job for inspection.
+                          const summary = result.job.fit_last_error.split('\n')[0]
+                          notify(`Recompute failed: ${summary}`, 'error', 12000)
                         }
                       } else {
-                        notify(`Recompute failed: ${result.error}`, 'error', 12000)
+                        // Same trim — result.error can carry the same
+                        // multi-line payload from the scorer fallback.
+                        const summary = result.error.split('\n')[0]
+                        notify(`Recompute failed: ${summary}`, 'error', 12000)
                       }
                     })
                     if (!accepted) {
