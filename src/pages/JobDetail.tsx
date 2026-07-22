@@ -769,65 +769,6 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
 
       <div className="job-detail-grid">
         <div>
-          <div className="section-title" style={{ marginTop: 8 }}>Description</div>
-          {editing ? (
-            <>
-              <textarea rows={12} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} style={{ width: '100%' }} />
-              <textarea rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Notes..." style={{ width: '100%', marginTop: 8 }} />
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <input value={editSalaryRange} onChange={(e) => setEditSalaryRange(e.target.value)} placeholder="Salary" style={{ flex: 1 }} />
-                <select value={editEmploymentType} onChange={(e) => setEditEmploymentType(e.target.value)} style={{ flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4 L6 8 L10 4' fill='none' stroke='%238b93a7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '10px 10px', paddingRight: 32 }}>
-                  <option value="">—</option>
-                  {EMPLOYMENT_TYPES.map((t) => (
-                    <option key={t} value={t}>{EMPLOYMENT_TYPE_LABELS[t]}</option>
-                  ))}
-                </select>
-                <select value={editWorkMode} onChange={(e) => setEditWorkMode(e.target.value)} style={{ flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4 L6 8 L10 4' fill='none' stroke='%238b93a7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '10px 10px', paddingRight: 32 }}>
-                  <option value="">—</option>
-                  {WORK_MODES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <input value={editHiringManager} onChange={(e) => setEditHiringManager(e.target.value)} placeholder="Hiring manager" style={{ flex: 1 }} />
-                <input value={editSource} onChange={(e) => setEditSource(e.target.value)} placeholder="Source (e.g. LinkedIn, Indeed)" style={{ flex: 1 }} />
-                <input value={editApplicationRequirements} onChange={(e) => setEditApplicationRequirements(e.target.value)} placeholder="Resume only / Resume + cover letter / etc." style={{ flex: 2 }} />
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <label style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 140 }}>Application deadline</label>
-                <input
-                  type="date"
-                  value={editApplicationDeadline}
-                  onChange={(e) => setEditApplicationDeadline(e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                {editApplicationDeadline && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setEditApplicationDeadline('')}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <textarea rows={4} value={editRequirements} onChange={(e) => setEditRequirements(e.target.value)} placeholder="Requirements (skills, experience, education needed)..." style={{ width: '100%', marginTop: 8 }} />
-              <div className="actions-row">
-                <button className="btn btn-primary btn-sm" onClick={handleSaveEdits}>Save</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => setEditing(false)}>Cancel</button>
-              </div>
-            </>
-          ) : (
-            <DescriptionCard
-              text={currentJob.description || 'No description.'}
-              notes={currentJob.notes}
-              expanded={descriptionExpanded}
-              onToggle={() => setDescriptionExpanded((v) => !v)}
-              onLineHeightMeasured={handleLineHeightMeasured}
-            />
-          )}
-
           <div style={{ marginTop: 16 }}>
             <div className="card" style={{ padding: '8px 12px', minHeight: 56 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -931,6 +872,65 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
               )}
             </div>
           </div>
+
+          <div className="section-title" style={{ marginTop: 8 }}>Description</div>
+          {editing ? (
+            <>
+              <textarea rows={12} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} style={{ width: '100%' }} />
+              <textarea rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Notes..." style={{ width: '100%', marginTop: 8 }} />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <input value={editSalaryRange} onChange={(e) => setEditSalaryRange(e.target.value)} placeholder="Salary" style={{ flex: 1 }} />
+                <select value={editEmploymentType} onChange={(e) => setEditEmploymentType(e.target.value)} style={{ flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4 L6 8 L10 4' fill='none' stroke='%238b93a7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '10px 10px', paddingRight: 32 }}>
+                  <option value="">—</option>
+                  {EMPLOYMENT_TYPES.map((t) => (
+                    <option key={t} value={t}>{EMPLOYMENT_TYPE_LABELS[t]}</option>
+                  ))}
+                </select>
+                <select value={editWorkMode} onChange={(e) => setEditWorkMode(e.target.value)} style={{ flex: 1, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4 L6 8 L10 4' fill='none' stroke='%238b93a7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '10px 10px', paddingRight: 32 }}>
+                  <option value="">—</option>
+                  {WORK_MODES.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <input value={editHiringManager} onChange={(e) => setEditHiringManager(e.target.value)} placeholder="Hiring manager" style={{ flex: 1 }} />
+                <input value={editSource} onChange={(e) => setEditSource(e.target.value)} placeholder="Source (e.g. LinkedIn, Indeed)" style={{ flex: 1 }} />
+                <input value={editApplicationRequirements} onChange={(e) => setEditApplicationRequirements(e.target.value)} placeholder="Resume only / Resume + cover letter / etc." style={{ flex: 2 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <label style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 140 }}>Application deadline</label>
+                <input
+                  type="date"
+                  value={editApplicationDeadline}
+                  onChange={(e) => setEditApplicationDeadline(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                {editApplicationDeadline && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setEditApplicationDeadline('')}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <textarea rows={4} value={editRequirements} onChange={(e) => setEditRequirements(e.target.value)} placeholder="Requirements (skills, experience, education needed)..." style={{ width: '100%', marginTop: 8 }} />
+              <div className="actions-row">
+                <button className="btn btn-primary btn-sm" onClick={handleSaveEdits}>Save</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setEditing(false)}>Cancel</button>
+              </div>
+            </>
+          ) : (
+            <DescriptionCard
+              text={currentJob.description || 'No description.'}
+              notes={currentJob.notes}
+              expanded={descriptionExpanded}
+              onToggle={() => setDescriptionExpanded((v) => !v)}
+              onLineHeightMeasured={handleLineHeightMeasured}
+            />
+          )}
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             <div className="card" style={{ flex: '1 0 100px', padding: '8px 12px', height: 56, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
