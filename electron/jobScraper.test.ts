@@ -15,7 +15,7 @@ vi.mock('./database', () => ({
   getJob: vi.fn()
 }))
 
-import { scrapeJobFromUrl } from './jobScraper'
+import { isLinkedInStubDescription, scrapeJobFromUrl } from './jobScraper'
 
 // We don't actually hit the network — we stub fetch and feed the
 // extractor a realistic LinkedIn HTML page. The shape below mirrors
@@ -94,5 +94,31 @@ describe('LinkedIn scraper stub-description handling', () => {
     } finally {
       global.fetch = originalFetch
     }
+  })
+})
+
+describe('isLinkedInStubDescription', () => {
+  // The user-reported stub on 2026-07-22 for job 4398322407. This is
+  // the canonical "yes" case — short, with the LinkedIn paywall
+  // marker. Used by the gated re-scrape migration to find rows that
+  // need a real body pulled.
+  it('returns true for the canonical paywall stub', () => {
+    const stub = "Posted 1:47:02 AM. We're transforming the grocery industryAt Instacart, we invite the world to share love through food…See this and similar jobs on LinkedIn."
+    expect(isLinkedInStubDescription(stub)).toBe(true)
+  })
+
+  it('returns true for the "Sign in to see" variant', () => {
+    expect(isLinkedInStubDescription("Sign in to see this job. We have an opening at Acme Co.")).toBe(true)
+  })
+
+  it('returns false for a real LinkedIn JD body', () => {
+    const real = "We're transforming the grocery industry. At Instacart, we invite the world to share love through food because we believe everyone should have access to the food they love and more time to enjoy it together. Where others see a simple need for grocery delivery, we see exciting complexity and endless opportunity to serve the varied needs of our community. We work to deliver an essential service that customers rely on to get their groceries and household goods, while also offering safe and flexible earnings opportunities to Instacart Personal Shoppers."
+    expect(real.length).toBeGreaterThan(400)
+    expect(isLinkedInStubDescription(real)).toBe(false)
+  })
+
+  it('returns false for a 400-char real body with no marker text', () => {
+    const real = "A".repeat(400)
+    expect(isLinkedInStubDescription(real)).toBe(false)
   })
 })

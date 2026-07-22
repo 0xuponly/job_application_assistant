@@ -1,7 +1,7 @@
 import { app, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import { cleanDescription, scrapePostingDateFromUrl } from './jobScraper'
+import { cleanDescription, isLinkedInStubDescription, scrapePostingDateFromUrl } from './jobScraper'
 import { getOrCreateDek, encryptJson, decryptJson, deleteDek, encryptionMode } from './secureStore'
 import { formatLocation, decodeEntities, normalizeTitle, normalizeCompany, normalizeSalary } from './utils'
 import { normalizeEmploymentType, normalizeWorkMode } from './employmentType'
@@ -1906,4 +1906,68 @@ export function removeAIQueueItem(id: number): void {
   const s = loadStore()
   s.ai_queue = s.ai_queue.filter((q) => q.id !== id)
   persistStore()
+}
+
+/**
+ * One-shot gated migration: re-scrape LinkedIn rows whose description
+ * still holds the paywall stub ("Posted … See this and similar jobs
+ * on LinkedIn.") because they were imported before the importer
+ * learned to refuse the stub (ba2de25 / a8509b3). For each match the
+ * fetcher is called on the row's URL and, if it returns a real
+ * description, updateJob writes it.
+ *
+ * User-initiated from Settings → Scan Memory ("Rescan LinkedIn
+ * descriptions"). We don't auto-run on launch because every match
+ * triggers a network call and we'd rather the user explicitly accept
+ * the rate-limit / latency cost. Gated by the linkedin_stub_rescraped
+ * setting so a second click is a no-op.
+ *
+ * The fetcher is injected so the test in jobScraper.test can supply
+ * a stub. In production main.ts wires scrapeJobFromUrl in. Failures
+ * (network error, scrape still returns a stub, etc.) are caught per
+ * row so one bad URL doesn't abort the batch.
+ */
+export function relinkLinkedInStubDescriptions(
+  fetcher: (url: string) => Promise<{ description?: string }>
+): Promise<{ scanned: number; updated: number; skipped: number; errors: number; alreadyMigrated: boolean }> {
+  const s = loadStore()
+  if (s.settings.linkedin_stub_rescraped === '1') {
+    return Promise.resolve({ scanned: 0, updated: 0, skipped: 0, errors: 0, alreadyMigrated: true })
+  }
+  // Collect candidate ids first so we can persist the gate at the
+  // start — even if every fetch fails, we don't want the user
+  // clicking "Rescan" three times in a row and re-firing the entire
+  // batch. A failed re-scrape is recoverable: the user can clear the
+  // flag and try again.
+  const candidates = s.jobs.filter(
+    (j) => j.url && j.url.includes('linkedin.com') && j.description && isLinkedInStubDescription(j.description)
+  )
+  s.settings.linkedin_stub_rescraped = '1'
+  persistStore()
+  return runRelink(candidates, fetcher)
+}
+
+async function runRelink(
+  candidates: Job[],
+  fetcher: (url: string) => Promise<{ description?: string }>
+): Promise<{ scanned: number; updated: number; skipped: number; errors: number; alreadyMigrated: boolean }> {
+  let updated = 0
+  let skipped = 0
+  let errors = 0
+  for (const j of candidates) {
+    if (!j.url) continue
+    try {
+      const fresh = await fetcher(j.url)
+      const newDesc = fresh.description
+      if (newDesc && !isLinkedInStubDescription(newDesc)) {
+        updateJob(j.id, { description: newDesc })
+        updated++
+      } else {
+        skipped++
+      }
+    } catch {
+      errors++
+    }
+  }
+  return { scanned: candidates.length, updated, skipped, errors, alreadyMigrated: false }
 }

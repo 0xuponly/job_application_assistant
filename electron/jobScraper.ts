@@ -761,7 +761,12 @@ const LINKEDIN_STUB_MARKERS = [
 ]
 const LINKEDIN_STUB_MAX_LENGTH = 400
 
-function isLinkedInStubDescription(desc: string): boolean {
+// Exported so the relinkLinkedInStubDescriptions migration in
+// database.ts can use the same predicate to find rows that need
+// re-scraping. The migration runs against existing rows that
+// pre-date the ba2de25 / a8509b3 fixes; new imports are protected
+// in applyLinkedIn itself.
+export function isLinkedInStubDescription(desc: string): boolean {
   if (desc.length <= LINKEDIN_STUB_MAX_LENGTH) {
     if (LINKEDIN_STUB_MARKERS.some((re) => re.test(desc))) return true
   }
