@@ -218,8 +218,16 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
   const fitErrorToasted = useRef(false)
   useEffect(() => {
     if (fitErrorToasted.current) return
-    if (job.fit_last_error && job.score == null) {
-      notify(`Fit score unavailable: ${currentJob.fit_last_error}`, 'error', 12000)
+    const err = job.fit_last_error
+    if (err && job.score == null) {
+      // The stored fit_last_error is a multi-line dump (one line per
+      // attempted model with full provider error JSON). For the toast
+      // we want the summary only — the first line, which carries the
+      // "All AI models failed (rate limited):" prefix. The full text
+      // is still in currentJob.fit_last_error if you need to inspect
+      // it (e.g. via a future "details" affordance).
+      const summary = err.split('\n')[0]
+      notify(`Fit score unavailable: ${summary}`, 'error', 12000)
       fitErrorToasted.current = true
     }
   }, [job.id, job.fit_last_error, job.score])
