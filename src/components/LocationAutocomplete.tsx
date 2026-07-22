@@ -7,6 +7,13 @@ type Props = {
   onPick?: (node: LocationNode) => void;
   onBlur?: () => void;
   onKeyDownFreeText?: (text: string) => void;
+  /**
+   * If false, Enter on free text keeps the typed value in the input
+   * (caller is using the field as the committed value, e.g. add-job
+   * modal). If true (default), the typed text is committed and the
+   * input is cleared (caller is using the field to add a pill).
+   */
+  clearOnFreeTextCommit?: boolean;
   placeholder?: string;
   id?: string;
   className?: string;
@@ -19,6 +26,7 @@ export function LocationAutocomplete({
   onPick,
   onBlur,
   onKeyDownFreeText,
+  clearOnFreeTextCommit = true,
   placeholder,
   id,
   className,
@@ -80,8 +88,10 @@ export function LocationAutocomplete({
       } else if (value.trim()) {
         e.preventDefault();
         onKeyDownFreeText?.(value.trim());
-        onChange('');
-        setOpen(false);
+        if (clearOnFreeTextCommit) {
+          onChange('');
+          setOpen(false);
+        }
       }
     } else if (e.key === 'Escape') {
       setOpen(false);

@@ -1689,6 +1689,7 @@ export default function JobsPage() {
             <LocationAutocomplete
               value={form.location ?? ''}
               onChange={(v) => updateField('location', v)}
+              clearOnFreeTextCommit={false}
               placeholder="Location"
             />
           </div>
