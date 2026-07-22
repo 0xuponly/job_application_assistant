@@ -105,5 +105,6 @@ export function createLogger(category: string, logDir?: string): CategoryLogger 
 // (e.g. cv_failed, cl_failed, cap_hit, dropped_missing_job); other
 // categories keep their per-module createLogger() pattern.
 export const log = {
-  tailor: createLogger('tailor')
+  tailor: createLogger('tailor'),
+  ai: createLogger('ai')
 }

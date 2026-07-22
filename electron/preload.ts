@@ -32,7 +32,7 @@ export interface Api {
   searchJobs: (query: string) => Promise<Job[]>
   importJobFromUrl: (url: string) => Promise<{ job: Job; wasBlacklisted: boolean }>
   scanBoards: (filters?: ScanFilters) => Promise<ScanResult>
-  batchScore: () => Promise<{ updated: number }>
+  batchScore: () => Promise<{ updated: number; skipped?: number[] }>
   recomputeFit: (id: number) => Promise<Job>
   backfillJobDates: () => Promise<number>
   listDocuments: (jobId?: number) => Promise<Document[]>

@@ -33,7 +33,7 @@ export interface Api {
   scanBoards: (filters?: ScanFilters) => Promise<ScanResult>
   cancelScan: () => Promise<void>
   cancelImport: () => Promise<void>
-  batchScore: () => Promise<{ updated: number }>
+  batchScore: () => Promise<{ updated: number; skipped?: number[] }>
   recomputeFit: (id: number) => Promise<Job>
   retrofitLocations: () => Promise<{ updated: number; total: number }>
   backfillJobDates: () => Promise<number>

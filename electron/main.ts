@@ -191,14 +191,22 @@ function registerIpc(): void {
       // No CV configured — leave the row at the neutral 0.31 default
       // (matches the createJob placeholder) and stamp the CV version so
       // we don't retry on every subsequent add.
-      const updated = db.updateJob(jobId, {
-        score: 0.31,
-        fit_rationale: 'No base CV configured.',
-        fit_breakdown: { matched_skills: [], missing_skills: [], experience_years_match: null },
-        fit_score_version: currentVersion
-      })
-      emitJobScoreUpdated(jobId)
-      return updated
+      try {
+        const updated = db.updateJob(jobId, {
+          score: 0.31,
+          fit_rationale: 'No base CV configured.',
+          fit_breakdown: { matched_skills: [], missing_skills: [], experience_years_match: null },
+          fit_score_version: currentVersion
+        })
+        emitJobScoreUpdated(jobId)
+        return updated
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Job not found') {
+          log.fit.warn(`scoreOneJobInBackground: job ${jobId} was deleted mid-run, skipping`)
+          return null
+        }
+        throw err
+      }
     }
     try {
       const fit = await scoreJobFit({
@@ -209,25 +217,49 @@ function registerIpc(): void {
       })
       if (fit.source === 'heuristic') {
         // Don't pretend a heuristic fallback is a real fit score.
-        const updated = db.updateJob(jobId, { fit_last_error: fit.error || 'LLM scorer fell back to heuristic.' })
+        try {
+          const updated = db.updateJob(jobId, { fit_last_error: fit.error || 'LLM scorer fell back to heuristic.' })
+          emitJobScoreUpdated(jobId)
+          return updated
+        } catch (err) {
+          if (err instanceof Error && err.message === 'Job not found') {
+            log.fit.warn(`scoreOneJobInBackground: job ${jobId} was deleted mid-run, skipping`)
+            return null
+          }
+          throw err
+        }
+      }
+      try {
+        const updated = db.updateJob(jobId, {
+          score: fit.score,
+          fit_rationale: fit.rationale,
+          fit_breakdown: fit.breakdown,
+          fit_score_version: currentVersion,
+          fit_last_error: null
+        })
         emitJobScoreUpdated(jobId)
         return updated
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Job not found') {
+          log.fit.warn(`scoreOneJobInBackground: job ${jobId} was deleted mid-run, skipping`)
+          return null
+        }
+        throw err
       }
-      const updated = db.updateJob(jobId, {
-        score: fit.score,
-        fit_rationale: fit.rationale,
-        fit_breakdown: fit.breakdown,
-        fit_score_version: currentVersion,
-        fit_last_error: null
-      })
-      emitJobScoreUpdated(jobId)
-      return updated
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       log.fit.warn(`job ${jobId} (${job.company} — ${job.title}): ${msg}`)
-      const updated = db.updateJob(jobId, { fit_last_error: msg })
-      emitJobScoreUpdated(jobId)
-      return updated
+      try {
+        const updated = db.updateJob(jobId, { fit_last_error: msg })
+        emitJobScoreUpdated(jobId)
+        return updated
+      } catch (writeErr) {
+        if (writeErr instanceof Error && writeErr.message === 'Job not found') {
+          log.fit.warn(`scoreOneJobInBackground: job ${jobId} was deleted mid-run, skipping`)
+          return null
+        }
+        throw writeErr
+      }
     }
   }
 
@@ -294,6 +326,15 @@ function registerIpc(): void {
     const currentVersion = settings.cv_version ?? 0
     const jobs = db.listJobs()
     let updated = 0
+    const skipped: number[] = []
+    const skipDeleted = (jobId: number, e: unknown): boolean => {
+      if (e instanceof Error && e.message === 'Job not found') {
+        log.fit.warn(`batchScore: job ${jobId} was deleted mid-scan, skipping`)
+        skipped.push(jobId)
+        return true
+      }
+      return false
+    }
     for (const job of jobs) {
       // Only re-score jobs that have never been scored, or whose score was
       // computed against a previous version of the base CV.
@@ -302,13 +343,17 @@ function registerIpc(): void {
       if (!baseCv) {
         // No CV configured; keep the row at neutral but mark it as scored
         // against the current CV version so we don't retry every load.
-        db.updateJob(job.id, {
-          score: 0.5,
-          fit_rationale: 'No base CV configured.',
-          fit_breakdown: { matched_skills: [], missing_skills: [], experience_years_match: null },
-          fit_score_version: currentVersion
-        })
-        updated++
+        try {
+          db.updateJob(job.id, {
+            score: 0.5,
+            fit_rationale: 'No base CV configured.',
+            fit_breakdown: { matched_skills: [], missing_skills: [], experience_years_match: null },
+            fit_score_version: currentVersion
+          })
+          updated++
+        } catch (err) {
+          if (!skipDeleted(job.id, err)) throw err
+        }
         continue
       }
       try {
@@ -322,26 +367,44 @@ function registerIpc(): void {
           // LLM call failed. Do NOT overwrite any existing real fit score with
           // a heuristic fallback. Persist only the error so the user can see
           // why the scorer is broken.
-          db.updateJob(job.id, {
-            fit_last_error: fit.error || 'LLM scorer fell back to heuristic.'
-          })
+          try {
+            db.updateJob(job.id, {
+              fit_last_error: fit.error || 'LLM scorer fell back to heuristic.'
+            })
+          } catch (err) {
+            if (!skipDeleted(job.id, err)) throw err
+          }
           log.fit.warn(`job ${job.id} (${job.company} — ${job.title}): ${fit.error || 'heuristic fallback'}`)
         } else {
-          db.updateJob(job.id, {
-            score: fit.score,
-            fit_rationale: fit.rationale,
-            fit_breakdown: fit.breakdown,
-            fit_score_version: currentVersion,
-            fit_last_error: null
-          })
-          updated++
+          try {
+            db.updateJob(job.id, {
+              score: fit.score,
+              fit_rationale: fit.rationale,
+              fit_breakdown: fit.breakdown,
+              fit_score_version: currentVersion,
+              fit_last_error: null
+            })
+            updated++
+          } catch (err) {
+            if (!skipDeleted(job.id, err)) throw err
+          }
         }
       } catch (err) {
         // Don't silently swallow — surface the error and leave the row alone.
         const msg = err instanceof Error ? err.message : 'Unknown error'
         log.fit.warn(`job ${job.id} (${job.company} — ${job.title}): ${msg}`)
-        db.updateJob(job.id, { fit_last_error: msg })
+        try {
+          db.updateJob(job.id, { fit_last_error: msg })
+        } catch (writeErr) {
+          if (!skipDeleted(job.id, writeErr)) throw writeErr
+        }
       }
+    }
+    if (skipped.length > 0) {
+      // Surface the deletions to the renderer so it can toast; the
+      // batchScore IPC return shape gains an optional `skipped: number[]`
+      // field. The loop above already logged each one to the fit log file.
+      return { updated, skipped }
     }
     return { updated }
   })

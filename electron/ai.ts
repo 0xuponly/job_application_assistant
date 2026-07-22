@@ -9,6 +9,7 @@ import { scoreCompatibility, extractEducationLevel, extractYearsExperience } fro
 import { runDocumentRuleChecks } from '../src/documentRules'
 import { extractJobKeywordsStructured, extractJobKeywords, mergeKeywordResults } from '../src/keywordExtractor'
 import { loadKeywordAllowlists } from '../src/keywordAllowlists'
+import { log } from './logger'
 
 export class KeywordExtractionError extends Error {
   constructor(message: string) {
@@ -329,7 +330,7 @@ export async function extractJobKeywordsV3(
   try {
     llmCandidates = await extractJobKeywordsLLM(description, signal)
   } catch (err) {
-    console.warn(
+    log.ai.warn(
       '[ai] v3 LLM extraction failed, falling back to rule-only:',
       err instanceof Error ? err.message : String(err)
     )
@@ -342,7 +343,7 @@ export async function extractJobKeywordsV3(
 
   const merged = mergeKeywordResults(llmCandidates, ruleCandidates, loadKeywordAllowlists())
   if (merged.unknownPhrases.length > 0) {
-    console.info('[ai] v3 unknown phrases:', merged.unknownPhrases)
+    log.ai.info('[ai] v3 unknown phrases:', merged.unknownPhrases)
   }
   return merged
 }
@@ -371,7 +372,7 @@ export async function tailorDocument(request: TailorRequest): Promise<TailorResu
         refinedTopKeywords = result.keywords.map((k) => k.phrase)
         keywordRefinedByLlm = result.refinedByLlm
       } catch (err) {
-        console.warn('[ai] tailor keyword derivation failed, falling back to flat extract:', err)
+        log.ai.warn('[ai] tailor keyword derivation failed, falling back to flat extract:', err instanceof Error ? err.message : String(err))
         refinedTopKeywords = extractJobKeywords(job.description)
       }
     }
