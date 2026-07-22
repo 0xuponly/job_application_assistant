@@ -1359,6 +1359,22 @@ app.whenReady().then(() => {
     }
   }
 
+  // v2 of the casing migration. Re-runs the normalizer to pick up:
+  //   - mid-title Roman numerals ("Senior Engineer Ii - ..." → "II")
+  //   - newly-curated acronym CSE
+  // Existing rows captured by the v1 migration still have the old
+  // narrowed behavior. Idempotent.
+  if (!db.hasTitleCasingNormalizedV2() && db.listJobs().length > 0) {
+    try {
+      const result = db.retrofitTitleCasingV2()
+      if (result.updated > 0) {
+        log.startup.info(`Re-cased ${result.updated}/${result.total} job title/company fields (casing v2).`)
+      }
+    } catch (err) {
+      log.startup.error('Title casing v2 retrofit failed:', err)
+    }
+  }
+
   // One-shot: collapse legacy employment_type strings to the 8 canonical
   // tokens that the Edit dropdown is constrained to. Unmappable values
   // are nulled so the user can pick the right token. New jobs added

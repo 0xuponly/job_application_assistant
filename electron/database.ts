@@ -104,6 +104,8 @@ function defaultStore(): Store {
       locations_array_migrated_v1: '',
       employment_type_normalized: '',
       work_mode_normalized: '',
+      title_casing_normalized: '',
+      title_casing_normalized_v2: '',
       statuses_recomputed: '',
       backup_path: '',      backup_last_success_at: '',
       backup_last_error: '',
@@ -1518,6 +1520,41 @@ export function markTitleCasingNormalized(): void {
   const s = loadStore()
   s.settings.title_casing_normalized = '1'
   persistStore()
+}
+
+// v2: extends the Roman-numeral rule to fire on any token whose upper
+// form is in ROMAN_NUMERALS (not just the last), and adds CSE to the
+// curated acronym set. The v1 retrofit ran with the old narrow Roman
+// rule, so existing rows with mid-title "Ii" or "Cse" still need
+// re-normalization. Re-runs the normalizer over every stored title
+// and company once. Idempotent.
+export function hasTitleCasingNormalizedV2(): boolean {
+  return loadStore().settings.title_casing_normalized_v2 === '1'
+}
+
+export function retrofitTitleCasingV2(): { updated: number; total: number } {
+  const s = loadStore()
+  let updated = 0
+  for (const j of s.jobs) {
+    const newTitle = normalizeTitle(j.title)
+    const newCompany = normalizeCompany(j.company)
+    let changed = false
+    if (newTitle !== null && newTitle !== j.title) {
+      j.title = newTitle
+      changed = true
+    }
+    if (newCompany !== null && newCompany !== j.company) {
+      j.company = newCompany
+      changed = true
+    }
+    if (changed) {
+      j.updated_at = now()
+      updated++
+    }
+  }
+  s.settings.title_casing_normalized_v2 = '1'
+  persistStore()
+  return { updated, total: s.jobs.length }
 }
 
 export function retrofitTitleCasing(): { updated: number; total: number } {

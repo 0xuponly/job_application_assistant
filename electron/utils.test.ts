@@ -84,8 +84,12 @@ describe('normalizeTitle — Roman numerals', () => {
   it('preserves trailing single-letter "I" when source is all-caps', () => {
     expect(normalizeTitle('Data Analyst I')).toBe('Data Analyst I')
   })
-  it('does NOT preserve Roman numeral mid-title', () => {
-    expect(normalizeTitle('Iii Consultant')).toBe('Iii Consultant')
+  it('canonicalizes mid-title "Ii" before a separator (real-world job title)', () => {
+    expect(normalizeTitle('Senior Software Engineer Ii - Shopper Activation & Engagement'))
+      .toBe('Senior Software Engineer II - Shopper Activation & Engagement')
+  })
+  it('canonicalizes mid-title Roman numeral "III"', () => {
+    expect(normalizeTitle('Iii Consultant')).toBe('III Consultant')
   })
 })
 
@@ -101,6 +105,10 @@ describe('normalizeTitle — acronyms', () => {
   })
   it('preserves 3-letter acronyms like "SRE"', () => {
     expect(normalizeTitle('Sre Engineer')).toBe('SRE Engineer')
+  })
+  it('preserves "CSE" anywhere in the title', () => {
+    expect(normalizeTitle('CSE Manager')).toBe('CSE Manager')
+    expect(normalizeTitle('cse manager')).toBe('CSE Manager')
   })
 })
 

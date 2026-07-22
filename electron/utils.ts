@@ -315,7 +315,7 @@ const ACRONYMS = new Set([
   'ETL', 'CRM', 'ERP', 'SEO', 'SEM', 'AWS', 'GCP', 'IOT', 'DEVOPS', 'SRE',
   'QA', 'BA', 'PM', 'DBA', 'SDLC', 'STEM', 'CDN', 'VP', 'SVP', 'EVP',
   'AVP', 'CEO', 'CFO', 'CTO', 'CIO', 'CMO', 'COO', 'CHRO', 'CRO', 'CSO',
-  'CDO', 'CISO', 'HR', 'PR', 'ER', 'L&D', 'M&A', 'P&L', 'KPI', 'OKR',
+  'CDO', 'CISO', 'CSE', 'HR', 'PR', 'ER', 'L&D', 'M&A', 'P&L', 'KPI', 'OKR',
   'PTO', 'RFP', 'RFQ', 'RFI', 'SLA', 'NDA', 'SOW', 'SKU', 'RN', 'MD',
   'DO', 'PA', 'NP', 'DNP', 'PHARMD', 'PHD', 'JD', 'LLM', 'MBA', 'MS',
   'MA', 'BS', 'BBA', 'BSC', 'MSC', 'CPA', 'CFA', 'CFP', 'FRM', 'CA',
@@ -360,10 +360,10 @@ const SMALL_WORDS = new Set([
  *   1. Mixed-case acronym (rule 3) — token's lowercased form is in
  *      MIXED_CASE_ACRONYMS. Returns the canonical form, NOT the input.
  *      Covers `Phd` → `PhD`, `Ios` → `iOS`, `Ebay` → `eBay`.
- *   2. Trailing Roman numeral (rule 4) — the upper-cased form is in
- *      ROMAN_NUMERALS and the token is last in the title. Source may
- *      be all-lower (`ii`), all-upper (`II`), or mixed (`Ii`).
- *      Returns the upper-cased form (canonical).
+ *   2. Roman numeral (rule 4) — the upper-cased form is in
+ *      ROMAN_NUMERALS regardless of position. Source may be all-lower
+ *      (`ii`), all-upper (`II`), or mixed (`Ii`). Returns the
+ *      upper-cased form (canonical).
  *   3. Curated acronym (rule 5) — the upper-cased form is in ACRONYMS.
  *      Case-insensitive on input: `It`, `IT`, `it` all canonicalize
  *      to `IT`. Returns the upper form (canonical).
@@ -372,15 +372,8 @@ const SMALL_WORDS = new Set([
  *      Returns the input as-is.
  *   5. No letters (rule 2) — token is digits and/or symbols only.
  *      Returns the input as-is.
- *
- * The `ctx` argument carries the source form (so we can compare to
- * `word` for case-sensitivity) and the token's position (so the Roman
- * rule can fire only at end-of-title).
  */
-function preserveOrCanonicalize(
-  word: string,
-  ctx: { isLast: boolean; source: string }
-): string | null {
+function preserveOrCanonicalize(word: string): string | null {
   if (!word) return null
   const hasLower = /[a-z]/.test(word)
   const hasUpper = /[A-Z]/.test(word)
@@ -388,10 +381,14 @@ function preserveOrCanonicalize(
   // mixed-case acronym (PhD, iOS, eBay). Returns the canonical form.
   const canonical = MIXED_CASE_ACRONYMS[word.toLowerCase()]
   if (canonical !== undefined) return canonical
-  // Rule 4: trailing Roman numeral. The upper-cased form is in
-  // ROMAN_NUMERALS and the token is last in the title. Source may be
-  // any case (all-lower `ii`, all-upper `II`, or mixed `Ii`).
-  if (ctx.isLast && ROMAN_NUMERALS.has(word.toUpperCase())) {
+  // Rule 4: Roman numeral. The upper-cased form is in ROMAN_NUMERALS
+  // regardless of position. Source may be all-lower (`ii`), all-upper
+  // (`II`), or mixed (`Ii`). The earlier "trailing only" rule was
+  // wrong for real-world titles like "Senior Software Engineer Ii -
+  // Shopper Activation & Engagement" where the Roman is a level/suffix
+  // not at the end. The set already excludes single-letter "A" and
+  // contains only true Roman numerals, so a mid-title hit is safe.
+  if (ROMAN_NUMERALS.has(word.toUpperCase())) {
     return word.toUpperCase()
   }
   // Rule 5: curated acronym. The upper-cased form is in ACRONYMS
@@ -442,10 +439,9 @@ export function normalizeTitle(raw: string | null | undefined): string | null {
   const trimmed = raw.trim().replace(/\s+/g, ' ')
   if (!trimmed) return null
   const tokens = trimmed.split(' ')
-  const lastIndex = tokens.length - 1
   return tokens
     .map((t, i) => {
-      const preserved = preserveOrCanonicalize(t, { isLast: i === lastIndex, source: t })
+      const preserved = preserveOrCanonicalize(t)
       return preserved !== null ? preserved : titleCaseWord(t, i === 0)
     })
     .join(' ')
@@ -475,10 +471,9 @@ export function normalizeCompany(raw: string | null | undefined): string | null 
   const cleaned = trimmed.replace(/[.,;:]+$/g, '').trim()
   if (!cleaned) return null
   const tokens = cleaned.split(' ')
-  const lastIndex = tokens.length - 1
   return tokens
     .map((t, i) => {
-      const preserved = preserveOrCanonicalize(t, { isLast: i === lastIndex, source: t })
+      const preserved = preserveOrCanonicalize(t)
       return preserved !== null ? preserved : titleCaseWord(t, i === 0)
     })
     .join(' ')
