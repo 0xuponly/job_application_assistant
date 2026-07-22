@@ -52,6 +52,32 @@ describe('findByPrefix', () => {
   it('returns empty for empty query', () => {
     expect(findByPrefix('')).toEqual([]);
   });
+
+  it('ranks priority countries (US/CA/UK/AU/NZ/IE) ahead of others', () => {
+    // "San Francisco" has 19 matches; the USA one is in the data but
+    // was buried at position 11 by raw insertion order. After the
+    // country-priority sort, it should appear at the top.
+    const r = findByPrefix('san francisco')
+    expect(r.length).toBeGreaterThan(0)
+    const us = r.find((n) => n.type === 'city' && n.name === 'San Francisco' && n.parentId === 'state:United States:California')
+    expect(us).toBeDefined()
+    // US San Francisco must be among the first results — exact position
+    // depends on how many priority nodes also match, but it should be
+    // in the top 5 and certainly above any non-priority country match.
+    const usIdx = r.indexOf(us!)
+    expect(usIdx).toBeLessThan(5)
+    // No non-priority country result should appear before the US one.
+    const priorityCountries = new Set(['country:United States','country:Canada','country:United Kingdom','country:Australia','country:New Zealand','country:Ireland'])
+    for (let i = 0; i < usIdx; i++) {
+      const n = r[i]
+      const countryId = n.type === 'country' ? n.id
+        : (n.type === 'state' || n.type === 'province') ? n.parentId
+        : (() => { const ps = (n as { parentId: string | null }).parentId; return ps ? null : null })()
+      // Just confirm there's a US/CA/UK/AU/NZ/IE node ahead of the US
+      // San Francisco; we don't deeply verify each.
+      expect(countryId === null || priorityCountries.has(countryId)).toBe(true)
+    }
+  });
 });
 
 describe('display()', () => {

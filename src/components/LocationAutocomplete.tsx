@@ -41,7 +41,7 @@ export function LocationAutocomplete({
 
   const matches = useMemo(() => {
     if (!value.trim()) return [];
-    return findByPrefix(value, 10);
+    return findByPrefix(value, 50);
   }, [value]);
 
   const hasNoMatches = value.trim().length > 0 && matches.length === 0;

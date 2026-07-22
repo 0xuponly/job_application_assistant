@@ -290,7 +290,38 @@ export function condenseLocation(value: string | null | undefined): string {
   return [parts[0], ...middle, country].join(', ');
 }
 
-export function findByPrefix(query: string, limit = 10): LocationNode[] {
+// Job-search-relevant countries. A node whose parent chain includes
+// one of these is sorted to the top of findByPrefix results so the
+// canonical match (e.g. "San Francisco" → USA, not Honduras) is the
+// first thing the user sees. Hardcoded to the user's job market
+// (personal job-search tool, single user).
+const PRIORITY_COUNTRY_IDS: ReadonlySet<string> = new Set([
+  'country:United States',
+  'country:Canada',
+  'country:United Kingdom',
+  'country:Australia',
+  'country:New Zealand',
+  'country:Ireland'
+])
+
+function priorityFor(node: LocationNode): number {
+  if (node.type === 'country') {
+    return PRIORITY_COUNTRY_IDS.has(node.id) ? 0 : 1
+  }
+  if (node.type === 'state' || node.type === 'province') {
+    return PRIORITY_COUNTRY_IDS.has(node.parentId ?? '') ? 0 : 1
+  }
+  // city: priority is determined by the parent state's country.
+  // We can't read parentId directly here without traversal; use a
+  // quick lookup against the cached state map.
+  const parentState = byId.get(node.parentId ?? '')
+  if (parentState) {
+    return PRIORITY_COUNTRY_IDS.has(parentState.parentId ?? '') ? 0 : 1
+  }
+  return 1
+}
+
+export function findByPrefix(query: string, limit = 50): LocationNode[] {
   if (!query) return [];
   const q = query.trim().toLowerCase();
   if (!q) return [];
@@ -303,11 +334,23 @@ export function findByPrefix(query: string, limit = 10): LocationNode[] {
     if (name.startsWith(q)) {
       for (const n of nodes) {
         out.push(n);
-        if (out.length >= limit) return out;
       }
     }
   }
-  return out;
+
+  // Stable sort: priority matches first, then insertion order.
+  // The indices on out[] are captured by the comparator so the
+  // original order is preserved within each priority bucket.
+  const originalIndex = new Map<LocationNode, number>()
+  out.forEach((n, i) => originalIndex.set(n, i))
+  out.sort((a, b) => {
+    const pa = priorityFor(a)
+    const pb = priorityFor(b)
+    if (pa !== pb) return pa - pb
+    return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0)
+  })
+
+  return out.slice(0, limit)
 }
 
 /**
