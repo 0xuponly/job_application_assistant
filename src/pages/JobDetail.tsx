@@ -12,6 +12,15 @@ import { STATUS_COLORS, STATUS_LABELS } from '../types'
 import { EMPLOYMENT_TYPES, EMPLOYMENT_TYPE_LABELS, WORK_MODES, formatEmploymentType } from '../employmentType'
 import { enqueueFitRecompute, isJobInFitQueue } from '../fitQueue'
 
+// fit_last_error / result.error is a multi-line dump ("All AI models
+// failed (rate limited):\n<model>: <error>..."). The toast should
+// show only the first line, with any trailing ":" stripped so the
+// rendered string ends with a sentence terminator (".") instead of
+// a dangling colon. The full text is still on the job for inspection.
+function toastErrorSummary(raw: string): string {
+  return raw.split('\n')[0].replace(/:+\s*$/, '')
+}
+
 interface Props {
   job: Job
   onBack: () => void
@@ -222,12 +231,11 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
     if (err && job.score == null) {
       // The stored fit_last_error is a multi-line dump (one line per
       // attempted model with full provider error JSON). For the toast
-      // we want the summary only — the first line, which carries the
-      // "All AI models failed (rate limited):" prefix. The full text
-      // is still in currentJob.fit_last_error if you need to inspect
-      // it (e.g. via a future "details" affordance).
-      const summary = err.split('\n')[0]
-      notify(`Fit score unavailable: ${summary}`, 'error', 12000)
+      // we want the summary only — the first line, with any trailing
+      // ":" stripped so the toast ends with a sentence terminator.
+      // The full text is still in currentJob.fit_last_error if you
+      // need to inspect it (e.g. via a future "details" affordance).
+      notify(`Fit score unavailable: ${toastErrorSummary(err)}`, 'error', 12000)
       fitErrorToasted.current = true
     }
   }, [job.id, job.fit_last_error, job.score])
@@ -801,19 +809,10 @@ export default function JobDetail({ job, onBack, onUpdate, onDelete, filteredJob
                           // and only set fit_last_error. The toast surfaces
                           // the reason; the card continues to show the
                           // previously generated explanation.
-                          //
-                          // fit_last_error is a multi-line dump (one line
-                          // per attempted model with full provider JSON).
-                          // Take the first line for the toast; the full
-                          // text remains on the job for inspection.
-                          const summary = result.job.fit_last_error.split('\n')[0]
-                          notify(`Recompute failed: ${summary}`, 'error', 12000)
+                          notify(`Recompute failed: ${toastErrorSummary(result.job.fit_last_error)}`, 'error', 12000)
                         }
                       } else {
-                        // Same trim — result.error can carry the same
-                        // multi-line payload from the scorer fallback.
-                        const summary = result.error.split('\n')[0]
-                        notify(`Recompute failed: ${summary}`, 'error', 12000)
+                        notify(`Recompute failed: ${toastErrorSummary(result.error)}`, 'error', 12000)
                       }
                     })
                     if (!accepted) {
