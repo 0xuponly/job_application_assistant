@@ -114,16 +114,16 @@ textarea {
   clip-path: inset(0 100% 0 0);
 }
 
-/* During the width transition, dip the opacity of the wordmark
-   and the bottom-action cluster so they cross-fade in sync with
-   the rail resizing. The same curve matches the parent's
-   transition so the timing stays in lockstep. */
-.sidebar-logo,
+/* During the width transition, dip the opacity of the bottom-action
+   cluster so it cross-fades in sync with the rail resizing. The same
+   curve matches the parent's transition so the timing stays in
+   lockstep. The wordmark stays at full opacity so the "J" in "FJ"
+   reads as the same accent purple as the "Job" half in the expanded
+   wordmark. */
 .sidebar-bottom-actions {
   transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.sidebar--collapsed .sidebar-logo,
 .sidebar--collapsed .sidebar-bottom-actions {
   opacity: 0.7;
 }
