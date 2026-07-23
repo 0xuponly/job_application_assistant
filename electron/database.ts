@@ -161,7 +161,7 @@ function stripLegacyEncryptedFields(s: Store): boolean {
   return changed
 }
 
-function loadStore(): Store {
+export function loadStore(): Store {
   if (store) return store
   const path = getStorePath()
   const dir = join(app.getPath('userData'))
@@ -258,6 +258,9 @@ function loadStore(): Store {
     if (!store.blacklisted_companies) {
       store.blacklisted_companies = []
     }
+    if (!store.notifications) {
+      store.notifications = []
+    }
     if (typeof store.settings.auto_scan_enabled !== 'boolean') {
       store.settings.auto_scan_enabled = true
     }
@@ -344,10 +347,11 @@ function loadStore(): Store {
   return store
 }
 
+export function saveStore(): void {
+  persistStore()
+}
+
 function persistStore(): void {
-  if (!store) return
-  const dek = getOrCreateDek()
-  const payload = encryptJson(store, dek)
   // Use the sync write AND explicitly sync to disk before returning.
   // Without fsync, writeFileSync returns once the data is in the OS
   // write cache; a crash or rapid subsequent read could see a stale
