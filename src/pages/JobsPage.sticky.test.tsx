@@ -12,6 +12,13 @@ beforeAll(() => {
   } as unknown as typeof ResizeObserver
 })
 
+// Module-scope spy for the auto-fit-recompute assertion. Created
+// via vi.hoisted because the vi.mock factory below runs before
+// top-level statements; the test block reads this reference.
+const { batchScoreSpy } = vi.hoisted(() => ({
+  batchScoreSpy: vi.fn(async () => undefined as unknown as void),
+}))
+
 // Mock the api module so JobsPage can import without hitting electron.
 // The JobDetail page (rendered after a row click) touches a long list
 // of methods; we stub each as a no-op async so the unmount/remount
@@ -50,6 +57,12 @@ vi.mock('../api', () => {
       listBlacklistedCompanies: noopAsyncArr,
       tailorQuickApply: noopAsync,
       dedupeJobs: vi.fn(async () => ({ removedIds: [] })),
+      // No-op batchScore spy. The Api interface no longer has this
+      // method (commit 3a06fe3 dropped the IPC), so we attach it
+      // through the untyped mock factory literal — it never appears
+      // on the typed `api` reference, and the auto-fit-recompute test
+      // asserts this spy is not called when JobsPage mounts.
+      batchScore: batchScoreSpy,
     },
   }
 })
@@ -137,5 +150,85 @@ describe('JobsPage sticky thead', () => {
     // code writes "0px". The broken code leaves the sentinel.
     const offsetAfterBack = document.documentElement.style.getPropertyValue('--jobs-sticky-offset')
     expect(offsetAfterBack).not.toBe('STALE_BEFORE_BACK')
+  })
+})
+
+describe('JobsPage auto-fit-recompute', () => {
+  beforeEach(() => {
+    batchScoreSpy.mockClear()
+  })
+
+  it('does not auto-fire batchScore when mounted with unscored jobs', async () => {
+    // Regression guard for commits 52bd75e + 3a06fe3 in the
+    // "remove settings-triggered auto fit-recompute" plan.
+    //
+    // The pre-52bd75e renderer had a useEffect that called
+    // api.batchScore() whenever jobs.length changed and any job was
+    // unscored. Combined with the pre-9d4fc37 writer cv_version
+    // bump on base_cv change, every Settings save queued a bulk
+    // LLM re-score on the next page load.
+    //
+    // The auto-fire useEffect is gone and the jobs:batchScore IPC
+    // is gone, but we still want a guard so a future renderer
+    // change can't silently re-introduce the auto-fire path. The
+    // batchScoreSpy is attached to api via the vi.mock factory
+    // (the Api interface no longer carries the method, so we cannot
+    // reach it through the typed `api` reference).
+
+    // listJobs default mock returns a job with score: 0.5 — flip
+    // that to null so any "has unscored job" branch is reachable.
+    const listJobsMock = (await import('../api')).api.listJobs as unknown as {
+      mockResolvedValueOnce: (v: unknown[]) => void
+    }
+    listJobsMock.mockResolvedValueOnce([
+      {
+        id: 1,
+        title: 'X',
+        company: 'Y',
+        location: null,
+        url: null,
+        description: null,
+        salary_range: null,
+        requirements: null,
+        application_requirements: null,
+        hiring_manager: null,
+        employment_type: null,
+        work_mode: null,
+        source: null,
+        status: 'sourced',
+        score: null,
+        fit_rationale: null,
+        fit_breakdown: null,
+        fit_score_version: null,
+        fit_last_error: null,
+        fit_error_toasted: null,
+        match_grade: null,
+        tailor_ms_cv: null,
+        tailor_ms_cl: null,
+        tailor_generated_at: null,
+        tailor_last_error: null,
+        tailor_error_toasted: null,
+        submitted_at: null,
+        response_at: null,
+        notes: null,
+        date_posted: null,
+        application_deadline: null,
+        last_updated: null,
+        created_at: '',
+        updated_at: '',
+      },
+    ])
+
+    await act(async () => {
+      render(<JobsPage />)
+    })
+
+    // Drain pending microtasks so any queued auto-fire promise has
+    // a chance to run before we assert.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0))
+    })
+
+    expect(batchScoreSpy).not.toHaveBeenCalled()
   })
 })
