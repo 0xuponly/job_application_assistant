@@ -513,6 +513,19 @@ function hasMeaningfulSalary(s: string | null | undefined): boolean {
   return n != null && n > 0
 }
 
+// Higher minimum salary first when the primary key ties. Always DESC
+// regardless of the user's column direction — equal values fall back
+// to the same canonical order, so flipping the sort doesn't flip the
+// tiebreak. Nulls (no salary) sort after everything that has one.
+function salaryTiebreak(a: Job, b: Job): number {
+  const av = parseSalaryForSort(a.salary_range)
+  const bv = parseSalaryForSort(b.salary_range)
+  if (av == null && bv == null) return 0
+  if (av == null) return 1
+  if (bv == null) return -1
+  return bv - av
+}
+
 /**
  * Pull a comparable number out of a salary string for column sorting.
  * The normalizeSalary boundary emits values like "$85,000", "CAD 85,000
@@ -813,16 +826,22 @@ export default function JobsPage() {
         const av = valueFor(a)
         const bv = valueFor(b)
         // Nulls always last regardless of direction.
-        if (av == null && bv == null) return 0
+        if (av == null && bv == null) return salaryTiebreak(a, b)
         if (av == null) return 1
         if (bv == null) return -1
+        let primary = 0
         if (typeof av === 'number' && typeof bv === 'number') {
-          return (av - bv) * dir
+          primary = (av - bv) * dir
+        } else {
+          primary = String(av).localeCompare(String(bv)) * dir
         }
-        return String(av).localeCompare(String(bv)) * dir
+        return primary !== 0 ? primary : salaryTiebreak(a, b)
       })
     }
-    return rows.sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+    return rows.sort((a, b) => {
+      const primary = (b.score ?? -1) - (a.score ?? -1)
+      return primary !== 0 ? primary : salaryTiebreak(a, b)
+    })
   },
     [jobs, filterCompany, filterTitle, filterLocation, filterStatus, filterSalary, filterFit, filterDatePosted, filterDateUpdated, sortColumn, sortDir])
 
