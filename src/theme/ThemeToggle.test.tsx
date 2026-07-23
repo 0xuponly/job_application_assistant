@@ -26,4 +26,10 @@ describe('ThemeToggle', () => {
     fireEvent.click(btn)
     expect(screen.getByRole('button', { name: /switch to dark theme/i })).toBeInTheDocument()
   })
+
+  it('appends incoming className to the base theme-toggle class', () => {
+    render(<ThemeProvider><ThemeToggle className="sidebar-action" /></ThemeProvider>)
+    const btn = screen.getByRole('button', { name: /switch to light theme/i })
+    expect(btn.className).toBe('theme-toggle sidebar-action')
+  })
 })

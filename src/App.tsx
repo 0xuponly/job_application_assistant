@@ -11,7 +11,6 @@ import FollowUpsPage from './pages/FollowUpsPage'
 import InterviewsPage from './pages/InterviewsPage'
 import SettingsPage from './pages/SettingsPage'
 import ScanJobsPage from './pages/ScanJobsPage'
-import ThemeToggle from './theme/ThemeToggle'
 import type { Page } from './types'
 
 export default function App() {
@@ -54,7 +53,6 @@ export default function App() {
 
   return (
     <>
-      <ThemeToggle />
       <div className="app">
         <Sidebar current={page} onNavigate={setPage} />
         <main className="main">

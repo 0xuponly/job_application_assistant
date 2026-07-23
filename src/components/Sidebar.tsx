@@ -3,6 +3,7 @@ import { api } from '../api'
 import type { Page } from '../types'
 import { usePersistedState } from '../persistedState'
 import RefreshIcon from './RefreshIcon'
+import ThemeToggle from '../theme/ThemeToggle'
 import Tooltip from './Tooltip'
 
 interface Props {
@@ -105,6 +106,7 @@ export default function Sidebar({ current, onNavigate }: Props) {
         </Tooltip>
       )}
       <div className="sidebar-bottom-actions">
+        <ThemeToggle className="sidebar-action" />
         <Tooltip label="Refresh current page">
           <button
             className="sidebar-action"
