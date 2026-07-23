@@ -18,6 +18,7 @@ import type {
   Interview,
   Job,
   JobStatus,
+  NotificationRow,
   Settings
 } from './types'
 
@@ -64,6 +65,7 @@ interface Store {
   board_health: Record<string, number[]>
   deleted_jobs: DeletedJobRecord[]
   blacklisted_companies?: string[]
+  notifications: NotificationRow[]
 }
 
 let store: Store | null = null
@@ -123,7 +125,8 @@ function defaultStore(): Store {
     ai_queue: [],
     board_health: {},
     deleted_jobs: [],
-    blacklisted_companies: []
+    blacklisted_companies: [],
+    notifications: []
   }
 }
 

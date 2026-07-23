@@ -353,3 +353,16 @@ export interface DeletedJobRecord {
   score: number | null
   deletedAt: number
 }
+
+export type NotificationType = 'info' | 'success' | 'error' | 'warning'
+export type NotificationSource = 'app' | 'ai' | 'scanner' | 'tailor' | 'scraper'
+
+export interface NotificationRow {
+  id: number
+  type: NotificationType
+  source: NotificationSource
+  message: string
+  full_message: string
+  created_at: number
+  dismissed_at: number | null
+}
