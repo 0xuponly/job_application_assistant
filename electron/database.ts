@@ -352,6 +352,9 @@ export function saveStore(): void {
 }
 
 function persistStore(): void {
+  if (!store) return
+  const dek = getOrCreateDek()
+  const payload = encryptJson(store, dek)
   // Use the sync write AND explicitly sync to disk before returning.
   // Without fsync, writeFileSync returns once the data is in the OS
   // write cache; a crash or rapid subsequent read could see a stale
