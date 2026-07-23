@@ -1143,11 +1143,11 @@ export default function JobsPage() {
         ? cleanedReason
         : `${cleanedReason} (and ${newlyFailing.length - topCount} similar)`
       const message = `Fit assessment failed for ${newlyFailing.length} job${newlyFailing.length > 1 ? 's' : ''}. ${reason}.`
-      // Debounce: concurrent loadJobs() calls (mount + search-debounce +
-      // batchScore refetch) can all see the same freshly-failed set. Only
-      // the last one to fire within the window gets to toast; older queued
-      // callers bail because their captured failing set is now stale
-      // (covered by a later call) or their message matches a recent toast.
+      // Debounce: concurrent loadJobs() calls (mount + search-debounce)
+      // can all see the same freshly-failed set. Only the last one to
+      // fire within the window gets to toast; older queued callers bail
+      // because their captured failing set is now stale (covered by a
+      // later call) or their message matches a recent toast.
       const myFailingIds = new Set(newlyFailing.map((j) => j.id))
       const now = Date.now()
       const wait = Math.max(0, FIT_TOAST_DEBOUNCE_MS - (now - lastFitToastAt))
