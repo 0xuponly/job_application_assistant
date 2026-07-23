@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { NotificationRow } from './types'
 
 // Test strategy: mock ./database with a real in-memory store stub,
 // matching the project's existing vi.mock('./database', ...) pattern
@@ -6,16 +7,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // holds state across calls so we can assert that the notifications
 // helpers round-trip through the store correctly. No temp files, no
 // env vars, no fixture drift — same shape as the existing tests.
-
-interface NotificationRow {
-  id: number
-  type: 'info' | 'success' | 'error' | 'warning'
-  source: 'app' | 'ai' | 'scanner' | 'tailor' | 'scraper'
-  message: string
-  full_message: string
-  created_at: number
-  dismissed_at: number | null
-}
 
 interface StubStore {
   notifications: NotificationRow[]
