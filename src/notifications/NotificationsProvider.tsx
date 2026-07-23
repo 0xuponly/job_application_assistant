@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { NotificationRow, NotificationSource } from '../types'
+import { notify } from '../components/Notifications'
 
 export interface PersistentNotifyInput {
   type: string
@@ -46,8 +47,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     const result = await api.notificationsDismiss({ id })
     if ('error' in result) {
       setList(before)  // rollback
-      // surface a toast: caller can wire this later; for now, log to dev console
-      // (renderer is allowed to console.warn per project memory)
+      notify('Could not dismiss notification', 'error')
     }
   }, [list])
 
@@ -58,6 +58,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     if ('error' in result) {
       setList(before)  // rollback
       await refresh()  // re-fetch to be safe
+      notify('Could not dismiss all notifications', 'error')
     }
   }, [list, refresh])
 
