@@ -22,6 +22,31 @@ describe('formatLocation — country-last contract', () => {
     expect(formatLocation('United Kingdom', 'GB')).toBe('United Kingdom')
   })
 
+  // Bare 2-letter country code → expand to the full name. Without
+  // this, a user who typed "CA" would see "CA" in the Location
+  // column forever — the v3 contract only requires a 2-letter
+  // code, but the column display is friendlier with the full
+  // name. The v6 startup retrofit rewrites pre-existing rows in
+  // the same shape.
+  it('1-part input that is a bare 2-letter country code expands to the full name', () => {
+    expect(formatLocation('CA', '')).toBe('Canada')
+    expect(formatLocation('US', '')).toBe('United States')
+    expect(formatLocation('GB', '')).toBe('United Kingdom')
+  })
+
+  it('1-part bare 2-letter code with defaultCountry still expands to the full name', () => {
+    // The defaultCountry is irrelevant — once we recognise a bare
+    // 2-letter country code we surface the full name. The user
+    // typed a country, not a city.
+    expect(formatLocation('CA', 'US')).toBe('Canada')
+  })
+
+  it('1-part bare 2-letter code that is not a known country returns null', () => {
+    // "ZZ" isn't in the country table; 1-part + no defaultCountry
+    // → null. The bare-code expansion is a country-only path.
+    expect(formatLocation('ZZ', '')).toBeNull()
+  })
+
   it('2-part input where second token is a known 2-letter country code produces City, CC', () => {
     expect(formatLocation('Vancouver, CA', 'US')).toBe('Vancouver, CA')
   })

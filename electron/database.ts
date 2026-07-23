@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { cleanDescription, isLinkedInStubDescription, scrapePostingDateFromUrl } from './jobScraper'
 import { getOrCreateDek, encryptJson, decryptJson, deleteDek, encryptionMode } from './secureStore'
-import { formatLocation, canonicalizeCountry, decodeEntities, normalizeTitle, normalizeCompany, normalizeSalary } from './utils'
+import { formatLocation, canonicalizeCountry, countryNameFromCode, decodeEntities, normalizeTitle, normalizeCompany, normalizeSalary } from './utils'
 import { normalizeEmploymentType, normalizeWorkMode } from './employmentType'
 import { matchGradeFor } from './matchGrade'
 import type {
@@ -103,6 +103,7 @@ function defaultStore(): Store {
       locations_normalized_v3: '',
       locations_normalized_v4: '',
       locations_normalized_v5: '',
+      locations_normalized_v6: '',
       locations_array_migrated_v1: '',
       employment_type_normalized: '',
       work_mode_normalized: '',
@@ -1516,6 +1517,22 @@ export function markLocationsNormalizedV5(): void {
   persistStore()
 }
 
+// v6 gate: 2026-07-23. The writer's 1-part branch now expands a
+// bare 2-letter country code (e.g. "CA") to the full name
+// ("Canada") so the Location column shows a human-readable
+// country. Pre-existing rows that the user stored as just "CA" /
+// "US" / "GB" need the same expansion. Idempotent — gated on a
+// distinct flag so it runs once per store.
+export function hasLocationsNormalizedV6(): boolean {
+  return loadStore().settings.locations_normalized_v6 === '1'
+}
+
+export function markLocationsNormalizedV6(): void {
+  const s = loadStore()
+  s.settings.locations_normalized_v6 = '1'
+  persistStore()
+}
+
 export function hasSalaryNormalized(): boolean {
   return loadStore().settings.salary_normalized === '1'
 }
@@ -1823,6 +1840,49 @@ export function retrofitLocationsV5(): { updated: number; total: number } {
   s.settings.locations_normalized_v5 = '1'
   persistStore()
   return { updated, total: s.jobs.length }
+}
+
+/**
+ * v6 retrofit (2026-07-23): the writer's 1-part branch now expands
+ * a bare 2-letter country code (e.g. "CA") to the full name
+ * ("Canada") via the new `countryNameFromCode` helper. Pre-existing
+ * rows that the user stored as just "CA" / "US" / "GB" need the
+ * same expansion. Gated on a distinct v6 flag so it runs once per
+ * store; the helper is called through the same `expandBareCountryCode`
+ * path the writer uses, so the v6 work matches what new rows get.
+ */
+export function retrofitLocationsV6(): { updated: number; total: number } {
+  const s = loadStore()
+  let updated = 0
+  for (const j of s.jobs) {
+    const expanded = expandBareCountryCode(j.location)
+    if (expanded !== j.location) {
+      j.location = expanded
+      j.updated_at = now()
+      updated++
+    }
+  }
+  s.settings.locations_normalized_v6 = '1'
+  persistStore()
+  return { updated, total: s.jobs.length }
+}
+
+/**
+ * Expand a 1-part 2-letter country code to the full country name.
+ * "CA" → "Canada", "US" → "United States", "GB" → "United Kingdom",
+ * etc. Anything that's not a 1-part 2-letter known country code
+ * (3-part "City, REGION, CC", 2-part "Vancouver, CA", bare "Canada",
+ * unknown 2-letter codes) is returned as-is. Mirrors the writer's
+ * 1-part branch — the same expansion applies to new writes and to
+ * retrofit-replayed rows.
+ */
+function expandBareCountryCode(location: string | null | undefined): string | null {
+  if (!location) return location
+  const parts = location.split(',').map((p) => p.trim())
+  if (parts.length !== 1) return location
+  const token = parts[0]
+  if (token.length !== 2) return location
+  return countryNameFromCode(token) ?? location
 }
 
 /**

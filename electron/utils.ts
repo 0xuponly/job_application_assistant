@@ -139,6 +139,38 @@ const REGION_MAP: Record<string, string> = { ...US_STATES, ...CA_PROVINCES }
 const KNOWN_REGION_CODES = new Set(Object.values(REGION_MAP))
 const KNOWN_COUNTRY_CODES = new Set(Object.values(COUNTRIES))
 
+// Canonical 2-letter code → full English country name. Used to expand
+// a bare 2-letter country code (e.g. "CA" → "Canada") so the Location
+// column shows the full name instead of the terse code. Keyed by the
+// 2-letter code that KNOWN_COUNTRY_CODES recognizes; values are the
+// canonical long-form name. We can't derive this by reversing COUNTRIES
+// (which has multiple aliases per code — 'us' / 'usa' / 'united states'
+// / 'america' all map to US) so it's an explicit table.
+const COUNTRY_CODE_TO_NAME: Record<string, string> = {
+  US: 'United States',
+  CA: 'Canada',
+  GB: 'United Kingdom',
+  DE: 'Germany', FR: 'France', ES: 'Spain', IT: 'Italy', NL: 'Netherlands',
+  IE: 'Ireland', SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland',
+  CH: 'Switzerland', AT: 'Austria', BE: 'Belgium', PT: 'Portugal',
+  PL: 'Poland', CZ: 'Czech Republic', HU: 'Hungary', RO: 'Romania',
+  GR: 'Greece',
+  AU: 'Australia', NZ: 'New Zealand',
+  IN: 'India', CN: 'China', JP: 'Japan', KR: 'South Korea',
+  SG: 'Singapore', HK: 'Hong Kong', TW: 'Taiwan',
+  BR: 'Brazil', MX: 'Mexico', AR: 'Argentina', CL: 'Chile', CO: 'Colombia',
+  AE: 'United Arab Emirates',
+  ZA: 'South Africa', NG: 'Nigeria', EG: 'Egypt', KE: 'Kenya',
+  TR: 'Turkey', RU: 'Russia', UA: 'Ukraine',
+}
+
+export function countryNameFromCode(code: string): string | null {
+  if (!code) return null
+  const upper = code.toUpperCase()
+  if (upper.length !== 2) return null
+  return COUNTRY_CODE_TO_NAME[upper] ?? null
+}
+
 export const REMOTE_TOKENS = new Set([
   'remote', 'anywhere', 'worldwide', 'global', 'wfh', 'work from home',
   'distributed', 'fully remote', '100% remote'
@@ -191,6 +223,15 @@ function formatSingleLocation(raw: string, defaultCountry: string): string {
 
   if (parts.length === 1) {
     const token = parts[0]
+    // Bare 2-letter country code ("CA", "US") — expand to the full
+    // name so the Location column shows "Canada" instead of "CA".
+    // countryNameFromCode returns null for unknown 2-letter codes
+    // (e.g. "ZZ"), so this path is country-only and falls through
+    // to the regular handling below for non-country 2-letter tokens.
+    if (token.length === 2) {
+      const fullName = countryNameFromCode(token)
+      if (fullName) return fullName
+    }
     // If the single token is already a known full country name
     // ("Canada", "United States"), don't append the default
     // country — the result ("Canada, CA") is redundant and the
@@ -199,7 +240,13 @@ function formatSingleLocation(raw: string, defaultCountry: string): string {
     // name as the user typed it; the renderer's currency decider
     // has a long-name fallback that recovers the 2-letter code
     // for the Salary column.
-    if (canonicalizeCountry(token)) return token
+    //
+    // 2-letter tokens that aren't a known country code (e.g. "ZZ",
+    // or a region abbreviation the writer doesn't recognise) skip
+    // this branch and fall through to the defaultCountry handling
+    // below — the canonicalizeCountry shortcut is too permissive
+    // for our purposes (it accepts any 2-letter token).
+    if (token.length !== 2 && canonicalizeCountry(token)) return token
     if (!defaultCC) return ''  // Unknown — no country can be determined.
     return `${token}, ${defaultCC}`
   }

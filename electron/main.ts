@@ -1396,23 +1396,19 @@ app.whenReady().then(() => {
     }
   }
 
-  // v5 retrofit (2026-07-23): follow-up to v4. The v4 retrofit's
-  // nameAsCC check only matched 2-letter tokens (the
-  // canonicalizeCountry shortcut) and skipped full country names
-  // like "Canada" that the COUNTRIES map would resolve — so the
-  // first v4 run set v4='1' without rewriting any rows, and the
-  // gate would have skipped subsequent runs. v5 re-runs the
-  // collapse with the fixed lookup so pre-existing "Canada, CA"
-  // / "United States, US" rows actually get rewritten. Gated by
-  // locations_normalized_v5; once set, never runs again.
-  if (!db.hasLocationsNormalizedV5() && db.listJobs().length > 0) {
+  // v6 retrofit (2026-07-23): the writer's 1-part branch expands a
+  // bare 2-letter country code to the full name. Pre-existing rows
+  // that the user stored as just "CA" / "US" / "GB" need the same
+  // expansion. Gated by locations_normalized_v6; once set, never
+  // runs again.
+  if (!db.hasLocationsNormalizedV6() && db.listJobs().length > 0) {
     try {
-      const result = db.retrofitLocationsV5()
+      const result = db.retrofitLocationsV6()
       if (result.updated > 0) {
-        log.startup.info(`Collapsed ${result.updated}/${result.total} redundant country suffixes (v5).`)
+        log.startup.info(`Expanded ${result.updated}/${result.total} bare country codes to full names.`)
       }
     } catch (err) {
-      log.startup.error('Location retrofit v5 failed:', err)
+      log.startup.error('Location retrofit v6 failed:', err)
     }
   }
 
