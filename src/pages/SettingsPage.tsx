@@ -431,6 +431,18 @@ export default function SettingsPage() {
     setModelsDirty(true)
   }
 
+  function duplicateModel(i: number) {
+    const source = models[i]
+    if (!source) return
+    const copy: ApiModelConfig = {
+      ...source,
+      id: '',
+      name: `${source.name || `Model ${i + 1}`} (copy)`
+    }
+    setModels((prev) => [...prev, copy])
+    setModelsDirty(true)
+  }
+
   function moveModel(from: number, to: number) {
     if (from === to) return
     setModels((prev) => {
@@ -709,6 +721,17 @@ export default function SettingsPage() {
                   </strong>
                 </div>
                 <div className="model-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <button
+                    className="icon-btn"
+                    onClick={() => duplicateModel(i)}
+                    title="Duplicate model (same base URL and API key)"
+                    aria-label="Duplicate model"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                      <rect x="4.5" y="4.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                      <path d="M2.5 9.5 V3.5 a1 1 0 0 1 1 -1 H9.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                    </svg>
+                  </button>
                   <span
                     className="model-drag-handle"
                     draggable
