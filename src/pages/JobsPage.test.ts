@@ -54,12 +54,18 @@ function formatSalaryForDisplay(
   job: { salary_range?: string | null; location?: string | null }
 ): string {
   if (!s) return ''
+  // Mirrors JobsPage.tsx formatSalaryForDisplay's 4-step decision:
+  //   1. Unambiguous ISO code in the salary string.
   const iso = s.match(ISO_CURRENCY_RE)
-  const code = iso ? iso[1].toUpperCase() : null
-  if (code) return condenseSalaryForDisplay(s, code)
-  for (const [sym, c] of Object.entries(SYMBOL_TO_CURRENCY)) {
-    if (s.includes(sym)) return condenseSalaryForDisplay(s, c)
+  if (iso) return condenseSalaryForDisplay(s, iso[1].toUpperCase())
+  //   2. Job location's country code.
+  const fromLocation = currencyFromLocation(job.location)
+  if (fromLocation) return condenseSalaryForDisplay(s, fromLocation)
+  //   3. Symbol in the salary string (last resort; ambiguous for $).
+  for (const [sym, code] of Object.entries(SYMBOL_TO_CURRENCY)) {
+    if (s.includes(sym)) return condenseSalaryForDisplay(s, code)
   }
+  //   4. No code found — condense without a prefix.
   return condenseSalaryForDisplay(s, null)
 }
 
@@ -168,5 +174,26 @@ describe('formatSalaryForDisplay — ISO-prefixed range', () => {
   it('still condenses a $ range via the symbol fallback', () => {
     expect(formatSalaryForDisplay('$80,000 - $120,000', { location: null }))
       .toBe('USD 80k - 120k')
+  })
+
+  // When the salary string has no ISO code and no symbol, fall back
+  // to the job's location country. Mirrors step 2 of the real
+  // formatSalaryForDisplay in JobsPage.tsx.
+  it('falls back to job location country for bare numbers', () => {
+    expect(formatSalaryForDisplay('85000 - 100000', { location: 'Berlin, DE' }))
+      .toBe('EUR 85k - 100k')
+  })
+
+  it('location fallback is overridden when the salary string has an ISO code', () => {
+    // ISO code wins — location is irrelevant.
+    expect(formatSalaryForDisplay('CAD 100,000', { location: 'Berlin, DE' }))
+      .toBe('CAD 100k')
+  })
+
+  it('location fallback gives up on Remote and falls through to no prefix', () => {
+    // Remote is not a country, so currencyFromLocation returns null;
+    // the function then tries the symbol step and finally emits no prefix.
+    expect(formatSalaryForDisplay('85000 - 100000', { location: 'Remote' }))
+      .toBe('85k - 100k')
   })
 })
