@@ -129,6 +129,7 @@ export default function Notifications() {
         return (
           <div
             key={t.id}
+            onClick={() => startDismiss(t.id)}
             style={{
               padding: '12px 44px 12px 20px',
               borderRadius: 10,
@@ -147,7 +148,7 @@ export default function Notifications() {
               transform: t.dismissing ? 'translateY(10px)' : 'translateY(0)',
               whiteSpace: 'pre-line',
               pointerEvents: 'auto',
-              cursor: 'default',
+              cursor: 'pointer',
               position: 'relative'
             }}
           >
