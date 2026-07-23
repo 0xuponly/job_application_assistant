@@ -42,12 +42,12 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #ffffff;
-  --bg-elevated: #f5f6f8;
-  --bg-hover: #eceef2;
-  --border: #d8dce3;
-  --text: #1a1d24;
-  --text-muted: #5b6373;
+  --bg: #f1f1f1;
+  --bg-elevated: #e8e8e8;
+  --bg-hover: #dcdcdc;
+  --border: #d0d0d0;
+  --text: #1a1a1a;
+  --text-muted: #666666;
   --accent-tint-strong: rgba(99, 102, 241, 0.10);
   --accent-tint-soft: rgba(99, 102, 241, 0.08);
   --warning-tint: rgba(245, 158, 11, 0.10);
