@@ -940,6 +940,14 @@ export default function JobsPage() {
   // attached inside the effect handles later dynamic changes (toolbar
   // buttons appearing, batch-op buttons toggling, etc.).
   const stickyRef = useRef<HTMLDivElement>(null)
+  // Track the table-view state separately so the sticky-offset effect
+  // re-runs on the null→job→null transition. The wrapper is only
+  // mounted in the table view, so this boolean flips exactly when the
+  // wrapper mounts or unmounts within the lifetime of this component.
+  // (jobs.length > 0 is not a sufficient dep: it stays true throughout
+  // the detail visit, so the effect would not re-run on back-nav and
+  // the ResizeObserver would stay attached to the old, detached node.)
+  const isTableView = selectedJob == null
   useLayoutEffect(() => {
     if (!stickyRef.current) return
     const el = stickyRef.current
@@ -954,7 +962,7 @@ export default function JobsPage() {
       jobsStickyObserver?.disconnect()
       jobsStickyObserver = null
     }
-  }, [jobs.length > 0])
+  }, [isTableView])
 
   function cleanJob(j: Job): Job {
     return {
