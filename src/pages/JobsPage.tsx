@@ -4,7 +4,7 @@ import Modal from '../components/Modal'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
 import { notify } from '../components/Notifications'
 import Tooltip from '../components/Tooltip'
-import { COUNTRY_TO_CURRENCY } from '../currency'
+import { COUNTRY_TO_CURRENCY, LONG_NAME_TO_COUNTRY } from '../currency'
 import { condenseLocation, REMOTE_TOKEN_RE } from '../locations'
 import type { CreateJobInput, Job } from '../types'
 
@@ -461,13 +461,57 @@ function isoCurrencyFromSalary(s: string | null | undefined): string | null {
  * electron/utils.ts formatLocation). The last comma-segment is the
  * country code; we look it up in the shared COUNTRY_TO_CURRENCY
  * table from src/currency.ts.
+ *
+ * Stored locations that are a bare full country name ("Canada",
+ * "United States", "United Kingdom") survive in the store as the
+ * user typed them — the writer's 1-part branch returns null for
+ * these (no city to anchor to, no defaultCountry), so the user
+ * explicitly opted to keep the long form rather than see "Canada, CA"
+ * in the Location column. To pick the right currency for a $-salaried
+ * job from those countries, the decider falls back to the long-name
+ * map and chains through COUNTRY_TO_CURRENCY. The stored value is
+ * not touched — only the display path uses the long-name lookup.
  */
 function currencyFromLocation(location: string | null | undefined): string | null {
   if (!location) return null
   if (REMOTE_TOKEN_RE.test(location.trim())) return null
   const last = location.split(',').pop()?.trim().toUpperCase()
-  if (!last || !/^[A-Z]{2}$/.test(last)) return null
-  return COUNTRY_TO_CURRENCY[last] ?? null
+  if (!last) return null
+  // Fast path: 2-letter ISO country code that maps directly to a
+  // currency (most common case, includes the v3-contract shape
+  // "City, REGION, CC").
+  if (/^[A-Z]{2}$/.test(last)) {
+    const direct = COUNTRY_TO_CURRENCY[last]
+    if (direct) return direct
+    // Fall through — a stored "UK" or "USA" that wasn't a 2-letter
+    // code in the currency table may still resolve via the long-name
+    // map below. 2-letter codes like "GB" still hit the fast path
+    // and short-circuit.
+  }
+  // Long-name fallback: rows like "Canada" or "United States" where
+  // the last segment is a full country name rather than a 2-letter
+  // code. The stored value is left as the user typed it (we don't
+  // rewrite the row to "Canada, CA"); only the display-time
+  // currency lookup uses the long-name map.
+  const cc = longNameLookup(last)
+  if (cc) return COUNTRY_TO_CURRENCY[cc] ?? null
+  return null
+}
+
+// Case-insensitive view of LONG_NAME_TO_COUNTRY, built lazily so
+// the per-row cost is a single Map.get(). Stored at module scope
+// because the table is process-stable and we want every job in the
+// list to share the same instance (avoiding N re-allocations of
+// the upper-cased key set on a 1000-row list).
+let longNameLookupCache: Map<string, string> | null = null
+function longNameLookup(lastUpper: string): string | null {
+  if (!longNameLookupCache) {
+    longNameLookupCache = new Map()
+    for (const [k, v] of Object.entries(LONG_NAME_TO_COUNTRY)) {
+      longNameLookupCache.set(k.toUpperCase(), v)
+    }
+  }
+  return longNameLookupCache.get(lastUpper) ?? null
 }
 
 /**
