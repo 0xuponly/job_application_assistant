@@ -11,6 +11,8 @@ import type {
   Job,
   JobStatus,
   KeywordResult,
+  NotificationRow,
+  NotificationSource,
   ScanFilters,
   ScanResult,
   ScanStatus,
@@ -114,6 +116,15 @@ export interface Api {
     requiresPassphrase?: boolean
     fileCount?: number
   } | null>
+  // Notification center — 5 channels, all invoke-style. Param shapes
+  // mirror the helpers in electron/notifications.ts; the renderer
+  // wrapper in src/api.ts re-strict-types the return shape.
+  notificationsAdd: (params: { type: string; source?: NotificationSource; message: string; full_message: string }) =>
+    Promise<{ id: number } | { error: 'INTERNAL' }>
+  notificationsList: () => Promise<{ rows: NotificationRow[] }>
+  notificationsDismiss: (params: { id: number }) => Promise<{ ok: true } | { error: 'INTERNAL' }>
+  notificationsDismissAll: () => Promise<{ updated: number } | { error: 'INTERNAL' }>
+  notificationsPurgeOldDismissed: () => Promise<{ deleted: number }>
 }
 
 const api: Api = {
@@ -210,7 +221,12 @@ const api: Api = {
   getBackupStatus: () => ipcRenderer.invoke('backup:status'),
   listBackups: () => ipcRenderer.invoke('backup:list'),
   restoreBackup: (folderPath, passphrase) => ipcRenderer.invoke('backup:restore', folderPath, passphrase),
-  previewBackup: (folderPath) => ipcRenderer.invoke('backup:preview', folderPath)
+  previewBackup: (folderPath) => ipcRenderer.invoke('backup:preview', folderPath),
+  notificationsAdd: (params) => ipcRenderer.invoke('notifications:notificationsAdd', params),
+  notificationsList: () => ipcRenderer.invoke('notifications:notificationsList'),
+  notificationsDismiss: (params) => ipcRenderer.invoke('notifications:notificationsDismiss', params),
+  notificationsDismissAll: () => ipcRenderer.invoke('notifications:notificationsDismissAll'),
+  notificationsPurgeOldDismissed: () => ipcRenderer.invoke('notifications:notificationsPurgeOldDismissed')
 }
 
 contextBridge.exposeInMainWorld('api', api)

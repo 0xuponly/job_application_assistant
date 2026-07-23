@@ -10,6 +10,8 @@ import type {
   Job,
   JobStatus,
   KeywordResult,
+  NotificationRow,
+  NotificationSource,
   ScanFilters,
   ScanResult,
   ScanStatus,
@@ -113,6 +115,17 @@ export interface Api {
     requiresPassphrase?: boolean
     fileCount?: number
   } | null>
+  // Notification center — 5 typed wrappers. Return shapes are
+  // re-strict-typed here (not loose) so the renderer can pattern-match
+  // on the INTERNAL sentinel at the call site without a cast. The
+  // actual implementation in preload.ts is `window.api.X(params)`
+  // dispatched via the contextBridge.
+  notificationsAdd: (params: { type: string; source?: NotificationSource; message: string; full_message: string }) =>
+    Promise<{ id: number } | { error: 'INTERNAL' }>
+  notificationsList: () => Promise<{ rows: NotificationRow[] }>
+  notificationsDismiss: (params: { id: number }) => Promise<{ ok: true } | { error: 'INTERNAL' }>
+  notificationsDismissAll: () => Promise<{ updated: number } | { error: 'INTERNAL' }>
+  notificationsPurgeOldDismissed: () => Promise<{ deleted: number }>
 }
 
 declare global {

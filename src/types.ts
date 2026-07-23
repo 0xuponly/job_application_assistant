@@ -322,3 +322,24 @@ export interface TailorResult {
   content: string
   document_id: number
 }
+
+// Notification center — mirror of electron/types.ts NotificationRow + the
+// narrow literal unions for `type` and `source`. Defined here (not
+// imported from electron/types.ts) because the two files drift: the
+// renderer-side `src/types.ts` is a stable renderer contract, while
+// electron/types.ts is the live main-process contract and grows over
+// time. Importing from electron/types into src/ has caused cross-file
+// type incompatibilities (different AIQueueItemType unions), so the
+// renderer duplicates only the narrow bits it actually consumes.
+export type NotificationType = 'info' | 'success' | 'error' | 'warning'
+export type NotificationSource = 'app' | 'ai' | 'scanner' | 'tailor' | 'scraper'
+
+export interface NotificationRow {
+  id: number
+  type: NotificationType
+  source: NotificationSource
+  message: string
+  full_message: string
+  created_at: number
+  dismissed_at: number | null
+}

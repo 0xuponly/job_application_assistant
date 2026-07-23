@@ -79,6 +79,14 @@ function stripHmac(manifest: Record<string, unknown>): Record<string, unknown> {
 import { formatLocation } from './utils'
 import { startQueueProcessor, stopQueueProcessor, enqueue } from './aiQueue'
 import { scheduleNextAutoScan, cancelAutoScan, markScanStarted, markScanCompleted, restartAutoScanTimer } from './autoScan'
+import {
+  addNotification,
+  listActiveNotifications,
+  dismissNotification,
+  dismissAllNotifications,
+  purgeOldDismissedNotifications,
+  startNotificationsPurgeInterval
+} from './notifications'
 
 // Pin the userData directory to the original "apply-assistant" location so
 // existing users' data (jobs, documents, settings) is found after the rename.
@@ -106,7 +114,17 @@ export const log = {
   scanner: createLogger('scanner'),
   fit: createLogger('fit'),
   startup: createLogger('startup'),
-  backup: createLogger('backup')
+  backup: createLogger('backup'),
+  notifications: createLogger('notifications')
+}
+
+// Top-level wrapper for IPC-handler catch blocks to call without
+// pulling the full `log.notifications` reference into each handler.
+// The IPC brief for the notification center prescribes a single
+// `logToNotifications(msg)` entry point so handler bodies stay
+// consistent with the other notification helpers.
+function logToNotifications(msg: string): void {
+  log.notifications.warn(msg)
 }
 
 import type {
@@ -117,6 +135,7 @@ import type {
   Interview,
   Job,
   JobStatus,
+  NotificationSource,
   ScanFilters,
   ScanResult,
   Settings,
@@ -1265,6 +1284,64 @@ ${htmlBody}
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return
     return shell.openExternal(url)
   })
+
+  // --- Notification center ------------------------------------------
+  // All five handlers below follow the same pattern: try the helper
+  // from ./notifications, return its result on success, and on
+  // exception write a single WARN line to logs/notifications.log
+  // (per the "no console.* from main process" project rule) and
+  // return a typed error sentinel. The renderer treats the sentinel
+  // as a soft failure and surfaces its own toast; the log line is the
+  // diagnostic breadcrumb for grep.
+  ipcMain.handle('notifications:notificationsAdd', async (_e, params: {
+    type: string
+    source?: NotificationSource
+    message: string
+    full_message: string
+  }) => {
+    try {
+      return addNotification(params)
+    } catch (err) {
+      logToNotifications(`addNotification failed: ${(err as Error).message}`)
+      return { error: 'INTERNAL' as const }
+    }
+  })
+
+  ipcMain.handle('notifications:notificationsList', async () => {
+    try {
+      return listActiveNotifications()
+    } catch (err) {
+      logToNotifications(`listActiveNotifications failed: ${(err as Error).message}`)
+      return { rows: [] }
+    }
+  })
+
+  ipcMain.handle('notifications:notificationsDismiss', async (_e, params: { id: number }) => {
+    try {
+      return dismissNotification(params.id)
+    } catch (err) {
+      logToNotifications(`dismissNotification failed: ${(err as Error).message}`)
+      return { error: 'INTERNAL' as const }
+    }
+  })
+
+  ipcMain.handle('notifications:notificationsDismissAll', async () => {
+    try {
+      return dismissAllNotifications()
+    } catch (err) {
+      logToNotifications(`dismissAllNotifications failed: ${(err as Error).message}`)
+      return { error: 'INTERNAL' as const }
+    }
+  })
+
+  ipcMain.handle('notifications:notificationsPurgeOldDismissed', async () => {
+    try {
+      return purgeOldDismissedNotifications()
+    } catch (err) {
+      logToNotifications(`purgeOldDismissedNotifications failed: ${(err as Error).message}`)
+      return { deleted: 0 }
+    }
+  })
 }
 
 app.whenReady().then(() => {
@@ -1272,6 +1349,10 @@ app.whenReady().then(() => {
   createWindow()
   startQueueProcessor()
   scheduleNextAutoScan()
+  // Fire-and-forget: the returned `stop` is intentionally dropped
+  // (the interval lives for the app's lifetime; the helper
+  // double-registers are guarded inside the module).
+  startNotificationsPurgeInterval()
 
   // One-shot: re-canonicalize legacy locations to honor the country-last
   // contract (every stored value ends in a 2-letter country code or is
