@@ -1365,17 +1365,8 @@ function applyUltiPro(result: ScrapedJob, html: string): void {
   }
   if (end === -1) return
 
-  // The blob is a JS object literal (not JSON), so we use `new Function`
-  // to evaluate it. This is safe — we are the only consumer of this
-  // string and it comes from a public job-detail page that runs in
-  // our renderer's main process.
   const blob = html.slice(start, end + 1)
-  let opp: Record<string, unknown> | null = null
-  try {
-    opp = new Function(`"use strict"; return (${blob});`)() as Record<string, unknown>
-  } catch {
-    return
-  }
+  const opp = parseObjectLiteral(blob)
   if (!opp) return
 
   if (typeof opp.Title === 'string' && opp.Title) {
@@ -2113,4 +2104,40 @@ function unescapeJson(str: string): string {
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Safely parse a JS object literal string (from scraped HTML) into a
+ * Record without using eval/new Function. Handles:
+ *   - Unquoted keys: Title: "..." → "Title": "..."
+ *   - Single-quoted strings: 'value' → "value"
+ *   - Trailing commas: {a: 1, b: 2,} → {a: 1, b: 2}
+ *   - Comments: /* ... *​/ and // ... stripped
+ *   - true/false/null: already JSON-compatible
+ * Returns null on any parse failure.
+ */
+function parseObjectLiteral(jsStr: string): Record<string, unknown> | null {
+  let s = jsStr.trim()
+  // Strip block comments
+  s = s.replace(/\/\*[\s\S]*?\*\//g, '')
+  // Strip line comments
+  s = s.replace(/\/\/.*$/gm, '')
+  // Strip outer object braces
+  if (s.startsWith('{')) s = s.slice(1)
+  if (s.endsWith('}')) s = s.slice(0, -1)
+  // Convert single-quoted strings to double-quoted
+  s = s.replace(/'((?:[^'\\]|\\.)*)'/g, (_m, inner: string) => {
+    // Escape any double quotes inside, then wrap in double quotes
+    const escaped = inner.replace(/"/g, '\\"')
+    return `"${escaped}"`
+  })
+  // Quote unquoted keys: word characters before a colon
+  s = s.replace(/(?<=[{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '"$1":')
+  // Remove trailing commas before } or ]
+  s = s.replace(/,\s*([}\]])/g, '$1')
+  try {
+    return JSON.parse(s)
+  } catch {
+    return null
+  }
 }
